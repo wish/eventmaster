@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package eventmaster;
+
+// Define the event store API
+service EventMaster {
+    rpc Track (Event) returns (WriteResponse) {}
+    rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {}
+}
+
+message Event {
+    int64 timestamp = 1;
+    string dc = 2;
+    string topic_name = 3;
+    repeated string tags = 4;
+    string host = 5;
+    string user = 6;
+    string data = 7;
+}
+
+message WriteResponse {
+    int32 errcode = 1;
+    string errmsg = 2;
+}
+
+message HealthcheckRequest {
+}
+
+message HealthcheckResponse {
+    string response = 1;
+}

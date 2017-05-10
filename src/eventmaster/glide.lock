@@ -1,0 +1,81 @@
+hash: 1d4be16b261931c63b34cb804d1ece40c0d937052e8676e86e0a2acce00d58bb
+updated: 2017-05-10T10:47:20.247686148-07:00
+imports:
+- name: github.com/ContextLogic/eventmaster
+  version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
+  subpackages:
+  - eventmaster
+- name: github.com/ContextLogic/gobrubeckclient
+  version: d4f432c8594db6b27d0282033dc5429b714ca9d5
+  subpackages:
+  - brubeck
+- name: github.com/gocql/gocql
+  version: 05df4896cf271375039b0645117594e861bde0d9
+  subpackages:
+  - internal/lru
+  - internal/murmur
+  - internal/streams
+- name: github.com/golang/protobuf
+  version: 2bba0603135d7d7f5cb73b2125beeda19c09f4ef
+  subpackages:
+  - proto
+  - protoc-gen-go/descriptor
+  - ptypes/any
+- name: github.com/golang/snappy
+  version: 553a641470496b2327abcac10b36396bd98e45c9
+- name: github.com/hailocab/go-hostpool
+  version: e80d13ce29ede4452c43dea11e79b9bc8a15b478
+- name: github.com/jessevdk/go-flags
+  version: 48cf8722c3375517aba351d1f7577c40663a4407
+- name: github.com/rcrowley/go-metrics
+  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+  subpackages:
+  - exp
+- name: github.com/Sirupsen/logrus
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
+- name: golang.org/x/net
+  version: d212a1ef2de2f5d441c327b8f26cf3ea3ea9f265
+  subpackages:
+  - context
+  - http2
+  - http2/hpack
+  - idna
+  - internal/timeseries
+  - lex/httplex
+  - trace
+- name: golang.org/x/sys
+  version: ea9bcade75cb975a0b9738936568ab388b845617
+  subpackages:
+  - unix
+- name: golang.org/x/text
+  version: a9a820217f98f7c8a207ec1e45a874e1fe12c478
+  subpackages:
+  - secure/bidirule
+  - transform
+  - unicode/bidi
+  - unicode/norm
+- name: google.golang.org/genproto
+  version: 411e09b969b1170a9f0c467558eb4c4c110d9c77
+  subpackages:
+  - googleapis/rpc/status
+- name: google.golang.org/grpc
+  version: d2e1b51f33ff8c5e4a15560ff049d200e83726c5
+  subpackages:
+  - codes
+  - credentials
+  - grpclb/grpc_lb_v1
+  - grpclog
+  - internal
+  - keepalive
+  - metadata
+  - naming
+  - peer
+  - reflection
+  - reflection/grpc_reflection_v1alpha
+  - stats
+  - status
+  - tap
+  - transport
+- name: gopkg.in/inf.v0
+  version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
+testImports: []

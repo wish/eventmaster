@@ -41,11 +41,11 @@ CREATE TABLE IF NOT EXISTS event_by_day (
 CREATE TABLE IF NOT EXISTS event_logs (
 	date text,
 	dc text,
-	topic text,
+	topic_name text,
 	host text,
 	user text,
 	event_time timestamp,
 	log_id UUID,
-	event text,
+	data text,
 	PRIMARY KEY (log_id,dc)
 );
