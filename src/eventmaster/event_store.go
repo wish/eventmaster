@@ -32,16 +32,9 @@ func stringifyArr(arr []string) string {
 }
 
 func generateInsertQuery(event *eventmaster.Event, date string, logID string) string {
-	return fmt.Sprintf(`BEGIN BATCH
-    INSERT INTO event_by_topic (date, dc, topic_name, event_time, log_id, tags) 
-    VALUES (%[1]s, %[2]s, %[3]s, %[6]d, %[7]s, %[8]s);
-    INSERT INTO event_by_host (date, dc, host_name, user, event_time, log_id)
-    VALUES (%[1]s, %[2]s, %[4]s, %[5]s, %[6]d, %[7]s);
-    INSERT INTO event_by_day (date, dc, event_time, log_id)
-    VALUES (%[1]s, %[2]s, %[5]s, %[7]s);
+	return fmt.Sprintf(`
     INSERT INTO event_logs (date, dc, topic_name, host, user, event_time, log_id, tags, data)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]d, %[7]s, %[8]s, %[9]s);
-    APPLY BATCH;`,
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]d, %[7]s, %[8]s, %[9]s);`,
 		stringify(date), stringify(event.Dc), stringify(event.TopicName), stringify(event.Host),
 		stringify(event.User), event.Timestamp, logID,
 		stringifyArr(event.Tags), stringify(event.Data))
@@ -57,5 +50,6 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) error {
 	if err := query.Exec(); err != nil {
 		return err
 	}
+    fmt.Println("Event added:", logID)
 	return nil
 }
