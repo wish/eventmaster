@@ -1,14 +1,12 @@
-
 package main
 
 import (
 	"fmt"
 
-	context "golang.org/x/net/context"
-
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	statsd "github.com/ContextLogic/gobrubeckclient/brubeck"
 	"github.com/gocql/gocql"
+	context "golang.org/x/net/context"
 )
 
 func NewServer(config *Config, session *gocql.Session) (*server, error) {
@@ -21,22 +19,28 @@ func NewServer(config *Config, session *gocql.Session) (*server, error) {
 	s := NewEventStore(session)
 
 	return &server{
-		config:   config,
+		config: config,
 		statsd: statsClient,
-		store: s,
+		store:  s,
 	}, nil
 }
 
 type server struct {
-	config   *Config
+	config *Config
 	statsd *statsd.Client
-	store *EventStore
+	store  *EventStore
 }
 
-func (s *server) Track(ctx context.Context, in *eventmaster.Event) (*eventmaster.WriteResponse, error) {
-	return &eventmaster.WriteResponse{
-        Errcode: 0,
-    }, nil
+func (s *server) Track(ctx context.Context, ev *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+	err := s.store.AddEvent(ev)
+	if err != nil {
+		fmt.Println("Error writing event to cassandra:", err)
+		return &eventmaster.WriteResponse{
+			Errcode: 1,
+			Errmsg:  err.Error(),
+		}, err
+	}
+	return &eventmaster.WriteResponse{}, nil
 }
 
 func (s *server) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {

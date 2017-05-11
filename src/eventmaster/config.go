@@ -7,6 +7,6 @@ type Config struct {
 	Port int `long:"port" default:"50052" description:"Port for EventMaster gRPC"` // What port for the API to listen on
 
 	StatsdServer string `long:"statsdserver" description:"server to send statsd stats to"`
-	
+
 	EventStoreName string `long:"eventstorename" required:"true" description:"event store name to talk to"`
 }

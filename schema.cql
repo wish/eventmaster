@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS event_by_topic (
 	topic_name text,
 	event_time timestamp,
 	log_id UUID,
+    tags list<text>,
 	PRIMARY KEY ((topic_name,date,dc),event_time)
 );
 
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS event_by_host (
 	date text,
 	dc text,
 	host_name text,
+    user text,
 	event_time timestamp,
 	log_id UUID,
 	PRIMARY KEY ((host_name,date,dc),event_time)
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS event_logs (
 	user text,
 	event_time timestamp,
 	log_id UUID,
+    tags list<text>,
 	data text,
 	PRIMARY KEY (log_id,dc)
 );

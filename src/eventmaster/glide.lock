@@ -1,5 +1,5 @@
-hash: 1d4be16b261931c63b34cb804d1ece40c0d937052e8676e86e0a2acce00d58bb
-updated: 2017-05-10T10:47:20.247686148-07:00
+hash: ca35bdf3165cfc25d3ef3863a9ad885d7bcc2a204a6599211e7cf4bb7e7406b7
+updated: 2017-05-10T16:22:53.31787509-07:00
 imports:
 - name: github.com/ContextLogic/eventmaster
   version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
@@ -31,6 +31,8 @@ imports:
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
   subpackages:
   - exp
+- name: github.com/satori/go.uuid
+  version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: golang.org/x/net
