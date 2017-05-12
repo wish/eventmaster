@@ -28,6 +28,49 @@ type dbConfig struct {
 	Keyspace string `json:"keyspace"`
 }
 
+func getEventStore() (*EventStore) {
+    // Establish connection to Cassandra
+    dbConf := dbConfig{}
+    confFile, err := ioutil.ReadFile("db_config.json")
+    if err != nil {
+        fmt.Println("no db_config file specified")
+    } else {
+        err = json.Unmarshal(confFile, &dbConf)
+        if err != nil {
+            fmt.Println("error parsing db_config.json:", err)
+        }
+    }
+    if dbConf.Host == "" {
+        dbConf.Host = "127.0.0.1"
+    }
+    if dbConf.Port == "" {
+        dbConf.Port = "9042"
+    }
+    if dbConf.Keyspace == "" {
+        dbConf.Keyspace = "event_master"
+    }
+    cluster := gocql.NewCluster(fmt.Sprintf("%s:%s", dbConf.Host, dbConf.Port))
+    cluster.Keyspace = dbConf.Keyspace
+    cluster.Consistency = gocql.Quorum
+    session, err := cluster.CreateSession()
+    if err != nil {
+        log.Fatalf("Error connecting to Cassandra: %v", err)
+    }
+    return NewEventStore(session)
+}
+
+func startUIServer(store *EventStore) {
+    mux := http.NewServeMux()
+    mph := &mainPageHandler{store: store}
+    geh := &getEventHandler{store: store}
+    mux.Handle("/", mph)
+    mux.Handle("/get_events", geh)
+    go func() {
+        fmt.Println("uiserver starting on port 8080")
+        http.ListenAndServe(":8080", mux)
+    }()
+}
+
 func main() {
 	var config Config
 	parser := flags.NewParser(&config, flags.Default)
@@ -60,42 +103,8 @@ func main() {
 		}
 	}()
 
-	// Establish connection to Cassandra
-	dbConf := dbConfig{}
-	confFile, err := ioutil.ReadFile("db_config.json")
-	if err != nil {
-		fmt.Println("no db_config file specified")
-	} else {
-		err = json.Unmarshal(confFile, &dbConf)
-		if err != nil {
-			fmt.Println("error parsing db_config.json:", err)
-		}
-	}
-	if dbConf.Host == "" {
-		dbConf.Host = "127.0.0.1"
-	}
-	if dbConf.Port == "" {
-		dbConf.Port = "9042"
-	}
-	if dbConf.Keyspace == "" {
-		dbConf.Keyspace = "event_master"
-	}
-	cluster := gocql.NewCluster(fmt.Sprintf("%s:%s", dbConf.Host, dbConf.Port))
-	cluster.Keyspace = dbConf.Keyspace
-	cluster.Consistency = gocql.Quorum
-	session, err := cluster.CreateSession()
-	if err != nil {
-		log.Fatalf("Error connecting to Cassandra: %v", err)
-	}
-	store := NewEventStore(session)
-
-	mux := http.NewServeMux()
-	mph := &mainPageHandler{store: store}
-	mux.Handle("/", mph)
-	go func() {
-		fmt.Println("uiserver starting on port 8080")
-		http.ListenAndServe(":8080", mux)
-	}()
+    store := getEventStore()
+    startUIServer(store)
 
 	// Create the EventMaster server
 	server, err := NewServer(&config, store)
@@ -124,6 +133,6 @@ func main() {
 
 	<-stopChan
 	fmt.Println("Got shutdown signal, gracefully shutting down")
-	session.Close()
+	store.CloseSession()
 	s.GracefulStop()
 }

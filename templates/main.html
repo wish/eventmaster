@@ -2,16 +2,73 @@
 <html>
 <head>
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+	<nav class="navbar navbar-default">
+	  <div class="container-fluid">
+	    <div class="navbar-header">
+	      <a class="navbar-brand" href="#">eventmaster</a>
+	    </div>
+	  </div>
+	</nav>
 </head>
-<nav class="navbar navbar-default">
-  <div class="container-fluid">
-    <div class="navbar-header">
-      <a class="navbar-brand" href="#">eventmaster</a>
-    </div>
-  </div>
-</nav>
-
-
+<body>
+	<script>
+		 $(function(){
+		    $(".dropdown-menu").on('click', 'li a', function(){
+		      $("#filterByBtn").text($(this).text());
+		   });
+		});
+	</script>
+	<div class="container">
+	    <div class="row">
+	        <div class="col-xs-8 col-xs-offset-2">
+	        	<form action="/get_events" class="form-inline">
+				    <div class="input-group">
+	                    <div class="form-group">
+		                    <select class="form-control" name="filter">
+								<option value="">Filter by...</option>
+								<option value="topic">Topic</option>
+								<option value="date">Date</option>
+								<option value="host">Host</option>
+							</select>
+						</div>
+		               <div class="form-group">
+		                	<input type="text" class="form-control" name="searchText" placeholder="Search term...">
+		                </div>
+		                <div class="form-group">
+		                	<input type="text" class="form-control" name="dc" placeholder="data center">
+		                </div>
+		                <span class="input-group-btn">
+		                    <button class="btn btn-default" type="submit"><span class="glyphicon glyphicon-search"></span></button>
+		                </span>
+		            </div>
+	            </form>
+	        </div>
+		</div>
+	</div>
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>Topic</th>
+				<th>Tags</th>
+				<th>Timestamp</th>
+				<th>Host</th>
+				<th>Data</th>
+			</tr>
+		</thead>
+		<tbody>
+		{{ range . }}
+			<tr>
+				<th scope="row">{{.TopicName}}</th>
+				<td>{{.Tags}}</td>
+				<td>{{.Timestamp}}</td>
+				<td>{{.Host}}</td>
+				<td>{{.Data}}</td>
+			</tr>
+		{{ end }}
+		</tbody>
+	</table>
+</body>
 </html>

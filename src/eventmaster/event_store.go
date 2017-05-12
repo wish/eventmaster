@@ -72,7 +72,6 @@ func NewEventStore(s *gocql.Session) *EventStore {
 func (es *EventStore) AddEvent(event *eventmaster.Event) error {
 	fe := augmentEvent(event)
 	queryStr := generateInsertQuery(fe)
-	fmt.Println(queryStr)
 	query := es.session.Query(queryStr)
 
 	if err := query.Exec(); err != nil {
@@ -109,7 +108,6 @@ func (es *EventStore) findByLogID(iter *gocql.Iter, dc string) ([]*FullEvent, er
 			Dc:        result["dc"].(string),
 			Tags:      result["tags"].([]string),
 		}
-		fmt.Println(fe.Date)
 		events = append(events, fe)
 	}
 	return events, nil
@@ -137,4 +135,8 @@ func (es *EventStore) FindByHost(host string, dc string) ([]*FullEvent, error) {
         WHERE host = '%s' AND dc = '%s'`, host, dc)).Iter()
 
 	return es.findByLogID(iter, dc)
+}
+
+func (es *EventStore) CloseSession() {
+	es.session.Close()
 }
