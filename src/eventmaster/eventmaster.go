@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-    "io/ioutil"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -23,10 +23,10 @@ import (
 )
 
 type dbConfig struct {
-    Host     string `json:"host"`
-    Port     string `json:"port"`
-    Keyspace string `json:"keyspace"`
-} 
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	Keyspace string `json:"keyspace"`
+}
 
 func main() {
 	var config Config
@@ -61,13 +61,13 @@ func main() {
 	}()
 
 	// Establish connection to Cassandra
-    dbConf := dbConfig{}
+	dbConf := dbConfig{}
 	confFile, err := ioutil.ReadFile("db_config.json")
-    if err != nil {
-        fmt.Println("no db_config file specified")
-    } else {
-        err = json.Unmarshal(confFile, &dbConf)
-        if err != nil {
+	if err != nil {
+		fmt.Println("no db_config file specified")
+	} else {
+		err = json.Unmarshal(confFile, &dbConf)
+		if err != nil {
 			fmt.Println("error parsing db_config.json:", err)
 		}
 	}
@@ -87,9 +87,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error connecting to Cassandra: %v", err)
 	}
+	store := NewEventStore(session)
+
+	mux := http.NewServeMux()
+	mph := &mainPageHandler{store: store}
+	mux.Handle("/", mph)
+	go func() {
+		fmt.Println("uiserver starting on port 8080")
+		http.ListenAndServe(":8080", mux)
+	}()
 
 	// Create the EventMaster server
-	server, err := NewServer(&config, session)
+	server, err := NewServer(&config, store)
 	if err != nil {
 		log.Fatalf("Unable to start server: %v", err)
 	}
@@ -112,6 +121,7 @@ func main() {
 
 		}
 	}()
+
 	<-stopChan
 	fmt.Println("Got shutdown signal, gracefully shutting down")
 	session.Close()

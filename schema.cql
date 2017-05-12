@@ -26,16 +26,19 @@ CREATE MATERIALIZED VIEW event_by_topic AS
 	SELECT topic_name, tags, date, dc, event_time, log_id
 	FROM event_logs
 	WHERE topic_name IS NOT NULL AND date IS NOT NULL AND dc IS NOT NULL AND event_time IS NOT NULL AND log_id IS NOT NULL
-	PRIMARY KEY ((topic_name,dc),event_time,log_id);
+	PRIMARY KEY ((topic_name,dc),event_time,log_id)
+	WITH CLUSTERING ORDER BY (event_time DESC);
 
 CREATE MATERIALIZED VIEW event_by_host AS
 	SELECT date, dc, host, user, event_time, log_id
 	FROM event_logs
 	WHERE host IS NOT NULL AND date IS NOT NULL AND dc IS NOT NULL AND event_time IS NOT NULL AND log_id IS NOT NULL
-	PRIMARY KEY ((host,dc),event_time,log_id);
+	PRIMARY KEY ((host,dc),event_time,log_id)
+	WITH CLUSTERING ORDER BY (event_time DESC);
 
 CREATE MATERIALIZED VIEW event_by_day AS
 	SELECT date, dc, event_time, log_id
 	FROM event_logs
 	WHERE date IS NOT NULL AND dc IS NOT NULL AND event_time IS NOT NULL AND log_id IS NOT NULL
-	PRIMARY KEY ((date,dc),event_time,log_id);
+	PRIMARY KEY ((date,dc),event_time,log_id)
+	WITH CLUSTERING ORDER BY (event_time DESC);
