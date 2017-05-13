@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -28,47 +29,66 @@ type dbConfig struct {
 	Keyspace string `json:"keyspace"`
 }
 
-func getEventStore() (*EventStore) {
-    // Establish connection to Cassandra
-    dbConf := dbConfig{}
-    confFile, err := ioutil.ReadFile("db_config.json")
-    if err != nil {
-        fmt.Println("no db_config file specified")
-    } else {
-        err = json.Unmarshal(confFile, &dbConf)
-        if err != nil {
-            fmt.Println("error parsing db_config.json:", err)
-        }
-    }
-    if dbConf.Host == "" {
-        dbConf.Host = "127.0.0.1"
-    }
-    if dbConf.Port == "" {
-        dbConf.Port = "9042"
-    }
-    if dbConf.Keyspace == "" {
-        dbConf.Keyspace = "event_master"
-    }
-    cluster := gocql.NewCluster(fmt.Sprintf("%s:%s", dbConf.Host, dbConf.Port))
-    cluster.Keyspace = dbConf.Keyspace
-    cluster.Consistency = gocql.Quorum
-    session, err := cluster.CreateSession()
-    if err != nil {
-        log.Fatalf("Error connecting to Cassandra: %v", err)
-    }
-    return NewEventStore(session)
+func getEventStore() *EventStore {
+	// Establish connection to Cassandra
+	dbConf := dbConfig{}
+	confFile, err := ioutil.ReadFile("db_config.json")
+	if err != nil {
+		fmt.Println("no db_config file specified")
+	} else {
+		err = json.Unmarshal(confFile, &dbConf)
+		if err != nil {
+			fmt.Println("error parsing db_config.json:", err)
+		}
+	}
+	if dbConf.Host == "" {
+		dbConf.Host = "127.0.0.1"
+	}
+	if dbConf.Port == "" {
+		dbConf.Port = "9042"
+	}
+	if dbConf.Keyspace == "" {
+		dbConf.Keyspace = "event_master"
+	}
+	cluster := gocql.NewCluster(fmt.Sprintf("%s:%s", dbConf.Host, dbConf.Port))
+	cluster.Keyspace = dbConf.Keyspace
+	cluster.Consistency = gocql.Quorum
+	session, err := cluster.CreateSession()
+	if err != nil {
+		log.Fatalf("Error connecting to Cassandra: %v", err)
+	}
+	return NewEventStore(session)
 }
 
 func startUIServer(store *EventStore) {
-    mux := http.NewServeMux()
-    mph := &mainPageHandler{store: store}
-    geh := &getEventHandler{store: store}
-    mux.Handle("/", mph)
-    mux.Handle("/get_events", geh)
-    go func() {
-        fmt.Println("uiserver starting on port 8080")
-        http.ListenAndServe(":8080", mux)
-    }()
+	funcMap := template.FuncMap{
+		"parseTime": func(timestamp int64) string {
+			return time.Unix(timestamp, 0).Format(time.ANSIC)
+		},
+		"getVisibility": func(pd pageData, id string) string {
+			if id == "topicFilter" && pd.Topic != "" {
+				return "visible"
+			} else if id == "hostFilter" && pd.Host != "" {
+				return "visible"
+			}
+			return "hidden"
+		},
+	}
+	mux := http.NewServeMux()
+	mph := &mainPageHandler{
+		store: store,
+		fm:    funcMap,
+	}
+	geh := &getEventHandler{
+		store: store,
+		fm:    funcMap,
+	}
+	mux.Handle("/", mph)
+	mux.Handle("/get_events", geh)
+	go func() {
+		fmt.Println("uiserver starting on port 8080")
+		http.ListenAndServe(":8080", mux)
+	}()
 }
 
 func main() {
@@ -103,8 +123,8 @@ func main() {
 		}
 	}()
 
-    store := getEventStore()
-    startUIServer(store)
+	store := getEventStore()
+	startUIServer(store)
 
 	// Create the EventMaster server
 	server, err := NewServer(&config, store)

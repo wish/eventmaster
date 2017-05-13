@@ -20,26 +20,46 @@
 		      $("#filterByBtn").text($(this).text());
 		   });
 		});
+
+		function changeFilter() {
+			var selectBox = document.getElementById("filter");
+		    var filter = selectBox.options[selectBox.selectedIndex].value;
+
+		    if (filter === 'topic'){
+		    	document.getElementById("topicFilter").style.visibility = "visible";
+		    } else {
+		    	document.getElementById("topicFilter").style.visibility = "hidden";
+		    }
+		}
 	</script>
 	<div class="container">
 	    <div class="row">
 	        <div class="col-xs-8 col-xs-offset-2">
 	        	<form action="/get_events" class="form-inline">
 				    <div class="input-group">
+				    	<div class="form-group">
+		                    <select class="form-control" name="dc" id="dcFilter">
+								<option value=""></option>
+								{{ range .Dcs }}
+									<option value={{.}}>{{ . }}</option>
+								{{ end }}
+							</select>
+						</div>
 	                    <div class="form-group">
-		                    <select class="form-control" name="filter">
+		                    <select class="form-control" name="filter" onchange="changeFilter()" id="filter">
 								<option value="">Filter by...</option>
 								<option value="topic">Topic</option>
 								<option value="date">Date</option>
 								<option value="host">Host</option>
 							</select>
 						</div>
-		               <div class="form-group">
-		                	<input type="text" class="form-control" name="searchText" placeholder="Search term...">
-		                </div>
-		                <div class="form-group">
-		                	<input type="text" class="form-control" name="dc" placeholder="data center">
-		                </div>
+						<div class="form-group" style="visibility:{{ getVisibility . "topicFilter" }};" id="topicFilter">
+		                    <select class="form-control" name="topic">
+		                    	{{ range .Topics }}
+		                    		<option value={{.}}> {{.}}</option>
+		                    	{{ end }}
+							</select>
+						</div>
 		                <span class="input-group-btn">
 		                    <button class="btn btn-default" type="submit"><span class="glyphicon glyphicon-search"></span></button>
 		                </span>
@@ -55,16 +75,18 @@
 				<th>Tags</th>
 				<th>Timestamp</th>
 				<th>Host</th>
+				<th>User</th>
 				<th>Data</th>
 			</tr>
 		</thead>
 		<tbody>
-		{{ range . }}
+		{{ range .Events}}
 			<tr>
 				<th scope="row">{{.TopicName}}</th>
 				<td>{{.Tags}}</td>
-				<td>{{.Timestamp}}</td>
+				<td>{{parseTime .Timestamp}}</td>
 				<td>{{.Host}}</td>
+				<td>{{.User}}</td>
 				<td>{{.Data}}</td>
 			</tr>
 		{{ end }}

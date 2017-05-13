@@ -42,3 +42,8 @@ CREATE MATERIALIZED VIEW event_by_day AS
 	WHERE date IS NOT NULL AND dc IS NOT NULL AND event_time IS NOT NULL AND log_id IS NOT NULL
 	PRIMARY KEY ((date,dc),event_time,log_id)
 	WITH CLUSTERING ORDER BY (event_time DESC);
+
+CREATE TABLE IF NOT EXISTS event_topics (
+	topic_name text,
+	PRIMARY KEY (topic_name)
+);
