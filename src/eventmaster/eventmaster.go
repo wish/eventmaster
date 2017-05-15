@@ -83,8 +83,18 @@ func startUIServer(store *EventStore) {
 		store: store,
 		fm:    funcMap,
 	}
+	cph := &createPageHandler{
+		store: store,
+		fm:    funcMap,
+	}
+	ceh := &createEventHandler{
+		store: store,
+		fm:    funcMap,
+	}
 	mux.Handle("/", mph)
 	mux.Handle("/get_events", geh)
+	mux.Handle("/create", cph)
+	mux.Handle("/create_event", ceh)
 	go func() {
 		fmt.Println("uiserver starting on port 8080")
 		http.ListenAndServe(":8080", mux)
