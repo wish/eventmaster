@@ -49,7 +49,14 @@ func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	events, err := mph.store.GetAllEvents()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error getting all events: %v", err), http.StatusInternalServerError)
+	}
+
 	err = t.Execute(w, pageData{
+		Events: events,
 		Topics: mph.store.GetTopics(),
 		Dcs:    mph.store.GetDcs(),
 	})

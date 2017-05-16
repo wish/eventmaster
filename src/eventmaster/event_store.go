@@ -122,7 +122,6 @@ func buildSelectQuery(q *Query) string {
 
 type EventStore struct {
 	session *gocql.Session
-	dc      string
 }
 
 func NewEventStore(s *gocql.Session) *EventStore {
@@ -131,7 +130,33 @@ func NewEventStore(s *gocql.Session) *EventStore {
 	}
 }
 
-func (es *EventStore) getFullEvents(iter *gocql.Iter) ([]*FullEvent, error) {
+func (es *EventStore) GetAllEvents() ([]*FullEvent, error) {
+	var events []*FullEvent
+	results, err := es.session.Query(fmt.Sprintf(`SELECT *
+		FROM event_logs
+		LIMIT 100`)).Iter().SliceMap()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, result := range results {
+		fe := &FullEvent{
+			Timestamp: result["event_time"].(time.Time).Unix(),
+			Data:      result["data"].(string),
+			LogID:     result["log_id"].(gocql.UUID).String(),
+			TopicName: result["topic_name"].(string),
+			Host:      result["host"].(string),
+			User:      result["user"].(string),
+			Date:      result["date"].(string),
+			Dc:        result["dc"].(string),
+			Tags:      result["tags"].([]string),
+		}
+		events = append(events, fe)
+	}
+	return events, nil
+}
+
+func (es *EventStore) getFullEvents(iter *gocql.Iter, dc string) ([]*FullEvent, error) {
 	var events []*FullEvent
 	var id gocql.UUID
 	for i := 1; i <= 50; i++ {
@@ -140,7 +165,7 @@ func (es *EventStore) getFullEvents(iter *gocql.Iter) ([]*FullEvent, error) {
 		}
 		results, err := es.session.Query(fmt.Sprintf(`SELECT *
             FROM event_logs
-            WHERE log_id = %s AND dc = '%s'`, id, es.dc)).Iter().SliceMap()
+            WHERE log_id = %s AND dc = '%s'`, id, dc)).Iter().SliceMap()
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +206,7 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) error {
 func (es *EventStore) Find(q *Query) ([]*FullEvent, error) {
 	query := buildSelectQuery(q)
 	iter := es.session.Query(query).Iter()
-	return es.getFullEvents(iter)
+	return es.getFullEvents(iter, q.Dc)
 }
 
 func (es *EventStore) GetTopics() []string {
