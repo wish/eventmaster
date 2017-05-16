@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS event_logs (
 	user text,
 	event_time timestamp,
 	log_id UUID,
-	tags list<text>,
+	tags set<text>,
 	data text,
-	PRIMARY KEY ((log_id,dc, topic_name), event_time)
+	PRIMARY KEY ((log_id,dc,topic_name),event_time)
 );
 
 // Create materialized view to add host as index
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS event_topics (
 	PRIMARY KEY (topic_name)
 );
 
-// Create table to store distinct topics
+// Create table to store distinct dcs
 CREATE TABLE IF NOT EXISTS event_dcs (
 	dc text,
 	PRIMARY KEY (dc)

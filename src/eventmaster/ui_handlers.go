@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -71,25 +70,27 @@ func (geh *getEventHandler) buildQuery(r *http.Request) (*Query, error) {
 		return nil, err
 	}
 
-	var startingTime int
-	var endingTime int
+	var startingTime int64
+	var endingTime int64
 
-	if r.Form["startingTime"][0] == "" {
+	if r.Form["startDate"][0] == "" {
 		startingTime = -1
 	} else {
-		startingTime, err = strconv.Atoi(r.Form["startingTime"][0])
+		st, err := time.Parse("2006-01-02", r.Form["startDate"][0])
 		if err != nil {
 			return nil, err
 		}
+		startingTime = st.Unix()
 	}
 
-	if r.Form["endingTime"][0] == "" {
+	if r.Form["endDate"][0] == "" {
 		endingTime = -1
 	} else {
-		endingTime, err = strconv.Atoi(r.Form["endingTime"][0])
+		et, err := time.Parse("2006-01-02", r.Form["endDate"][0])
 		if err != nil {
 			return nil, err
 		}
+		endingTime = et.Unix()
 	}
 
 	return &Query{
@@ -163,11 +164,11 @@ func (ceh *createEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	// TODO: use form validation so we don't have to return an error
 	if date == "" {
-		http.Error(w, fmt.Sprintf("date cannot be empty"), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("date cannot be empty"), http.StatusBadRequest)
 		return
 	}
 	if timeOfDay == "" {
-		http.Error(w, fmt.Sprintf("date cannot be empty"), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("time cannot be empty"), http.StatusBadRequest)
 		return
 	}
 	fullTime := date + " " + timeOfDay
@@ -176,11 +177,16 @@ func (ceh *createEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		http.Error(w, fmt.Sprintf("invalid date entered: %v", err), http.StatusInternalServerError)
 	}
 
+	var tgs []string
+	if tags != "" {
+		tgs = strings.Split(tags, ",")
+	}
+
 	err = ceh.store.AddEvent(&eventmaster.Event{
 		Timestamp: ts.Unix(),
 		Dc:        dc,
 		TopicName: topic,
-		Tags:      strings.Split(tags, ","),
+		Tags:      tgs,
 		Host:      host,
 		User:      user,
 		Data:      data,

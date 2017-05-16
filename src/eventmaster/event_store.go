@@ -55,7 +55,7 @@ func stringifyArr(arr []string) string {
 	for i, str := range arr {
 		arr[i] = stringify(str)
 	}
-	return fmt.Sprintf("[%s]", strings.Join(arr, ","))
+	return fmt.Sprintf("{%s}", strings.Join(arr, ","))
 }
 
 func buildInsertQuery(event *FullEvent) string {
@@ -69,7 +69,7 @@ func buildInsertQuery(event *FullEvent) string {
     VALUES (%[2]s)
     APPLY BATCH`,
 		stringify(event.Date), stringify(event.Dc), stringify(event.TopicName), stringify(event.Host),
-		stringify(event.User), event.Timestamp, event.LogID,
+		stringify(event.User), event.Timestamp*1000, event.LogID,
 		stringifyArr(event.Tags), stringify(event.Data))
 }
 
@@ -156,16 +156,21 @@ func (es *EventStore) GetAllEvents() ([]*FullEvent, error) {
 	return events, nil
 }
 
-func (es *EventStore) getFullEvents(iter *gocql.Iter, dc string) ([]*FullEvent, error) {
+func (es *EventStore) getFullEvents(iter *gocql.Iter, dc string, topic string) ([]*FullEvent, error) {
 	var events []*FullEvent
 	var id gocql.UUID
 	for i := 1; i <= 50; i++ {
 		if ok := iter.Scan(&id); !ok {
 			return events, nil
 		}
-		results, err := es.session.Query(fmt.Sprintf(`SELECT *
+		query := fmt.Sprintf(`SELECT *
             FROM event_logs
-            WHERE log_id = %s AND dc = '%s'`, id, dc)).Iter().SliceMap()
+            WHERE log_id = %s AND dc = %s`, id, stringify(dc))
+		if topic != "" {
+			query += fmt.Sprintf(` AND topic_name = %s`, stringify(topic))
+		}
+		query += ` ALLOW FILTERING;`
+		results, err := es.session.Query(query).Iter().SliceMap()
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +211,7 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) error {
 func (es *EventStore) Find(q *Query) ([]*FullEvent, error) {
 	query := buildSelectQuery(q)
 	iter := es.session.Query(query).Iter()
-	return es.getFullEvents(iter, q.Dc)
+	return es.getFullEvents(iter, q.Dc, q.TopicName)
 }
 
 func (es *EventStore) GetTopics() []string {
