@@ -11,14 +11,6 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-type Query struct {
-	Dc        string
-	Host      string
-	TopicName string
-	TimeStart int64
-	TimeEnd   int64
-}
-
 type FullEvent struct {
 	Timestamp int64
 	Dc        string
@@ -73,7 +65,7 @@ func buildInsertQuery(event *FullEvent) string {
 		stringifyArr(event.Tags), stringify(event.Data))
 }
 
-func buildSelectQuery(q *Query) string {
+func buildSelectQuery(q *eventmaster.Query) string {
 	firstFilter := true
 	s := []string{"SELECT log_id FROM indexed_events"}
 	if q.Dc != "" {
@@ -92,28 +84,28 @@ func buildSelectQuery(q *Query) string {
 			s = append(s, fmt.Sprintf(` AND host=%s`, stringify(q.Host)))
 		}
 	}
-	if q.TopicName != "" {
+	if q.Topic != "" {
 		if firstFilter {
 			firstFilter = false
-			s = append(s, fmt.Sprintf(` WHERE topic_name=%s`, stringify(q.TopicName)))
+			s = append(s, fmt.Sprintf(` WHERE topic_name=%s`, stringify(q.Topic)))
 		} else {
-			s = append(s, fmt.Sprintf(` AND topic_name=%s`, stringify(q.TopicName)))
+			s = append(s, fmt.Sprintf(` AND topic_name=%s`, stringify(q.Topic)))
 		}
 	}
-	if q.TimeStart != -1 {
+	if q.Timestart != -1 {
 		if firstFilter {
 			firstFilter = false
-			s = append(s, fmt.Sprintf(` WHERE timestamp>=%d`, q.TimeStart))
+			s = append(s, fmt.Sprintf(` WHERE timestamp>=%d`, q.Timestart))
 		} else {
-			s = append(s, fmt.Sprintf(` AND timestamp>=%d`, q.TimeStart))
+			s = append(s, fmt.Sprintf(` AND timestamp>=%d`, q.Timestart))
 		}
 	}
-	if q.TimeEnd != -1 {
+	if q.Timeend != -1 {
 		if firstFilter {
 			firstFilter = false
-			s = append(s, fmt.Sprintf(` WHERE timestamp<=%d`, q.TimeEnd))
+			s = append(s, fmt.Sprintf(` WHERE timestamp<=%d`, q.Timeend))
 		} else {
-			s = append(s, fmt.Sprintf(` AND timestamp<=%d`, q.TimeEnd))
+			s = append(s, fmt.Sprintf(` AND timestamp<=%d`, q.Timeend))
 		}
 	}
 	s = append(s, " ALLOW FILTERING;")
@@ -208,10 +200,10 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) error {
 	return nil
 }
 
-func (es *EventStore) Find(q *Query) ([]*FullEvent, error) {
+func (es *EventStore) Find(q *eventmaster.Query) ([]*FullEvent, error) {
 	query := buildSelectQuery(q)
 	iter := es.session.Query(query).Iter()
-	return es.getFullEvents(iter, q.Dc, q.TopicName)
+	return es.getFullEvents(iter, q.Dc, q.Topic)
 }
 
 func (es *EventStore) GetTopics() []string {

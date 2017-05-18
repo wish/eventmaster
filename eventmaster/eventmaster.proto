@@ -5,6 +5,7 @@ package eventmaster;
 // Define the event store API
 service EventMaster {
     rpc Track (Event) returns (WriteResponse) {}
+    rpc GetEvents (Query) returns (stream Event) {}
     rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {}
 }
 
@@ -23,8 +24,15 @@ message WriteResponse {
     string errmsg = 2;
 }
 
-message HealthcheckRequest {
+message Query {
+    string dc = 1;
+    string host = 2;
+    string topic = 3;`
+    int64 timestart = 4;
+    int64 timeend = 5;
 }
+
+message HealthcheckRequest {}
 
 message HealthcheckResponse {
     string response = 1;

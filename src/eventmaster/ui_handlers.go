@@ -64,7 +64,7 @@ func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (geh *getEventHandler) buildQuery(r *http.Request) (*Query, error) {
+func (geh *getEventHandler) buildQuery(r *http.Request) (*eventmaster.Query, error) {
 	err := r.ParseForm()
 	if err != nil {
 		return nil, err
@@ -93,12 +93,12 @@ func (geh *getEventHandler) buildQuery(r *http.Request) (*Query, error) {
 		endingTime = et.Unix()
 	}
 
-	return &Query{
+	return &eventmaster.Query{
 		Dc:        r.Form["dc"][0],
 		Host:      r.Form["host"][0],
-		TopicName: r.Form["topic"][0],
-		TimeStart: int64(startingTime),
-		TimeEnd:   int64(endingTime),
+		Topic: r.Form["topic"][0],
+		Timestart: int64(startingTime),
+		Timeend:   int64(endingTime),
 	}, nil
 }
 

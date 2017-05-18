@@ -49,6 +49,7 @@
 	<thead>
 		<tr>
 			<th>Topic</th>
+			<th>Dc</th>
 			<th>Tags</th>
 			<th>Timestamp</th>
 			<th>Host</th>
@@ -60,6 +61,7 @@
 	{{ range .Events}}
 		<tr>
 			<th scope="row">{{ .TopicName }}</th>
+			<td>{{ .Dc }}</td>
 			<td>{{ .Tags }}</td>
 			<td>{{ parseTime .Timestamp }}</td>
 			<td>{{ .Host }}</td>

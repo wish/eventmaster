@@ -27,6 +27,7 @@ type dbConfig struct {
 	Host     string `json:"host"`
 	Port     string `json:"port"`
 	Keyspace string `json:"keyspace"`
+	Consistency string `json:"consistency"`
 }
 
 func getEventStore() *EventStore {
@@ -50,9 +51,20 @@ func getEventStore() *EventStore {
 	if dbConf.Keyspace == "" {
 		dbConf.Keyspace = "event_master"
 	}
+	if dbConf.Consistency == "" {
+		dbConf.Consistency = "quorum"
+	}
 	cluster := gocql.NewCluster(fmt.Sprintf("%s:%s", dbConf.Host, dbConf.Port))
 	cluster.Keyspace = dbConf.Keyspace
-	cluster.Consistency = gocql.Quorum
+
+	if dbConf.Consistency == "one" {
+		cluster.Consistency = gocql.One
+	} else if dbConf.Consistency == "two" {
+		cluster.Consistency = gocql.Two
+	} else {
+		cluster.Consistency = gocql.Quorum
+	}
+
 	session, err := cluster.CreateSession()
 	if err != nil {
 		log.Fatalf("Error connecting to Cassandra: %v", err)

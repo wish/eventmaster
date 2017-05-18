@@ -40,6 +40,25 @@ func (s *server) Track(ctx context.Context, ev *eventmaster.Event) (*eventmaster
 	return &eventmaster.WriteResponse{}, nil
 }
 
+func (s *server) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
+	events, err := s.store.Find(q)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		stream.Send(&eventmaster.Event{
+			Timestamp: event.Timestamp,
+			Dc: event.Dc,
+			TopicName: event.TopicName,
+			Tags: event.Tags,
+			Host: event.Host,
+			User: event.User,
+			Data: event.Data,
+		})
+	}
+	return nil;
+}
+
 func (s *server) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {
 	return &eventmaster.HealthcheckResponse{"OK"}, nil
 }
