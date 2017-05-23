@@ -4,32 +4,38 @@ package eventmaster;
 
 // Define the event store API
 service EventMaster {
-    rpc Track (Event) returns (WriteResponse) {}
+    rpc FireEvent (Event) returns (WriteResponse) {}
     rpc GetEvents (Query) returns (stream Event) {}
     rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {}
 }
 
 message Event {
-    int64 timestamp = 1;
-    string dc = 2;
-    string topic_name = 3;
-    repeated string tags = 4;
-    string host = 5;
-    string user = 6;
-    string data = 7;
+    string parent_event_id = 1;
+    int64 event_time = 2;
+    string dc = 3;
+    string topic_name = 4;
+    repeated string tag_set = 5;
+    string host = 6;
+    repeated string target_host_set = 7;
+    string user = 8;
+    string data_json = 9;
+    int32 event_type = 10;
 }
 
 message WriteResponse {
     int32 errcode = 1;
     string errmsg = 2;
+    string event_id = 3;
 }
 
 message Query {
-    string dc = 1;
-    string host = 2;
-    string topic = 3;`
-    int64 timestart = 4;
-    int64 timeend = 5;
+    repeated string dc = 1;
+    repeated string host = 2;
+    repeated string target_host = 3;
+    repeated string topic_name = 4;
+    repeated string tag_set = 5;
+    int64 start_time = 6;
+    int64 end_time = 7;
 }
 
 message HealthcheckRequest {}
