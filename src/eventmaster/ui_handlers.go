@@ -39,7 +39,7 @@ type pageData struct {
 	Date       string
 	Dcs        []string
 	Topics     []string
-	Events     []*FullEvent
+	Events     []*Event
 }
 
 func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -49,13 +49,7 @@ func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := mph.store.GetAllEvents()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("error getting all events: %v", err), http.StatusInternalServerError)
-	}
-
 	err = t.Execute(w, pageData{
-		Events: events,
 		Topics: mph.store.GetTopics(),
 		Dcs:    mph.store.GetDcs(),
 	})
@@ -94,11 +88,11 @@ func (geh *getEventHandler) buildQuery(r *http.Request) (*eventmaster.Query, err
 	}
 
 	return &eventmaster.Query{
-		Dc:        r.Form["dc"][0],
-		Host:      r.Form["host"][0],
-		Topic: r.Form["topic"][0],
-		Timestart: int64(startingTime),
-		Timeend:   int64(endingTime),
+		Dc:        strings.Split(r.Form["dc"][0], ","),
+		Host:      strings.Split(r.Form["host"][0], ","),
+		TopicName: strings.Split(r.Form["topic"][0], ","),
+		StartTime: int64(startingTime),
+		EndTime:   int64(endingTime),
 	}, nil
 }
 
@@ -182,14 +176,14 @@ func (ceh *createEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		tgs = strings.Split(tags, ",")
 	}
 
-	err = ceh.store.AddEvent(&eventmaster.Event{
-		Timestamp: ts.Unix(),
+	err = ceh.store.AddEvent(&Event{
+		EventTime: ts.Unix(),
 		Dc:        dc,
 		TopicName: topic,
 		Tags:      tgs,
 		Host:      host,
 		User:      user,
-		Data:      data,
+		DataJSON:  data,
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error writing event to cassandra: %v", err), http.StatusInternalServerError)

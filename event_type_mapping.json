@@ -1,0 +1,34 @@
+{
+	"properties": {
+		"event_id": { 
+			"type": "text"
+		},
+		"parent_event_id": { 
+			"type": "text"
+		},
+		"dc": { 
+			"type": "text"
+		},
+		"topic_name": { 
+			"type": "text"
+		},
+		"host": { 
+			"type": "text"
+		},
+		"user": { 
+			"type": "text"
+		},
+		"event_time": { 
+			"type": "date"
+		},
+		"tag_set": { 
+			"type": "text"
+		},
+		"data_json": { 
+			"type": "text"
+		},
+		"event_type": { 
+			"type": "short"
+		}
+	}
+}

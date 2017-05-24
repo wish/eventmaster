@@ -28,13 +28,27 @@ type server struct {
 	store  *EventStore
 }
 
-func (s *server) Track(ctx context.Context, ev *eventmaster.Event) (*eventmaster.WriteResponse, error) {
-	err := s.store.AddEvent(ev)
+func (s *server) FireEvent(ctx context.Context, ev *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+	event := &Event{
+		ParentEventID: ev.ParentEventId,
+		EventTime:     ev.EventTime,
+		Dc:            ev.Dc,
+		TopicName:     ev.TopicName,
+		Tags:          ev.TagSet,
+		Host:          ev.Host,
+		TargetHosts:   ev.TargetHostSet,
+		User:          ev.User,
+		DataJSON:      ev.DataJson,
+		EventType:     ev.EventType,
+	}
+
+	err := s.store.AddEvent(event)
 	if err != nil {
 		fmt.Println("Error writing event to cassandra:", err)
 		return &eventmaster.WriteResponse{
 			Errcode: 1,
 			Errmsg:  err.Error(),
+			EventId: event.EventID,
 		}, err
 	}
 	return &eventmaster.WriteResponse{}, nil
@@ -45,18 +59,21 @@ func (s *server) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_
 	if err != nil {
 		return err
 	}
-	for _, event := range events {
+	for _, ev := range events {
 		stream.Send(&eventmaster.Event{
-			Timestamp: event.Timestamp,
-			Dc: event.Dc,
-			TopicName: event.TopicName,
-			Tags: event.Tags,
-			Host: event.Host,
-			User: event.User,
-			Data: event.Data,
+			ParentEventId: ev.ParentEventID,
+			EventTime:     ev.EventTime,
+			Dc:            ev.Dc,
+			TopicName:     ev.TopicName,
+			TagSet:        ev.Tags,
+			Host:          ev.Host,
+			TargetHostSet: ev.TargetHosts,
+			User:          ev.User,
+			DataJson:      ev.DataJSON,
+			EventType:     ev.EventType,
 		})
 	}
-	return nil;
+	return nil
 }
 
 func (s *server) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {

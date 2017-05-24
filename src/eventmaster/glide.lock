@@ -1,5 +1,5 @@
-hash: ca35bdf3165cfc25d3ef3863a9ad885d7bcc2a204a6599211e7cf4bb7e7406b7
-updated: 2017-05-10T16:22:53.31787509-07:00
+hash: 135876f3df8afa21af244b65ba611286b87701b081c0b715a586d9b2a949619e
+updated: 2017-05-24T12:09:43.518901538-07:00
 imports:
 - name: github.com/ContextLogic/eventmaster
   version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
@@ -19,14 +19,14 @@ imports:
   version: 2bba0603135d7d7f5cb73b2125beeda19c09f4ef
   subpackages:
   - proto
-  - protoc-gen-go/descriptor
-  - ptypes/any
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
 - name: github.com/hailocab/go-hostpool
   version: e80d13ce29ede4452c43dea11e79b9bc8a15b478
 - name: github.com/jessevdk/go-flags
   version: 48cf8722c3375517aba351d1f7577c40663a4407
+- name: github.com/pkg/errors
+  version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/rcrowley/go-metrics
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
   subpackages:
@@ -39,45 +39,18 @@ imports:
   version: d212a1ef2de2f5d441c327b8f26cf3ea3ea9f265
   subpackages:
   - context
-  - http2
-  - http2/hpack
-  - idna
-  - internal/timeseries
-  - lex/httplex
-  - trace
 - name: golang.org/x/sys
   version: ea9bcade75cb975a0b9738936568ab388b845617
   subpackages:
   - unix
-- name: golang.org/x/text
-  version: a9a820217f98f7c8a207ec1e45a874e1fe12c478
-  subpackages:
-  - secure/bidirule
-  - transform
-  - unicode/bidi
-  - unicode/norm
-- name: google.golang.org/genproto
-  version: 411e09b969b1170a9f0c467558eb4c4c110d9c77
-  subpackages:
-  - googleapis/rpc/status
 - name: google.golang.org/grpc
   version: d2e1b51f33ff8c5e4a15560ff049d200e83726c5
   subpackages:
-  - codes
-  - credentials
-  - grpclb/grpc_lb_v1
-  - grpclog
-  - internal
-  - keepalive
-  - metadata
-  - naming
-  - peer
   - reflection
-  - reflection/grpc_reflection_v1alpha
-  - stats
-  - status
-  - tap
-  - transport
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
+- name: gopkg.in/olivere/elastic.v5
+  version: 3f49414dc29d45ba96fde19ba72bc646077dbffd
+  subpackages:
+  - uritemplates
 testImports: []

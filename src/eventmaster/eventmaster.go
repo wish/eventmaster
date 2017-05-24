@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -15,7 +13,6 @@ import (
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	log "github.com/Sirupsen/logrus"
-	"github.com/gocql/gocql"
 	"github.com/jessevdk/go-flags"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/exp"
@@ -24,52 +21,10 @@ import (
 )
 
 type dbConfig struct {
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	Keyspace string `json:"keyspace"`
+	Host        string `json:"host"`
+	Port        string `json:"port"`
+	Keyspace    string `json:"keyspace"`
 	Consistency string `json:"consistency"`
-}
-
-func getEventStore() *EventStore {
-	// Establish connection to Cassandra
-	dbConf := dbConfig{}
-	confFile, err := ioutil.ReadFile("db_config.json")
-	if err != nil {
-		fmt.Println("no db_config file specified")
-	} else {
-		err = json.Unmarshal(confFile, &dbConf)
-		if err != nil {
-			fmt.Println("error parsing db_config.json:", err)
-		}
-	}
-	if dbConf.Host == "" {
-		dbConf.Host = "127.0.0.1"
-	}
-	if dbConf.Port == "" {
-		dbConf.Port = "9042"
-	}
-	if dbConf.Keyspace == "" {
-		dbConf.Keyspace = "event_master"
-	}
-	if dbConf.Consistency == "" {
-		dbConf.Consistency = "quorum"
-	}
-	cluster := gocql.NewCluster(fmt.Sprintf("%s:%s", dbConf.Host, dbConf.Port))
-	cluster.Keyspace = dbConf.Keyspace
-
-	if dbConf.Consistency == "one" {
-		cluster.Consistency = gocql.One
-	} else if dbConf.Consistency == "two" {
-		cluster.Consistency = gocql.Two
-	} else {
-		cluster.Consistency = gocql.Quorum
-	}
-
-	session, err := cluster.CreateSession()
-	if err != nil {
-		log.Fatalf("Error connecting to Cassandra: %v", err)
-	}
-	return NewEventStore(session)
 }
 
 func startUIServer(store *EventStore) {
@@ -113,6 +68,26 @@ func startUIServer(store *EventStore) {
 	}()
 }
 
+func startAPIServer(store *EventStore) {
+	mux := http.NewServeMux()
+	aeh := &addEventAPIHandler{
+		store: store,
+	}
+	beh := &bulkEventAPIHandler{
+		store: store,
+	}
+	geh := &getEventAPIHandler{
+		store: store,
+	}
+	mux.Handle("/fire_event", aeh)
+	mux.Handle("/bulk_event", beh)
+	mux.Handle("/event", geh)
+	go func() {
+		fmt.Println("http server starting on port 8080")
+		http.ListenAndServe(":8080", mux)
+	}()
+}
+
 func main() {
 	var config Config
 	parser := flags.NewParser(&config, flags.Default)
@@ -145,8 +120,12 @@ func main() {
 		}
 	}()
 
-	store := getEventStore()
+	store, err := NewEventStore()
+	if err != nil {
+		log.Fatalf("Unable to create event store: %v", err)
+	}
 	startUIServer(store)
+	startAPIServer(store)
 
 	// Create the EventMaster server
 	server, err := NewServer(&config, store)
