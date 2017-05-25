@@ -36,6 +36,8 @@ message Query {
     repeated string tag_set = 5;
     int64 start_time = 6;
     int64 end_time = 7;
+    string sort_field = 8;
+    bool sort_ascending = 9;
 }
 
 message HealthcheckRequest {}

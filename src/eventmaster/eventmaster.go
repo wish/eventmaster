@@ -64,24 +64,16 @@ func startUIServer(store *EventStore) {
 	mux.Handle("/create_event", ceh)
 	go func() {
 		fmt.Println("uiserver starting on port 8080")
-		http.ListenAndServe(":8080", mux)
+		http.ListenAndServe(":8081", mux)
 	}()
 }
 
 func startAPIServer(store *EventStore) {
 	mux := http.NewServeMux()
-	aeh := &addEventAPIHandler{
+	eah := &eventAPIHandler{
 		store: store,
 	}
-	beh := &bulkEventAPIHandler{
-		store: store,
-	}
-	geh := &getEventAPIHandler{
-		store: store,
-	}
-	mux.Handle("/fire_event", aeh)
-	mux.Handle("/bulk_event", beh)
-	mux.Handle("/event", geh)
+	mux.Handle("/v1/event", eah)
 	go func() {
 		fmt.Println("http server starting on port 8080")
 		http.ListenAndServe(":8080", mux)

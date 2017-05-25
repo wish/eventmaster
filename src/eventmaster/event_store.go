@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	// "errors"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,12 +22,12 @@ type Event struct {
 	ParentEventID string   `json:"parent_event_id"`
 	EventTime     int64    `json:"event_time"`
 	Dc            string   `json:"dc"`
-	TopicName     string   `json:"topic_name`
+	TopicName     string   `json:"topic_name"`
 	Tags          []string `json:"tag_set"`
 	Host          string   `json:"host"`
 	TargetHosts   []string `json:"target_host"`
 	User          string   `json:"user"`
-	DataJSON      string   `json:"data_json"`
+	DataJSON      string   `json:"data"`
 	EventType     int32    `json:"event_type"`
 }
 
@@ -72,11 +74,11 @@ func NewEventStore() (*EventStore, error) {
 	dbConf := dbConfig{}
 	confFile, err := ioutil.ReadFile("db_config.json")
 	if err != nil {
-		fmt.Println("no db_config file specified")
+		fmt.Println("No db_config file specified")
 	} else {
 		err = json.Unmarshal(confFile, &dbConf)
 		if err != nil {
-			fmt.Println("error parsing db_config.json:", err)
+			fmt.Println("Error parsing db_config.json, using defaults:", err)
 		}
 	}
 	if dbConf.Host == "" {
@@ -134,7 +136,7 @@ func NewEventStore() (*EventStore, error) {
 		if err != nil {
 			return nil, err
 		} else if !res.Acknowledged {
-			fmt.Println("did not acknowledge put mapping")
+			fmt.Println("ES Mapping was not acknowledged")
 		}
 	}
 
@@ -148,23 +150,43 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	var queries []elastic.Query
 
 	if len(q.Dc) != 0 {
-		queries = append(queries, elastic.NewMatchQuery("dc", q.Dc))
+		dcs := make([]interface{}, 0)
+		for _, dc := range q.Dc {
+			dcs = append(dcs, dc)
+		}
+		queries = append(queries, elastic.NewTermsQuery("dc", dcs...))
 	}
 
 	if len(q.Host) != 0 {
-		queries = append(queries, elastic.NewMatchQuery("host", q.Host))
+		hosts := make([]interface{}, 0)
+		for _, host := range q.Host {
+			hosts = append(hosts, host)
+		}
+		queries = append(queries, elastic.NewTermsQuery("host", hosts...))
 	}
 
 	if len(q.TargetHost) != 0 {
-		queries = append(queries, elastic.NewMatchQuery("target_host_set", q.TargetHost))
+		thosts := make([]interface{}, 0)
+		for _, host := range q.TargetHost {
+			thosts = append(thosts, host)
+		}
+		queries = append(queries, elastic.NewTermsQuery("target_host_set", thosts...))
 	}
 
 	if len(q.TopicName) != 0 {
-		queries = append(queries, elastic.NewMatchQuery("topic_name", q.TopicName))
+		topics := make([]interface{}, 0)
+		for _, topic := range q.TopicName {
+			topics = append(topics, topic)
+		}
+		queries = append(queries, elastic.NewTermsQuery("topic_name", topics...))
 	}
 
 	if len(q.TagSet) != 0 {
-		queries = append(queries, elastic.NewMatchQuery("tag_set", q.TagSet))
+		tags := make([]interface{}, 0)
+		for _, tag := range q.TagSet {
+			tags = append(tags, tag)
+		}
+		queries = append(queries, elastic.NewTermsQuery("tag_set", tags...))
 	}
 
 	startTime, endTime := int64(0), int64(time.Now().Unix()*1000)
@@ -181,24 +203,57 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 }
 
 func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
+	if q.StartTime == 0 {
+		q.StartTime = -1
+	}
+	if q.EndTime == 0 {
+		q.EndTime = -1
+	}
 	bq := es.buildESQuery(q)
 	ctx := context.Background()
+	sortField := "event_time"
+	if q.SortField != "" {
+		sortField = sortField
+	}
 	sr, err := es.esClient.Search().
 		Index("event_master").
 		Query(bq).
+		Sort(sortField, q.SortAscending).
 		Pretty(true).
 		Do(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println(sr)
+	var evt Event
 	var evts []*Event
+	for _, item := range sr.Each(reflect.TypeOf(evt)) {
+		if t, ok := item.(Event); ok {
+			evts = append(evts, &t)
+		}
+	}
 	return evts, nil
+}
+
+func (es *EventStore) validateEvent(event *Event) (bool, string) {
+	if event.Dc == "" {
+		return false, "Event missing dc"
+	} else if event.Host == "" {
+		return false, "Event missing host"
+	} else if event.TopicName == "" {
+		return false, "Event missing topic_name"
+	} else if event.EventTime == 0 {
+		return false, "Event missing event_time"
+	}
+	return true, ""
 }
 
 func (es *EventStore) AddEvent(event *Event) error {
 	event.EventID = uuid.NewV4().String()
+
+	if ok, msg := es.validateEvent(event); !ok {
+		return errors.New(msg)
+	}
 
 	// write event to Cassandra
 	queryStr := buildCQLInsertQuery(event)
@@ -215,8 +270,8 @@ func (es *EventStore) AddEvent(event *Event) error {
 		Index("event_master").
 		Type("event").
 		Id(event.EventID).
+		Timestamp(strconv.FormatInt(event.EventTime, 10)).
 		BodyJson(event).
-		TTL("1000").
 		Do(ctx)
 
 	return err

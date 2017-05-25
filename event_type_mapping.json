@@ -6,6 +6,9 @@
 		"parent_event_id": { 
 			"type": "text"
 		},
+		"event_time": {
+			"type": "date"
+		},
 		"dc": { 
 			"type": "text"
 		},
@@ -15,11 +18,11 @@
 		"host": { 
 			"type": "text"
 		},
-		"user": { 
+		"target_host": {
 			"type": "text"
 		},
-		"event_time": { 
-			"type": "date"
+		"user": { 
+			"type": "text"
 		},
 		"tag_set": { 
 			"type": "text"

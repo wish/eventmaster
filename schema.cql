@@ -9,7 +9,7 @@ WITH REPLICATION = {
 USE event_master;
 
 // Create event_logs table
-CREATE TABLE IF NOT EXISTS event_log (
+CREATE TABLE IF NOT EXISTS event (
 	event_id UUID,
 	parent_event_id UUID,
 	dc text,
@@ -25,14 +25,14 @@ CREATE TABLE IF NOT EXISTS event_log (
 );
 
 // Create table to store distinct topics
-CREATE TABLE IF NOT EXISTS event_topics (
+CREATE TABLE IF NOT EXISTS event_topic (
 	id int,
 	topic_name text,
 	PRIMARY KEY (topic_name)
 );
 
 // Create table to store distinct dcs
-CREATE TABLE IF NOT EXISTS event_dcs (
+CREATE TABLE IF NOT EXISTS event_dc (
 	id int,
 	dc text,
 	PRIMARY KEY (dc)
