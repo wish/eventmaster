@@ -116,6 +116,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create event store: %v", err)
 	}
+
+	store.Update()
 	startUIServer(store)
 	startAPIServer(store)
 

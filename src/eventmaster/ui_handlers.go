@@ -43,7 +43,7 @@ type pageData struct {
 }
 
 func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t, err := template.New("main.html").Funcs(mph.fm).ParseFiles("templates/main.html", "templates/query_form.html")
+	t, err := template.New("main.html").Funcs(mph.fm).ParseFiles("ui/templates/main.html", "ui/templates/query_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
@@ -109,7 +109,7 @@ func (geh *getEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := template.New("main.html").Funcs(geh.fm).ParseFiles("templates/main.html", "templates/query_form.html")
+	t, err := template.New("main.html").Funcs(geh.fm).ParseFiles("ui/templates/main.html", "ui/templates/query_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
@@ -126,7 +126,7 @@ func (geh *getEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cph *createPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t, err := template.New("main.html").Funcs(cph.fm).ParseFiles("templates/main.html", "templates/create_form.html")
+	t, err := template.New("main.html").Funcs(cph.fm).ParseFiles("ui/templates/main.html", "ui/templates/create_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
@@ -147,44 +147,36 @@ func (ceh *createEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		http.Error(w, fmt.Sprintf("error parsing form: %v", err), http.StatusInternalServerError)
 		return
 	}
-	topic := r.Form["topic"][0]
-	dc := r.Form["dc"][0]
-	tags := r.Form["tags"][0]
-	host := r.Form["host"][0]
-	user := r.Form["user"][0]
-	data := r.Form["data"][0]
-	date := r.Form["date"][0]
-	timeOfDay := r.Form["time"][0]
+	// topic := r.Form["topic"][0]
+	// dc := r.Form["dc"][0]
+	// tags := r.Form["tags"][0]
+	// host := r.Form["host"][0]
+	// user := r.Form["user"][0]
+	// data := r.Form["data"][0]
+	// date := r.Form["date"][0]
+	// timeOfDay := r.Form["time"][0]
 
 	// TODO: use form validation so we don't have to return an error
-	if date == "" {
-		http.Error(w, fmt.Sprintf("date cannot be empty"), http.StatusBadRequest)
-		return
-	}
-	if timeOfDay == "" {
-		http.Error(w, fmt.Sprintf("time cannot be empty"), http.StatusBadRequest)
-		return
-	}
-	fullTime := date + " " + timeOfDay
-	ts, err := time.Parse("2006-01-02 15:04", fullTime)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("invalid date entered: %v", err), http.StatusInternalServerError)
-	}
+	// if date == "" {
+	// 	http.Error(w, fmt.Sprintf("date cannot be empty"), http.StatusBadRequest)
+	// 	return
+	// }
+	// if timeOfDay == "" {
+	// 	http.Error(w, fmt.Sprintf("time cannot be empty"), http.StatusBadRequest)
+	// 	return
+	// }
+	// fullTime := date + " " + timeOfDay
+	// ts, err := time.Parse("2006-01-02 15:04", fullTime)
+	// if err != nil {
+	// 	http.Error(w, fmt.Sprintf("invalid date entered: %v", err), http.StatusInternalServerError)
+	// }
 
-	var tgs []string
-	if tags != "" {
-		tgs = strings.Split(tags, ",")
-	}
+	// var tgs []string
+	// if tags != "" {
+	// 	tgs = strings.Split(tags, ",")
+	// }
 
-	err = ceh.store.AddEvent(&Event{
-		EventTime: ts.Unix(),
-		Dc:        dc,
-		TopicName: topic,
-		Tags:      tgs,
-		Host:      host,
-		User:      user,
-		DataJSON:  data,
-	})
+	_, err = ceh.store.AddEvent(&eventmaster.Event{})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error writing event to cassandra: %v", err), http.StatusInternalServerError)
 	}

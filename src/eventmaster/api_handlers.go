@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -26,56 +27,52 @@ func sendError(w http.ResponseWriter, code int, err error, message string) {
 
 func (eah *eventAPIHandler) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	var evt Event
+
+	var evt eventmaster.Event
 	err := decoder.Decode(&evt)
+
+	// parse our event.Data into a map[string]interface{}
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error decoding JSON event")
 		return
 	}
-	err = eah.store.AddEvent(&evt)
+	id, err := eah.store.AddEvent(&evt)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, err, "Error writing event")
+		return
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write(evt.EventID)
+	w.Write([]byte(id))
 }
 
 func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 	var q eventmaster.Query
 
 	if r.Method == "GET" {
-		dc := r.URL.Query().Get("dc")
-		if dc != "" {
-			q.Dc = strings.Split(dc, ",")
+		query := r.URL.Query()
+		q.Dc = query["dc"]
+		q.Host = query["host"]
+		q.TargetHost = query["target_host"]
+		q.TagSet = query["tag"]
+		q.TopicName = query["topic_name"]
+		q.SortField = query["sort_field"]
+		for _, elem := range query["sort_ascending"] {
+			if strings.ToLower(elem) == "true" {
+				q.SortAscending = append(q.SortAscending, true)
+			} else if strings.ToLower(elem) == "false" {
+				q.SortAscending = append(q.SortAscending, false)
+			}
 		}
-		host := r.URL.Query().Get("host")
-		if host != "" {
-			q.Host = strings.Split(host, ",")
+		if len(q.SortField) != len(q.SortAscending) {
+			sendError(w, http.StatusBadRequest, errors.New("sort_field and sort_ascending don't match"), "Error")
 		}
-		targetHost := r.URL.Query().Get("target_host")
-		if targetHost != "" {
-			q.TargetHost = strings.Split(targetHost, ",")
-		}
-		tag := r.URL.Query().Get("tag")
-		if tag != "" {
-			q.TagSet = strings.Split(tag, ",")
-		}
-		topicName := r.URL.Query().Get("topic_name")
-		if topicName != "" {
-			q.TopicName = strings.Split(topicName, ",")
-		}
-		startTime := r.URL.Query().Get("start_time")
+		startTime := query.Get("start_time")
 		if startTime != "" {
 			q.StartTime, _ = strconv.ParseInt(startTime, 10, 64)
 		}
-		endTime := r.URL.Query().Get("end_time")
+		endTime := query.Get("end_time")
 		if endTime != "" {
 			q.EndTime, _ = strconv.ParseInt(endTime, 10, 64)
-		}
-		q.SortField = r.URL.Query().Get("sort_field")
-		sortAscending := r.URL.Query().Get("sort_ascending")
-		if strings.ToLower(sortAscending) == "true" {
-			q.SortAscending = true
 		}
 	} else if r.Method == "POST" {
 		decoder := json.NewDecoder(r.Body)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
@@ -28,27 +29,14 @@ type server struct {
 	store  *EventStore
 }
 
-func (s *server) FireEvent(ctx context.Context, ev *eventmaster.Event) (*eventmaster.WriteResponse, error) {
-	event := &Event{
-		ParentEventID: ev.ParentEventId,
-		EventTime:     ev.EventTime,
-		Dc:            ev.Dc,
-		TopicName:     ev.TopicName,
-		Tags:          ev.TagSet,
-		Host:          ev.Host,
-		TargetHosts:   ev.TargetHostSet,
-		User:          ev.User,
-		DataJSON:      ev.DataJson,
-		EventType:     ev.EventType,
-	}
-
-	err := s.store.AddEvent(event)
+func (s *server) FireEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+	id, err := s.store.AddEvent(evt)
 	if err != nil {
 		fmt.Println("Error writing event to cassandra:", err)
 		return &eventmaster.WriteResponse{
 			Errcode: 1,
 			Errmsg:  err.Error(),
-			EventId: event.EventID,
+			EventId: id,
 		}, err
 	}
 	return &eventmaster.WriteResponse{}, nil
@@ -60,6 +48,10 @@ func (s *server) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_
 		return err
 	}
 	for _, ev := range events {
+		d, err := json.Marshal(ev.Data)
+		if err != nil {
+			return err
+		}
 		stream.Send(&eventmaster.Event{
 			ParentEventId: ev.ParentEventID,
 			EventTime:     ev.EventTime,
@@ -69,7 +61,7 @@ func (s *server) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_
 			Host:          ev.Host,
 			TargetHostSet: ev.TargetHosts,
 			User:          ev.User,
-			DataJson:      ev.DataJSON,
+			Data:          string(d),
 			EventType:     ev.EventType,
 		})
 	}

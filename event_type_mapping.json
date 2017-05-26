@@ -27,7 +27,7 @@
 		"tag_set": { 
 			"type": "text"
 		},
-		"data_json": { 
+		"data": { 
 			"type": "text"
 		},
 		"event_type": { 
