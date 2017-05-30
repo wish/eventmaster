@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"net"
 	"net/http"
 	"os"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	log "github.com/Sirupsen/logrus"
+	"github.com/gorilla/mux"
 	"github.com/jessevdk/go-flags"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/exp"
@@ -27,56 +27,28 @@ type dbConfig struct {
 	Consistency string `json:"consistency"`
 }
 
-func startUIServer(store *EventStore) {
-	funcMap := template.FuncMap{
-		"parseTime": func(timestamp int64) string {
-			return time.Unix(timestamp, 0).Format(time.ANSIC)
-		},
-		"getVisibility": func(pd pageData, id string) string {
-			if id == "topicFilter" && pd.Topic != "" {
-				return "visible"
-			} else if id == "hostFilter" && pd.Host != "" {
-				return "visible"
-			}
-			return "hidden"
-		},
-	}
-	mux := http.NewServeMux()
-	mph := &mainPageHandler{
-		store: store,
-		fm:    funcMap,
-	}
-	geh := &getEventHandler{
-		store: store,
-		fm:    funcMap,
-	}
-	cph := &createPageHandler{
-		store: store,
-		fm:    funcMap,
-	}
-	ceh := &createEventHandler{
-		store: store,
-		fm:    funcMap,
-	}
-	mux.Handle("/", mph)
-	mux.Handle("/get_events", geh)
-	mux.Handle("/create", cph)
-	mux.Handle("/create_event", ceh)
-	go func() {
-		fmt.Println("uiserver starting on port 8080")
-		http.ListenAndServe(":8081", mux)
-	}()
-}
-
-func startAPIServer(store *EventStore) {
-	mux := http.NewServeMux()
+func startServer(store *EventStore) {
+	r := mux.NewRouter()
 	eah := &eventAPIHandler{
 		store: store,
 	}
-	mux.Handle("/v1/event", eah)
+	tah := &topicAPIHandler{
+		store: store,
+	}
+	r.Handle("/v1/event", eah)
+	r.Handle("/v1/topic/{name}", tah)
+
+	mph := &mainPageHandler{
+		store: store,
+	}
+	cph := &createPageHandler{
+		store: store,
+	}
+	r.Handle("/", mph)
+	r.Handle("/add_event", cph)
 	go func() {
 		fmt.Println("http server starting on port 8080")
-		http.ListenAndServe(":8080", mux)
+		http.ListenAndServe(":8080", r)
 	}()
 }
 
@@ -118,8 +90,7 @@ func main() {
 	}
 
 	store.Update()
-	startUIServer(store)
-	startAPIServer(store)
+	startServer(store)
 
 	// Create the EventMaster server
 	server, err := NewServer(&config, store)
@@ -146,8 +117,16 @@ func main() {
 		}
 	}()
 
+	ticker := time.NewTicker(time.Minute)
+	go func() {
+		for _ = range ticker.C {
+			store.Update()
+		}
+	}()
+
 	<-stopChan
 	fmt.Println("Got shutdown signal, gracefully shutting down")
+	ticker.Stop()
 	store.CloseSession()
 	s.GracefulStop()
 }

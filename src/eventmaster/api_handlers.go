@@ -2,16 +2,21 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
+	"github.com/pkg/errors"
 )
 
 type eventAPIHandler struct {
+	store *EventStore
+}
+
+type topicAPIHandler struct {
 	store *EventStore
 }
 
@@ -31,7 +36,6 @@ func (eah *eventAPIHandler) handlePostEvent(w http.ResponseWriter, r *http.Reque
 	var evt eventmaster.Event
 	err := decoder.Decode(&evt)
 
-	// parse our event.Data into a map[string]interface{}
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error decoding JSON event")
 		return
@@ -98,10 +102,35 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 	w.Write(jsonSr)
 }
 
+func (tah *topicAPIHandler) handlePostTopic(w http.ResponseWriter, r *http.Request) {
+	topicName := r.URL.Query().Get(":name")
+
+	schema, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, err, "Error reading body of request")
+	}
+	ok := tah.store.ValidateSchema(schema)
+	if !ok {
+		sendError(w, http.StatusBadRequest, err, "Schema is not in valid JSON format")
+	}
+	id, err := tah.store.AddTopic(topicName, string(schema))
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, err, "Error adding topic")
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(id))
+}
+
 func (eah *eventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		eah.handlePostEvent(w, r)
 	} else if r.Method == "GET" {
 		eah.handleGetEvent(w, r)
+	}
+}
+
+func (eah *topicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		eah.handlePostTopic(w, r)
 	}
 }

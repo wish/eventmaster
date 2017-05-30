@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"reflect"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	"github.com/gocql/gocql"
+	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	elastic "gopkg.in/olivere/elastic.v5"
 )
@@ -24,7 +24,7 @@ type Event struct {
 	TopicName     string                 `json:"topic_name"`
 	Tags          []string               `json:"tag_set"`
 	Host          string                 `json:"host"`
-	TargetHosts   []string               `json:"target_host"`
+	TargetHosts   []string               `json:"target_host_set"`
 	User          string                 `json:"user"`
 	Data          map[string]interface{} `json:"data"`
 	EventType     int32                  `json:"event_type"`
@@ -47,14 +47,11 @@ func stringifyArr(arr []string) string {
 	return fmt.Sprintf("{%s}", strings.Join(arr, ","))
 }
 
-func buildCQLInsertQuery(event *Event, data string) string {
-	// TODO: change this to prevent tombstones
-	return fmt.Sprintf(`
-    INSERT INTO event_log (event_id, parent_event_id, dc, topic_name, host, target_host_set, user, event_time, tag_set, data_json, event_type)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);`,
-		event.EventID, event.ParentEventID, stringify(event.Dc), stringify(event.TopicName),
-		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
-		stringifyArr(event.Tags), stringify(data), event.EventType)
+func stringifyUUID(str string) string {
+	if str == "" {
+		return "null"
+	}
+	return str
 }
 
 type EventStore struct {
@@ -64,6 +61,30 @@ type EventStore struct {
 	topicNameMap   map[string]string
 	topicSchemaMap map[string]string
 	dcNameMap      map[string]string
+}
+
+func (es *EventStore) getTopicId(topic string) string {
+	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
+		return id
+	}
+	return "null"
+}
+
+func (es *EventStore) getDcId(topic string) string {
+	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
+		return id
+	}
+	return "null"
+}
+
+func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
+	// TODO: change this to prevent tombstones
+	return fmt.Sprintf(`
+    INSERT INTO event (event_id, parent_event_id, dc, topic_name, host, target_host_set, user, event_time, tag_set, data_json, event_type)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);`,
+		event.EventID, stringifyUUID(event.ParentEventID), es.getDcId(event.Dc), es.getTopicId(event.TopicName),
+		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
+		stringifyArr(event.Tags), stringify(data), event.EventType)
 }
 
 func NewEventStore() (*EventStore, error) {
@@ -103,23 +124,23 @@ func NewEventStore() (*EventStore, error) {
 
 	session, err := cluster.CreateSession()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Error creating cassandra session")
 	}
 
 	// Establish connection to ES and initialize index if it doesn't exist
 	ctx := context.Background()
 	client, err := elastic.NewClient()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Error creating elasticsearch client")
 	}
 	exists, err := client.IndexExists("event_master").Do(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Error finding if index exists in ES")
 	}
 	if !exists {
 		_, err := client.CreateIndex("event_master").Do(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Error creating event_master index in ES")
 		}
 	}
 
@@ -244,7 +265,7 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	}
 	sr, err := sq.Do(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Error executing ES search query")
 	}
 
 	var evt Event
@@ -268,6 +289,15 @@ func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
 		return false, "Event missing event_time"
 	}
 
+	id, ok := es.topicNameMap[strings.ToLower(event.TopicName)]
+	if !ok {
+		return false, fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName))
+	}
+	schema, ok := es.topicSchemaMap[id]
+	if !ok {
+		return false, fmt.Sprintf("Topic %s does not have a schema defined", strings.ToLower(event.TopicName))
+	}
+	fmt.Println(schema)
 	// TODO: validate event against data schema for topic
 	return true, ""
 }
@@ -276,15 +306,16 @@ func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
 	var d map[string]interface{}
 	if event.Data != "" {
 		if err := json.Unmarshal([]byte(event.Data), &d); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Error unmarshalling JSON in event data")
 		}
 	}
+
 	return &Event{
 		EventID:       uuid.NewV4().String(),
 		ParentEventID: event.ParentEventId,
 		EventTime:     event.EventTime,
-		Dc:            event.Dc,
-		TopicName:     event.TopicName,
+		Dc:            strings.ToLower(event.Dc),
+		TopicName:     strings.ToLower(event.TopicName),
 		Tags:          event.TagSet,
 		Host:          event.Host,
 		TargetHosts:   event.TargetHostSet,
@@ -301,15 +332,15 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 
 	evt, err := es.augmentEvent(event)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Error augmenting event")
 	}
 
 	// write event to Cassandra
-	queryStr := buildCQLInsertQuery(evt, event.Data)
+	queryStr := es.buildCQLInsertQuery(evt, event.Data)
 	query := es.cqlSession.Query(queryStr)
 
 	if err := query.Exec(); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
 	fmt.Println("Event added:", evt.EventID)
 
@@ -359,32 +390,37 @@ func (es *EventStore) GetDcs() []string {
 	return dcs
 }
 
-func (es *EventStore) AddTopic(string name, string schema) (string, error) {
+func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 	id := uuid.NewV4().String()
 	queryStr := fmt.Sprintf(`
-    INSERT INTO topic (id, topic_name, schema)
+    INSERT INTO topic (id, topic_name, data_schema)
     VALUES (%[1]s, %[2]s, %[3]s);`,
 		id, stringify(name), stringify(schema))
 	query := es.cqlSession.Query(queryStr)
 
 	if err := query.Exec(); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
 	return id, nil
 }
 
-func (es *EventStore) AddDc(string dc) {
+func (es *EventStore) AddDc(dc string) (string, error) {
 	id := uuid.NewV4().String()
 	queryStr := fmt.Sprintf(`
     INSERT INTO dc (id, dc)
     VALUES (%[1]s, %[2]s);`,
-		id, stringify(name))
+		id, stringify(dc))
 	query := es.cqlSession.Query(queryStr)
 
 	if err := query.Exec(); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
 	return id, nil
+}
+
+func (es *EventStore) ValidateSchema(schema []byte) bool {
+	// TODO: figure out how to validate json schema
+	return true
 }
 
 func (es *EventStore) CloseSession() {

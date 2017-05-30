@@ -12,8 +12,8 @@ USE event_master;
 CREATE TABLE IF NOT EXISTS event (
 	event_id UUID,
 	parent_event_id UUID,
-	dc int,
-	topic_name int,
+	dc_id UUID,
+	topic_id UUID,
 	host text,
 	target_host_set set<text>,
 	user text,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS event (
 CREATE TABLE IF NOT EXISTS event_topic (
 	id UUID,
 	topic_name text,
-	schema text,
+	data_schema text,
 	PRIMARY KEY (id)
 );
 

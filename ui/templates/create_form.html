@@ -1,51 +1,77 @@
 {{define "form"}}
+<script>
+	function submitForm(form) {
+		var data = $(form).serializeArray();
+		var formData = {};
+		for (var i = 0; i < data.length; i++) {
+			var key = data[i]["name"];
+			var value = data[i]["value"];
+			var date, time;
+			if (key === "tag_set" || key === "target_host_set") {
+				formData[key] = value === "" ? [] : value.split(",")
+			} else if (key === "date") {
+				date = value;
+			} else if (key === "time") {
+				time = value;
+			} else {
+				formData[key] = value
+			}
+		}
+		if (!date) {
+			alert("Must enter date")
+		}
+		var serializedTime = time ? date + " " + time : date;
+		formData["event_time"] = new Date(serializedTime).getTime() / 1000;
+		$.post("/v1/event", JSON.stringify(formData), function(data) {
+			alert(data)
+		})
+		return false;
+	}
+</script>
 <div class="container">
-<form action="/create_event" method="post">
-	
-	<div class="form-group">
-	    <label for="dc">Data Center</label>
-	    <select class="form-control" name="dc">
-			<option value="">...</option>
-			{{ range .Dcs }}
-				<option value={{.}}>{{ . }}</option>
-			{{ end }}
-		</select>
-	</div>
-	<div class="form-group">
-	    <label for="topic">Topic</label>
-	    <select class="form-control" name="topic">
-	    	<option value="">...</option>
-        	{{ range .Topics }}
-        		<option value={{.}}>{{ . }}</option>
-        	{{ end }}
-		</select>
-	</div>
-	<div class="form-group">
-		<label for="tags">Tags</label>
-		<input type="tags" class="form-control" name="tags">
-		<small id="tagsHelp" class="form-text text-muted">comma-separated tags</small>
-  	</div>
-  	<div class="form-group">
-		<label for="host">Host</label>
-		<input type="host" class="form-control" name="host">
-  	</div>
-  	<div class="form-group">
-		<label for="user">User</label>
-		<input type="user" class="form-control" name="user">
-  	</div>
-  	<div class="form-group">
-		<label for="data">Data</label>
-		<input type="data" class="form-control" name="data">
-  	</div>
-  	<div class="form-group">
-		<label for="date">Date</label>
-		<input type="date" class="form-control" name="date">
-  	</div>
-  	<div class="form-group">
-		<label for="time">Time</label>
-		<input type="time" class="form-control" name="time">
-  	</div>
-  	<button type="submit" class="btn btn-default">Submit</button>
-</form>
+	<form onsubmit='return submitForm(this)'>
+		<div class="form-group">
+		    <label for="parentEventID">Parent Event ID</label>
+		    <input type="text" class="form-control" name="parent_event_id">
+		</div>
+		<div class="form-group">
+		    <label for="dc">Data Center</label>
+		    <input type="text" class="form-control" name="dc">
+		</div>
+		<div class="form-group">
+		    <label for="topic">Topic</label>
+		    <input type="text" class="form-control" name="topic_name">
+		</div>
+		<div class="form-group">
+			<label for="tags">Tags</label>
+			<input type="text" class="form-control" name="tag_set">
+			<small id="tagsHelp" class="form-text text-muted">comma-separated tags</small>
+	  	</div>
+	  	<div class="form-group">
+			<label for="host">Host</label>
+			<input type="text" class="form-control" name="host">
+	  	</div>
+	  	<div class="form-group">
+			<label for="targetHosts">Target Hosts</label>
+			<input type="text" class="form-control" name="target_host_set">
+	  	</div>
+	  	<div class="form-group">
+			<label for="user">User</label>
+			<input type="text" class="form-control" name="user">
+	  	</div>
+	  	<div class="form-group">
+			<label for="data">Data</label>
+			<input type="text" class="form-control" name="data">
+	  	</div>
+	  	<div class="form-group">
+			<label for="date">Date</label>
+			<input type="date" class="form-control" name="date">
+	  	</div>
+	  	<div class="form-group">
+			<label for="time">Time</label>
+			<input type="time" class="form-control" name="time">
+	  	</div>
+	  	<button type="submit" class="btn btn-default" id="submitButton">Submit</button>
+	</form>
 </div>
 {{end}}

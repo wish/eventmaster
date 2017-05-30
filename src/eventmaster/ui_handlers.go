@@ -12,7 +12,6 @@ import (
 
 type mainPageHandler struct {
 	store *EventStore
-	fm    template.FuncMap
 }
 
 type getEventHandler struct {
@@ -22,7 +21,6 @@ type getEventHandler struct {
 
 type createEventHandler struct {
 	store *EventStore
-	fm    template.FuncMap
 }
 
 type createPageHandler struct {
@@ -43,7 +41,7 @@ type pageData struct {
 }
 
 func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t, err := template.New("main.html").Funcs(mph.fm).ParseFiles("ui/templates/main.html", "ui/templates/query_form.html")
+	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/query_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
@@ -126,16 +124,13 @@ func (geh *getEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cph *createPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t, err := template.New("main.html").Funcs(cph.fm).ParseFiles("ui/templates/main.html", "ui/templates/create_form.html")
+	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/create_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	err = t.Execute(w, pageData{
-		Topics: cph.store.GetTopics(),
-		Dcs:    cph.store.GetDcs(),
-	})
+	err = t.Execute(w, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error executing template: %v", err), http.StatusInternalServerError)
 	}
