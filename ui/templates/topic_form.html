@@ -1,0 +1,57 @@
+{{define "form"}}
+<div class="container">
+	<form onsubmit='return submitTopic(this)'>
+		<div class="form-group">
+		    <label for="topic_name">Topic Name</label>
+		    <input type="text" class="form-control" name="topic_name">
+		</div>
+		<div class="form-group">
+		    <label for="data_schema">Data Schema</label>
+		    <input type="text" class="form-control" name="data_schema">
+		</div>
+		<span class="input-group-btn">
+	  		<button class="btn btn-default" type="submit">Submit</button>
+	  	</span>
+	</form>
+	<div class="panel-group" id="topic_list" style="padding-top:20px">
+	</div>
+</div>
+<script>
+	$(document).ready(function() {
+		$.ajax({
+			type: 'GET',
+			url: '/v1/topic',
+			dataType: "json",
+			success: function(data) {
+				var results = data['results'];
+				var elemt = document.getElementById("topic_list")
+				elem.innerHTML = "";
+				for (var i = 0; i < results.length; i++) {
+					topicName = results[i]['topic_name'];
+					schema = results[i]['data_schema'];
+					var inner = `
+					<div class="panel panel-default">
+					    <div class="panel-heading">`.concat(topicName, `</div>
+					    <div class="panel-body">`, schema, `</div>
+				    </div>`);
+					elem.innerHTML += inner;
+				}
+			}
+		});
+	});
+
+	function submitTopic(form) {
+		var data = $(form).serializeArray();
+		var formData = {};
+		for (var i = 0; i < data.length; i++) {
+			var key = data[i]["name"];
+			var value = data[i]["value"];
+			formData[key] = value;
+		}
+		$.post("/v1/topic", JSON.stringify(formData), function(data) {
+			// TODO: deal with errors
+		});
+		return false;
+	}
+</script>
+{{end}}

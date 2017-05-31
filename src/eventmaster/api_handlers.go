@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,21 +28,9 @@ type SearchResult struct {
 	Results []*Event `json:"results"`
 }
 
-type TopicData struct {
-	Name   string `json:"name"`
-	Schema string `json:"schema"`
-}
-
-type DcData struct {
-	Name string `json:"name"`
-}
-
-type data map[string][]string
-
 func sendError(w http.ResponseWriter, code int, err error, message string) {
 	w.WriteHeader(code)
 	w.Write([]byte(fmt.Sprintf("%s: %s", message, err.Error())))
-	return
 }
 
 func (eah *eventAPIHandler) handlePostEvent(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +75,7 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 		}
 		if len(q.SortField) != len(q.SortAscending) {
 			sendError(w, http.StatusBadRequest, errors.New("sort_field and sort_ascending don't match"), "Error")
+			return
 		}
 		startTime := query.Get("start_time")
 		if startTime != "" {
@@ -100,6 +90,7 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 	results, err := eah.store.Find(&q)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, err, "Error executing query")
+		return
 	}
 	sr := SearchResult{
 		Results: results,
@@ -107,6 +98,7 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 	jsonSr, err := json.Marshal(sr)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON")
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonSr)
@@ -114,10 +106,15 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 
 func (tah *topicAPIHandler) handlePostTopic(w http.ResponseWriter, r *http.Request) {
 	var td TopicData
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(td)
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, err, "Error reading request body")
+		return
+	}
+	err = json.Unmarshal(reqBody, &td)
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request")
+		return
 	}
 
 	var id string
@@ -125,15 +122,18 @@ func (tah *topicAPIHandler) handlePostTopic(w http.ResponseWriter, r *http.Reque
 		id, err = tah.store.AddTopic(td.Name, td.Schema)
 		if err != nil {
 			sendError(w, http.StatusBadRequest, err, "Error adding topic")
+			return
 		}
 	} else {
 		topicName := r.URL.Query().Get(":name")
 		if topicName == "" {
 			sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided")
+			return
 		}
 		id, err = tah.store.UpdateTopic(topicName, td.Name, td.Schema)
 		if err != nil {
 			sendError(w, http.StatusBadRequest, err, "Error updating topic")
+			return
 		}
 	}
 	w.WriteHeader(http.StatusOK)
@@ -142,10 +142,15 @@ func (tah *topicAPIHandler) handlePostTopic(w http.ResponseWriter, r *http.Reque
 
 func (dah *dcAPIHandler) handlePostDc(w http.ResponseWriter, r *http.Request) {
 	var dd DcData
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(dd)
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, err, "Error reading request body")
+		return
+	}
+	err = json.Unmarshal(reqBody, &dd)
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request")
+		return
 	}
 
 	var id string
@@ -153,15 +158,18 @@ func (dah *dcAPIHandler) handlePostDc(w http.ResponseWriter, r *http.Request) {
 		id, err = dah.store.AddDc(dd.Name)
 		if err != nil {
 			sendError(w, http.StatusBadRequest, err, "Error adding dc")
+			return
 		}
 	} else {
 		dcName := r.URL.Query().Get(":name")
 		if dcName == "" {
 			sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided")
+			return
 		}
 		id, err = dah.store.UpdateDc(dcName, dd.Name)
 		if err != nil {
 			sendError(w, http.StatusBadRequest, err, "Error updating dc")
+			return
 		}
 	}
 	w.WriteHeader(http.StatusOK)
@@ -180,12 +188,17 @@ func (tah *topicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "PUT" {
 		tah.handlePostTopic(w, r)
 	} else if r.Method == "GET" {
-		var topicSet data
-		topics := tah.store.GetTopics()
-		topicSet["topic"] = topics
+		topicSet := make(map[string][]TopicData)
+		topics, err := tah.store.GetTopics()
+		if err != nil {
+			sendError(w, http.StatusInternalServerError, err, "Error getting topics from store")
+			return
+		}
+		topicSet["results"] = topics
 		str, err := json.Marshal(topicSet)
 		if err != nil {
 			sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON")
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(str)
@@ -196,12 +209,17 @@ func (dah *dcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "PUT" {
 		dah.handlePostDc(w, r)
 	} else if r.Method == "GET" {
-		var dcSet data
-		dcs := dah.store.GetDcs()
-		dcSet["dc"] = dcs
+		dcSet := make(map[string][]string)
+		dcs, err := dah.store.GetDcs()
+		if err != nil {
+			sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store")
+			return
+		}
+		dcSet["results"] = dcs
 		str, err := json.Marshal(dcSet)
 		if err != nil {
 			sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON")
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(str)

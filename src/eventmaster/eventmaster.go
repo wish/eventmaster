@@ -50,8 +50,16 @@ func startServer(store *EventStore) {
 	cph := &createPageHandler{
 		store: store,
 	}
+	tph := &topicPageHandler{
+		store: store,
+	}
+	dph := &dcPageHandler{
+		store: store,
+	}
 	r.Handle("/", mph)
 	r.Handle("/add_event", cph)
+	r.Handle("/topic", tph)
+	r.Handle("/dc", dph)
 	go func() {
 		fmt.Println("http server starting on port 8080")
 		http.ListenAndServe(":8080", r)
@@ -95,7 +103,10 @@ func main() {
 		log.Fatalf("Unable to create event store: %v", err)
 	}
 
-	store.Update()
+	err = store.Update()
+	if err != nil {
+		fmt.Println("Error loading dcs and topics from Cassandra", err)
+	}
 	startServer(store)
 
 	// Create the EventMaster server
@@ -126,7 +137,10 @@ func main() {
 	ticker := time.NewTicker(time.Minute)
 	go func() {
 		for _ = range ticker.C {
-			store.Update()
+			err := store.Update()
+			if err != nil {
+				fmt.Println("Error updating dcs and topics from cassandra:", err)
+			}
 		}
 	}()
 

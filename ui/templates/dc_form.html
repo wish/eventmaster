@@ -1,0 +1,47 @@
+{{define "form"}}
+<div class="container">
+	<form onsubmit='return submitDc(this)'>
+		<div class="form-group">
+		    <label for="dc">Data Center</label>
+		    <input type="text" class="form-control" name="dc">
+		</div>
+		<span class="input-group-btn">
+	  		<button class="btn btn-default" type="submit">Submit</button>
+	  	</span>
+	</form>
+	<div class="list-group" id="dc_list" style="padding-top:20px">
+	</div>
+</div>
+<script>
+	$(document).ready(function() {
+		$.ajax({
+			type: 'GET',
+			url: '/v1/dc',
+			dataType: "json",
+			success: function(data) {
+				var dcs = data['results'];
+				var elem = document.getElementById("dc_list");
+				elem.innerHTML = "";
+				for (var i = 0; i < dcs.length; i++) {
+					var item = `<a class="list-group-item">`.concat(dcs[i], `</a>`)
+					elem.innerHTML += item;
+				}
+			}
+		});
+	});
+
+	function submitDc(form) {
+		var data = $(form).serializeArray();
+		var formData = {};
+		for (var i = 0; i < data.length; i++) {
+			var key = data[i]["name"];
+			var value = data[i]["value"];
+			formData[key] = value;
+		}
+		$.post("/v1/dc", JSON.stringify(formData), function(data) {
+			// TODO: deal with error
+		});
+		return false;
+	}
+</script>
+{{end}}

@@ -30,6 +30,15 @@ type Event struct {
 	EventType     int32                  `json:"event_type"`
 }
 
+type TopicData struct {
+	Name   string `json:"topic_name"`
+	Schema string `json:"data_schema"`
+}
+
+type DcData struct {
+	Name string `json:"dc"`
+}
+
 func stringify(str string) string {
 	if str == "" {
 		return "null"
@@ -143,7 +152,7 @@ func (es *EventStore) getDcId(topic string) string {
 func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
 	// TODO: change this to prevent tombstones
 	return fmt.Sprintf(`
-    INSERT INTO event (event_id, parent_event_id, dc, topic_name, host, target_host_set, user, event_time, tag_set, data_json, event_type)
+    INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, event_type)
     VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);`,
 		event.EventID, stringifyUUID(event.ParentEventID), es.getDcId(event.Dc), es.getTopicId(event.TopicName),
 		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
@@ -299,16 +308,13 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 	if ok, msg := es.validateEvent(event); !ok {
 		return "", errors.New(msg)
 	}
-
 	evt, err := es.augmentEvent(event)
 	if err != nil {
 		return "", errors.Wrap(err, "Error augmenting event")
 	}
-
 	// write event to Cassandra
 	queryStr := es.buildCQLInsertQuery(evt, event.Data)
 	query := es.cqlSession.Query(queryStr)
-
 	if err := query.Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
@@ -332,22 +338,28 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 	return evt.EventID, nil
 }
 
-func (es *EventStore) GetTopics() []string {
-	iter := es.cqlSession.Query("SELECT topic_name FROM event_topics;").Iter()
-	var topic string
-	var topics []string
+func (es *EventStore) GetTopics() ([]TopicData, error) {
+	iter := es.cqlSession.Query("SELECT topic_name, data_schema FROM event_topic;").Iter()
+	var name, schema string
+	var topics []TopicData
 	for true {
-		if iter.Scan(&topic) {
-			topics = append(topics, topic)
+		if iter.Scan(&name, &schema) {
+			topics = append(topics, TopicData{
+				Name:   name,
+				Schema: schema,
+			})
 		} else {
 			break
 		}
 	}
-	return topics
+	if err := iter.Close(); err != nil {
+		return nil, errors.Wrap(err, "Error closing iter")
+	}
+	return topics, nil
 }
 
-func (es *EventStore) GetDcs() []string {
-	iter := es.cqlSession.Query("SELECT dc FROM event_dcs;").Iter()
+func (es *EventStore) GetDcs() ([]string, error) {
+	iter := es.cqlSession.Query("SELECT dc FROM event_dc;").Iter()
 	var dc string
 	var dcs []string
 	for true {
@@ -357,7 +369,10 @@ func (es *EventStore) GetDcs() []string {
 			break
 		}
 	}
-	return dcs
+	if err := iter.Close(); err != nil {
+		return nil, errors.Wrap(err, "Error closing iter")
+	}
+	return dcs, nil
 }
 
 func (es *EventStore) AddTopic(name string, schema string) (string, error) {
@@ -375,6 +390,7 @@ func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 	if err := query.Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
+	fmt.Println("Topic Added:", name, id)
 	return id, nil
 }
 
@@ -411,6 +427,9 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 }
 
 func (es *EventStore) AddDc(dc string) (string, error) {
+	if dc == "" {
+		return "", errors.New("Error adding dc - dc name is empty")
+	}
 	_, exists := es.dcNameMap[dc]
 	if exists {
 		return "", errors.New(fmt.Sprintf("Error adding dc - dc with name %s already exists", dc))
@@ -426,6 +445,7 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 	if err := query.Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
+	fmt.Println("Dc Added:", dc, id)
 	return id, nil
 }
 
@@ -453,47 +473,49 @@ func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
 	return id, nil
 }
 
-func (es *EventStore) Update() {
-	var newDcNameMap map[string]string
+func (es *EventStore) Update() error {
+	newDcNameMap := make(map[string]string)
 	iter := es.cqlSession.Query("SELECT dc_id, dc FROM event_dc;").Iter()
-	var dcInfo map[string]interface{}
+	var dcId gocql.UUID
+	var dcName string
 	for true {
-		if iter.Scan(&dcInfo) {
-			if dcName, ok := dcInfo["dc"].(string); ok {
-				if dcId, ok := dcInfo["dc_id"].(string); ok {
-					newDcNameMap[dcName] = dcId
-				}
-			}
+		if iter.Scan(&dcId, &dcName) {
+			newDcNameMap[dcName] = dcId.String()
 		} else {
 			break
 		}
 	}
+	if err := iter.Close(); err != nil {
+		return errors.Wrap(err, "Error closing dc iter")
+	}
 	// TODO: add mutex
-	es.dcNameMap = newDcNameMap
+	if newDcNameMap != nil {
+		es.dcNameMap = newDcNameMap
+	}
 
-	var newTopicNameMap map[string]string
-	var newTopicSchemaMap map[string]string
+	newTopicNameMap := make(map[string]string)
+	newTopicSchemaMap := make(map[string]string)
 	iter = es.cqlSession.Query("SELECT topic_id, topic_name, data_schema FROM event_topic;").Iter()
-	var topicInfo map[string]interface{}
+	var topicId gocql.UUID
+	var topicName, dataSchema string
 	for true {
-		if iter.Scan(&topicInfo) {
-			if topicName, ok := topicInfo["topic_name"].(string); ok {
-				if topicId, ok := topicInfo["topic_id"].(string); ok {
-					newTopicNameMap[topicName] = topicId
-					if schema, ok := topicInfo["data_schema"].(string); ok {
-						newTopicSchemaMap[topicId] = schema
-					} else {
-						newTopicSchemaMap[topicId] = ""
-					}
-				}
-			}
+		if iter.Scan(&topicId, &topicName, &dataSchema) {
+			id := topicId.String()
+			newTopicNameMap[topicName] = id
+			newTopicSchemaMap[id] = dataSchema
 		} else {
 			break
 		}
 	}
+	if err := iter.Close(); err != nil {
+		return errors.Wrap(err, "Error closing topic iter")
+	}
 	// TODO: add mutex
-	es.topicNameMap = newTopicNameMap
-	es.topicSchemaMap = newTopicSchemaMap
+	if newTopicNameMap != nil {
+		es.topicNameMap = newTopicNameMap
+		es.topicSchemaMap = newTopicSchemaMap
+	}
+	return nil
 }
 
 func (es *EventStore) CloseSession() {

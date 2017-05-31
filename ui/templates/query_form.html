@@ -55,8 +55,25 @@
 		}
 		
 		$.get("/v1/event?"+params.join("&"), function(data) {
-			var results = data['results']
-			// TODO: populate table
+			var results = data['results'];
+			console.log(results);
+			var elem = document.getElementById("event_table")
+			elem.innerHTML = "";
+			for (var i = 0; i < results.length; i++) {
+				var event = results[i];
+				var item = 
+				`<tr>
+					<th scope="row">`.concat(event['topic_name'],`</th>
+					<td>`,event['dc'],`</td>
+					<td>`,event['tag_set'],`</td>
+					<td>`,new Date(event['event_time']*1000).toUTCString(),`</td>
+					<td>`,event['host'],`</td>
+					<td>`,event['target_host_set'],`</td>
+					<td>`,event['user'],`</td>
+					<td>`,event['data'],`</td>
+				</tr>`)
+				elem.innerHTML += item;
+			}
 		})
 		return false;
 	}
@@ -76,7 +93,7 @@
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="targetHost" class="col-sm-1 col-form-label">Target Host</label>
+	  		<label for="target_host" class="col-sm-1 col-form-label">Target Host</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Target Host" name="target_host">
 			</div>
@@ -88,7 +105,7 @@
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="tag" class="col-sm-1 col-form-label">Tag</label>
+	  		<label for="tag_set" class="col-sm-1 col-form-label">Tag</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Tag" name="tag_set">
 			</div>
@@ -120,6 +137,7 @@
 			<th>Tags</th>
 			<th>Timestamp</th>
 			<th>Host</th>
+			<th>Target Hosts</th>
 			<th>User</th>
 			<th>Data</th>
 		</tr>
