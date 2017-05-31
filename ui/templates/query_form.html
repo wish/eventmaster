@@ -1,34 +1,72 @@
 {{ define "form" }}
 
 <script>
-	 $(function(){
-	    $(".dropdown-menu").on('click', 'li a', function(){
-	      $("#filterByBtn").text($(this).text());
-	   });
-	});
+	 function submitQuery(form) {
+		var data = $(form).serializeArray();
+		var formData = {};
+		for (var i = 0; i < data.length; i++) {
+			var key = data[i]["name"];
+			var value = data[i]["value"];
+			var startDate, startTime, endDate, endTime;
+			switch(key) {
+				case "sort_ascending":
+					var sortArr = value === "" ? [] : value.split(",")
+					sortArr.map(function(v) {
+						if (v.toLowerCase() === "t" || v.toLowerCase() === "true") {
+							return true;
+						}
+						return false;
+					})
+					formData[key] = sortArr;
+					break;
+				case "startDate":
+					startDate = value;
+					break;
+				case "startTime":
+					startTime = value;
+					break;
+				case "endDate":
+					endDate = value;
+					break;
+				case "endTime":
+					endTime = value;
+					break;
+				default:
+					formData[key] = value === "" ? [] : value.split(",");
+			}
+		}
+		if (startDate) {
+			var serializedStart = startTime ? startDate + " " + startTime : startDate;
+			formData["start_time"] = new Date(serializedStart).getTime() / 1000;
+		}
+		if (endDate) {
+			var serializedEnd = endTime ? endDate + " " + endTime : endDate;
+			formData["end_time"] = new Date(serializedEnd).getTime() / 1000;
+		}
+		params = [];
+		for (var key in formData) {
+			if (key === "start_time" || key === "end_time") {
+				params.push(key + "=" + formData[key])
+			} else {
+				for (var j = 0; j < formData[key].length; j++) {
+					params.push(key + "=" + formData[key][j])
+				}
+			}
+		}
+		
+		$.get("/v1/event?"+params.join("&"), function(data) {
+			var results = data['results']
+			// TODO: populate table
+		})
+		return false;
+	}
 </script>
 <div class="container">
-	<form action="/get_events">
-    	<!-- <div class="form-group"> -->
-<!--                     <select class="form-control" name="dc" id="dcFilter">
-				<option value="">Filter by DC...</option>
-				{{ range .Dcs }}
-					<option value={{ . }}>{{ . }}</option>
-				{{ end }}
-			</select>
-		</div>
-		<div class="form-group">
-            <select class="form-control" name="topic">
-            	<option value="">Filter by Topic...</option>
-            	{{ range .Topics }}
-            		<option value={{.}}> {{.}}</option>
-            	{{ end }}
-			</select>
-		</div> -->
+	<form onsubmit='return submitQuery(this)'>
 		<div class="form-group row">
 			<label for="dc" class="col-sm-1 col-form-label">DC</label>
 			<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Data center" name="dc" id="dc">
+				<input type="text" class="form-control" placeholder="Data center" name="dc">
 			</div>
 	  	</div>
 		<div class="form-group row">
@@ -40,19 +78,19 @@
 	  	<div class="form-group row">
 	  		<label for="targetHost" class="col-sm-1 col-form-label">Target Host</label>
 	  		<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Target Host" name="target" id="targetHost">
+				<input type="text" class="form-control" placeholder="Target Host" name="target_host">
 			</div>
 	  	</div>
 	  	<div class="form-group row">
 	  		<label for="topicName" class="col-sm-1 col-form-label">Topic</label>
 	  		<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Topic" name="topicName" id="topicName">
+				<input type="text" class="form-control" placeholder="Topic" name="topic_name" id="topicName">
 			</div>
 	  	</div>
 	  	<div class="form-group row">
 	  		<label for="tag" class="col-sm-1 col-form-label">Tag</label>
 	  		<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Tag" name="tag" id="tag">
+				<input type="text" class="form-control" placeholder="Tag" name="tag_set">
 			</div>
 	  	</div>
 	  	<div class="form-group input-group">

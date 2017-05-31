@@ -52,7 +52,10 @@ func (eah *eventAPIHandler) handlePostEvent(w http.ResponseWriter, r *http.Reque
 func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 	var q eventmaster.Query
 
-	if r.Method == "GET" {
+	// read from request body first - if there's an error, read from query params
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&q)
+	if err != nil {
 		query := r.URL.Query()
 		q.Dc = query["dc"]
 		q.Host = query["host"]
@@ -77,13 +80,6 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 		endTime := query.Get("end_time")
 		if endTime != "" {
 			q.EndTime, _ = strconv.ParseInt(endTime, 10, 64)
-		}
-	} else if r.Method == "POST" {
-		decoder := json.NewDecoder(r.Body)
-		err := decoder.Decode(&q)
-		if err != nil {
-			sendError(w, http.StatusBadRequest, err, "Error decoding JSON query")
-			return
 		}
 	}
 
