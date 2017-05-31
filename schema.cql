@@ -21,20 +21,20 @@ CREATE TABLE IF NOT EXISTS event (
 	tag_set set<text>,
 	data_json text,
 	event_type int,
-	PRIMARY KEY ((event_id,topic_name),event_time)
+	PRIMARY KEY ((event_id,topic_id),event_time)
 );
 
 // Create table to store distinct topics
 CREATE TABLE IF NOT EXISTS event_topic (
-	id UUID,
+	topic_id UUID,
 	topic_name text,
 	data_schema text,
-	PRIMARY KEY (id)
+	PRIMARY KEY (topic_id)
 );
 
 // Create table to store distinct dcs
 CREATE TABLE IF NOT EXISTS event_dc (
-	id UUID,
+	dc_id UUID,
 	dc text,
-	PRIMARY KEY (id)
+	PRIMARY KEY (dc_id)
 );

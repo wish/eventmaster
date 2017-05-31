@@ -35,8 +35,14 @@ func startServer(store *EventStore) {
 	tah := &topicAPIHandler{
 		store: store,
 	}
+	dah := &dcAPIHandler{
+		store: store,
+	}
 	r.Handle("/v1/event", eah)
+	r.Handle("/v1/topic", tah)
 	r.Handle("/v1/topic/{name}", tah)
+	r.Handle("/v1/dc", dah)
+	r.Handle("/v1/dc/{name}", dah)
 
 	mph := &mainPageHandler{
 		store: store,

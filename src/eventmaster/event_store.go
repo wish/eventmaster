@@ -58,33 +58,9 @@ type EventStore struct {
 	cqlSession     *gocql.Session
 	esClient       *elastic.Client
 	failedEvents   []*Event
-	topicNameMap   map[string]string
-	topicSchemaMap map[string]string
-	dcNameMap      map[string]string
-}
-
-func (es *EventStore) getTopicId(topic string) string {
-	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
-		return id
-	}
-	return "null"
-}
-
-func (es *EventStore) getDcId(topic string) string {
-	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
-		return id
-	}
-	return "null"
-}
-
-func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
-	// TODO: change this to prevent tombstones
-	return fmt.Sprintf(`
-    INSERT INTO event (event_id, parent_event_id, dc, topic_name, host, target_host_set, user, event_time, tag_set, data_json, event_type)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);`,
-		event.EventID, stringifyUUID(event.ParentEventID), es.getDcId(event.Dc), es.getTopicId(event.TopicName),
-		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
-		stringifyArr(event.Tags), stringify(data), event.EventType)
+	topicNameMap   map[string]string // map of name to id
+	topicSchemaMap map[string]string // map of id to schema
+	dcNameMap      map[string]string // map of name to id
 }
 
 func NewEventStore() (*EventStore, error) {
@@ -150,39 +126,33 @@ func NewEventStore() (*EventStore, error) {
 	}, nil
 }
 
-func (es *EventStore) Update() {
-	iter := es.cqlSession.Query("SELECT id, dc FROM event_dc;").Iter()
-	var dcInfo map[string]interface{}
-	for true {
-		if iter.Scan(&dcInfo) {
-			if dcName, ok := dcInfo["dc"].(string); ok {
-				if dcId, ok := dcInfo["id"].(string); ok {
-					es.dcNameMap[dcName] = dcId
-				}
-			}
-		} else {
-			break
-		}
+func (es *EventStore) getTopicId(topic string) string {
+	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
+		return id
 	}
+	return "null"
+}
 
-	iter = es.cqlSession.Query("SELECT id, topic_name, schema FROM event_topic;").Iter()
-	var topicInfo map[string]interface{}
-	for true {
-		if iter.Scan(&topicInfo) {
-			if topicName, ok := topicInfo["topic_name"].(string); ok {
-				if topicId, ok := topicInfo["id"].(string); ok {
-					es.topicNameMap[topicName] = topicId
-					if schema, ok := topicInfo["schema"].(string); ok {
-						es.topicSchemaMap[topicId] = schema
-					} else {
-						es.topicSchemaMap[topicId] = ""
-					}
-				}
-			}
-		} else {
-			break
-		}
+func (es *EventStore) getDcId(topic string) string {
+	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
+		return id
 	}
+	return "null"
+}
+
+func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
+	// TODO: change this to prevent tombstones
+	return fmt.Sprintf(`
+    INSERT INTO event (event_id, parent_event_id, dc, topic_name, host, target_host_set, user, event_time, tag_set, data_json, event_type)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);`,
+		event.EventID, stringifyUUID(event.ParentEventID), es.getDcId(event.Dc), es.getTopicId(event.TopicName),
+		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
+		stringifyArr(event.Tags), stringify(data), event.EventType)
+}
+
+func (es *EventStore) validateSchema(schema string) bool {
+	// TODO: figure out how to validate json schema
+	return true
 }
 
 func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
@@ -245,39 +215,6 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	return query
 }
 
-func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
-	if q.StartTime == 0 {
-		q.StartTime = -1
-	}
-	if q.EndTime == 0 {
-		q.EndTime = -1
-	}
-	bq := es.buildESQuery(q)
-	ctx := context.Background()
-
-	sq := es.esClient.Search().
-		Index("event_master").
-		Query(bq).
-		Pretty(true)
-
-	for i, field := range q.SortField {
-		sq.Sort(field, q.SortAscending[i])
-	}
-	sr, err := sq.Do(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error executing ES search query")
-	}
-
-	var evt Event
-	var evts []*Event
-	for _, item := range sr.Each(reflect.TypeOf(evt)) {
-		if t, ok := item.(Event); ok {
-			evts = append(evts, &t)
-		}
-	}
-	return evts, nil
-}
-
 func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
 	if event.Dc == "" {
 		return false, "Event missing dc"
@@ -323,6 +260,39 @@ func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
 		Data:          d,
 		EventType:     event.EventType,
 	}, nil
+}
+
+func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
+	if q.StartTime == 0 {
+		q.StartTime = -1
+	}
+	if q.EndTime == 0 {
+		q.EndTime = -1
+	}
+	bq := es.buildESQuery(q)
+	ctx := context.Background()
+
+	sq := es.esClient.Search().
+		Index("event_master").
+		Query(bq).
+		Pretty(true)
+
+	for i, field := range q.SortField {
+		sq.Sort(field, q.SortAscending[i])
+	}
+	sr, err := sq.Do(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error executing ES search query")
+	}
+
+	var evt Event
+	var evts []*Event
+	for _, item := range sr.Each(reflect.TypeOf(evt)) {
+		if t, ok := item.(Event); ok {
+			evts = append(evts, &t)
+		}
+	}
+	return evts, nil
 }
 
 func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
@@ -391,9 +361,13 @@ func (es *EventStore) GetDcs() []string {
 }
 
 func (es *EventStore) AddTopic(name string, schema string) (string, error) {
+	ok := es.validateSchema(schema)
+	if !ok {
+		return "", errors.New("Error adding topic - schema is not in valid JSON schema format")
+	}
 	id := uuid.NewV4().String()
 	queryStr := fmt.Sprintf(`
-    INSERT INTO topic (id, topic_name, data_schema)
+    INSERT INTO event_topic (topic_id, topic_name, data_schema)
     VALUES (%[1]s, %[2]s, %[3]s);`,
 		id, stringify(name), stringify(schema))
 	query := es.cqlSession.Query(queryStr)
@@ -404,10 +378,47 @@ func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 	return id, nil
 }
 
+func (es *EventStore) UpdateTopic(oldName string, newName string, schema string) (string, error) {
+	_, exists := es.topicNameMap[newName]
+	if oldName != newName && exists {
+		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s already exists", newName))
+	}
+	id, exists := es.topicNameMap[oldName]
+	if !exists {
+		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
+	}
+	queryStr := fmt.Sprintf(`UPDATE event_topic 
+		SET topic_name = %s"`, stringify(newName))
+	if schema != "" {
+		ok := es.validateSchema(schema)
+		if !ok {
+			return "", errors.New("Error adding topic - schema is not in valid JSON schema format")
+		}
+		queryStr = fmt.Sprintf("%s, data_schema = %s", stringify(schema))
+	}
+	queryStr = fmt.Sprintf("%s WHERE topic_id = %s;", id)
+	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
+		return "", errors.Wrap(err, "Error executing update query in Cassandra")
+	}
+	es.topicNameMap[newName] = es.topicNameMap[oldName]
+	if newName != oldName {
+		delete(es.topicNameMap, oldName)
+	}
+	if schema != "" {
+		es.topicSchemaMap[id] = schema
+	}
+	return id, nil
+}
+
 func (es *EventStore) AddDc(dc string) (string, error) {
+	_, exists := es.dcNameMap[dc]
+	if exists {
+		return "", errors.New(fmt.Sprintf("Error adding dc - dc with name %s already exists", dc))
+	}
+
 	id := uuid.NewV4().String()
 	queryStr := fmt.Sprintf(`
-    INSERT INTO dc (id, dc)
+    INSERT INTO event_dc (dc_id, dc)
     VALUES (%[1]s, %[2]s);`,
 		id, stringify(dc))
 	query := es.cqlSession.Query(queryStr)
@@ -418,9 +429,71 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 	return id, nil
 }
 
-func (es *EventStore) ValidateSchema(schema []byte) bool {
-	// TODO: figure out how to validate json schema
-	return true
+func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
+	_, exists := es.dcNameMap[newName]
+	if oldName != newName && exists {
+		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s already exists", newName))
+	}
+	id, exists := es.dcNameMap[oldName]
+	if !exists {
+		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s doesn't exist", oldName))
+	}
+	queryStr := fmt.Sprintf(`UPDATE event_dc 
+		SET dc = %s 
+		WHERE dc_id = %s;`,
+		stringify(newName), id)
+
+	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
+		return "", errors.Wrap(err, "Error executing update query in Cassandra")
+	}
+	es.dcNameMap[newName] = es.dcNameMap[oldName]
+	if newName != oldName {
+		delete(es.dcNameMap, oldName)
+	}
+	return id, nil
+}
+
+func (es *EventStore) Update() {
+	var newDcNameMap map[string]string
+	iter := es.cqlSession.Query("SELECT dc_id, dc FROM event_dc;").Iter()
+	var dcInfo map[string]interface{}
+	for true {
+		if iter.Scan(&dcInfo) {
+			if dcName, ok := dcInfo["dc"].(string); ok {
+				if dcId, ok := dcInfo["dc_id"].(string); ok {
+					newDcNameMap[dcName] = dcId
+				}
+			}
+		} else {
+			break
+		}
+	}
+	// TODO: add mutex
+	es.dcNameMap = newDcNameMap
+
+	var newTopicNameMap map[string]string
+	var newTopicSchemaMap map[string]string
+	iter = es.cqlSession.Query("SELECT topic_id, topic_name, data_schema FROM event_topic;").Iter()
+	var topicInfo map[string]interface{}
+	for true {
+		if iter.Scan(&topicInfo) {
+			if topicName, ok := topicInfo["topic_name"].(string); ok {
+				if topicId, ok := topicInfo["topic_id"].(string); ok {
+					newTopicNameMap[topicName] = topicId
+					if schema, ok := topicInfo["data_schema"].(string); ok {
+						newTopicSchemaMap[topicId] = schema
+					} else {
+						newTopicSchemaMap[topicId] = ""
+					}
+				}
+			}
+		} else {
+			break
+		}
+	}
+	// TODO: add mutex
+	es.topicNameMap = newTopicNameMap
+	es.topicSchemaMap = newTopicSchemaMap
 }
 
 func (es *EventStore) CloseSession() {

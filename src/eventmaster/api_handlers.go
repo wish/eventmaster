@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,9 +19,24 @@ type topicAPIHandler struct {
 	store *EventStore
 }
 
+type dcAPIHandler struct {
+	store *EventStore
+}
+
 type SearchResult struct {
 	Results []*Event `json:"results"`
 }
+
+type TopicData struct {
+	Name   string `json:"name"`
+	Schema string `json:"schema"`
+}
+
+type DcData struct {
+	Name string `json:"name"`
+}
+
+type data map[string][]string
 
 func sendError(w http.ResponseWriter, code int, err error, message string) {
 	w.WriteHeader(code)
@@ -99,19 +113,56 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 }
 
 func (tah *topicAPIHandler) handlePostTopic(w http.ResponseWriter, r *http.Request) {
-	topicName := r.URL.Query().Get(":name")
+	var td TopicData
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(td)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request")
+	}
 
-	schema, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		sendError(w, http.StatusBadRequest, err, "Error reading body of request")
+	var id string
+	if r.Method == "POST" {
+		id, err = tah.store.AddTopic(td.Name, td.Schema)
+		if err != nil {
+			sendError(w, http.StatusBadRequest, err, "Error adding topic")
+		}
+	} else {
+		topicName := r.URL.Query().Get(":name")
+		if topicName == "" {
+			sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided")
+		}
+		id, err = tah.store.UpdateTopic(topicName, td.Name, td.Schema)
+		if err != nil {
+			sendError(w, http.StatusBadRequest, err, "Error updating topic")
+		}
 	}
-	ok := tah.store.ValidateSchema(schema)
-	if !ok {
-		sendError(w, http.StatusBadRequest, err, "Schema is not in valid JSON format")
-	}
-	id, err := tah.store.AddTopic(topicName, string(schema))
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(id))
+}
+
+func (dah *dcAPIHandler) handlePostDc(w http.ResponseWriter, r *http.Request) {
+	var dd DcData
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(dd)
 	if err != nil {
-		sendError(w, http.StatusInternalServerError, err, "Error adding topic")
+		sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request")
+	}
+
+	var id string
+	if r.Method == "POST" {
+		id, err = dah.store.AddDc(dd.Name)
+		if err != nil {
+			sendError(w, http.StatusBadRequest, err, "Error adding dc")
+		}
+	} else {
+		dcName := r.URL.Query().Get(":name")
+		if dcName == "" {
+			sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided")
+		}
+		id, err = dah.store.UpdateDc(dcName, dd.Name)
+		if err != nil {
+			sendError(w, http.StatusBadRequest, err, "Error updating dc")
+		}
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(id))
@@ -125,8 +176,34 @@ func (eah *eventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (eah *topicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		eah.handlePostTopic(w, r)
+func (tah *topicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" || r.Method == "PUT" {
+		tah.handlePostTopic(w, r)
+	} else if r.Method == "GET" {
+		var topicSet data
+		topics := tah.store.GetTopics()
+		topicSet["topic"] = topics
+		str, err := json.Marshal(topicSet)
+		if err != nil {
+			sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(str)
+	}
+}
+
+func (dah *dcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" || r.Method == "PUT" {
+		dah.handlePostDc(w, r)
+	} else if r.Method == "GET" {
+		var dcSet data
+		dcs := dah.store.GetDcs()
+		dcSet["dc"] = dcs
+		str, err := json.Marshal(dcSet)
+		if err != nil {
+			sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(str)
 	}
 }
