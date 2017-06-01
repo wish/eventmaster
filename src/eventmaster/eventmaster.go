@@ -136,12 +136,16 @@ func main() {
 		}
 	}()
 
-	ticker := time.NewTicker(time.Second * 10)
+	ticker := time.NewTicker(time.Second * time.Duration(store.FlushInterval))
 	go func() {
 		for _ = range ticker.C {
 			err := store.Update()
 			if err != nil {
 				fmt.Println("Error updating dcs and topics from cassandra:", err)
+			}
+			err = store.FlushToES()
+			if err != nil {
+				fmt.Println("Error flushing events from temp_event to ES:", err)
 			}
 		}
 	}()

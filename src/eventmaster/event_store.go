@@ -17,30 +17,6 @@ import (
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
-type Event struct {
-	EventID       string                 `json:"event_id"`
-	ParentEventID string                 `json:"parent_event_id"`
-	EventTime     int64                  `json:"event_time"`
-	Dc            string                 `json:"dc"`
-	TopicName     string                 `json:"topic_name"`
-	Tags          []string               `json:"tag_set"`
-	Host          string                 `json:"host"`
-	TargetHosts   []string               `json:"target_host_set"`
-	User          string                 `json:"user"`
-	Data          map[string]interface{} `json:"data"`
-	EventType     int32                  `json:"event_type"`
-	ReceivedTime  int64                  `json:"received_time"`
-}
-
-type TopicData struct {
-	Name   string `json:"topic_name"`
-	Schema string `json:"data_schema"`
-}
-
-type DcData struct {
-	Name string `json:"dc"`
-}
-
 func stringify(str string) string {
 	if str == "" {
 		return "null"
@@ -65,15 +41,40 @@ func stringifyUUID(str string) string {
 	return str
 }
 
+type Event struct {
+	EventID       string                 `json:"event_id"`
+	ParentEventID string                 `json:"parent_event_id"`
+	EventTime     int64                  `json:"event_time"`
+	Dc            string                 `json:"dc"`
+	TopicName     string                 `json:"topic_name"`
+	Tags          []string               `json:"tag_set"`
+	Host          string                 `json:"host"`
+	TargetHosts   []string               `json:"target_host_set"`
+	User          string                 `json:"user"`
+	Data          map[string]interface{} `json:"data"`
+	EventType     int32                  `json:"event_type"`
+	ReceivedTime  int64                  `json:"received_time"`
+}
+
+type TopicData struct {
+	Name   string `json:"topic_name"`
+	Schema string `json:"data_schema"`
+}
+
+type DcData struct {
+	Name string `json:"dc"`
+}
+
 type EventStore struct {
 	cqlSession     *gocql.Session
 	esClient       *elastic.Client
-	eventsToFlush  []*Event
-	topicNameMap   map[string]string // map of name to id
+	topicNameToId  map[string]string // map of name to id
+	topicIdToName  map[string]string // map of id to name
 	topicSchemaMap map[string]string // map of id to schema
-	dcNameMap      map[string]string // map of name to id
+	dcNameToId     map[string]string // map of name to id
+	dcIdToName     map[string]string // map of id to name
 	indexNames     []string          // list of name of all indices in es cluster
-	flushInterval  int
+	FlushInterval  int
 }
 
 func NewEventStore() (*EventStore, error) {
@@ -132,19 +133,19 @@ func NewEventStore() (*EventStore, error) {
 	return &EventStore{
 		cqlSession:    session,
 		esClient:      client,
-		flushInterval: dbConf.FlushInterval,
+		FlushInterval: dbConf.FlushInterval,
 	}, nil
 }
 
 func (es *EventStore) getTopicId(topic string) string {
-	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
+	if id, ok := es.topicNameToId[strings.ToLower(topic)]; ok {
 		return id
 	}
 	return "null"
 }
 
-func (es *EventStore) getDcId(topic string) string {
-	if id, ok := es.topicNameMap[strings.ToLower(topic)]; ok {
+func (es *EventStore) getDcId(dc string) string {
+	if id, ok := es.dcNameToId[strings.ToLower(dc)]; ok {
 		return id
 	}
 	return "null"
@@ -153,8 +154,12 @@ func (es *EventStore) getDcId(topic string) string {
 func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
 	// TODO: change this to prevent tombstones
 	return fmt.Sprintf(`
+	BEGIN BATCH
     INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, event_type, received_time)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d, %[12]d);`,
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d, %[12]d);
+    INSERT INTO temp_event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, event_type, received_time)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d, %[12]d);
+    APPLY BATCH;`,
 		event.EventID, stringifyUUID(event.ParentEventID), es.getDcId(event.Dc), es.getTopicId(event.TopicName),
 		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
 		stringifyArr(event.Tags), stringify(data), event.EventType, event.ReceivedTime)
@@ -253,10 +258,14 @@ func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
 	} else if event.TopicName == "" {
 		return false, "Event missing topic_name"
 	} else if event.EventTime == 0 {
-		return false, "Event missing event_time"
+		event.EventTime = time.Now().Unix()
 	}
 
-	id, ok := es.topicNameMap[strings.ToLower(event.TopicName)]
+	id, ok := es.dcNameToId[strings.ToLower(event.Dc)]
+	if !ok {
+		return false, fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc))
+	}
+	id, ok = es.topicNameToId[strings.ToLower(event.TopicName)]
 	if !ok {
 		return false, fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName))
 	}
@@ -363,12 +372,6 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
 	fmt.Println("Event added:", evt.EventID)
-
-	// TODO: mutex
-	es.eventsToFlush = append(es.eventsToFlush, evt)
-	if len(es.eventsToFlush) >= es.flushInterval {
-		go es.FlushToES()
-	}
 	return evt.EventID, nil
 }
 
@@ -429,11 +432,11 @@ func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 }
 
 func (es *EventStore) UpdateTopic(oldName string, newName string, schema string) (string, error) {
-	_, exists := es.topicNameMap[newName]
+	_, exists := es.topicNameToId[newName]
 	if oldName != newName && exists {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s already exists", newName))
 	}
-	id, exists := es.topicNameMap[oldName]
+	id, exists := es.topicNameToId[oldName]
 	if !exists {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
 	}
@@ -444,15 +447,15 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 		if !ok {
 			return "", errors.New("Error adding topic - schema is not in valid JSON schema format")
 		}
-		queryStr = fmt.Sprintf("%s, data_schema = %s", stringify(schema))
+		queryStr = fmt.Sprintf("%s, data_schema = %s", queryStr, stringify(schema))
 	}
-	queryStr = fmt.Sprintf("%s WHERE topic_id = %s;", id)
+	queryStr = fmt.Sprintf("%s WHERE topic_id = %s;", queryStr, id)
 	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
 	}
-	es.topicNameMap[newName] = es.topicNameMap[oldName]
+	es.topicNameToId[newName] = es.topicNameToId[oldName]
 	if newName != oldName {
-		delete(es.topicNameMap, oldName)
+		delete(es.topicNameToId, oldName)
 	}
 	if schema != "" {
 		es.topicSchemaMap[id] = schema
@@ -464,7 +467,7 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 	if dc == "" {
 		return "", errors.New("Error adding dc - dc name is empty")
 	}
-	_, exists := es.dcNameMap[dc]
+	_, exists := es.dcNameToId[dc]
 	if exists {
 		return "", errors.New(fmt.Sprintf("Error adding dc - dc with name %s already exists", dc))
 	}
@@ -484,11 +487,11 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 }
 
 func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
-	_, exists := es.dcNameMap[newName]
+	_, exists := es.dcNameToId[newName]
 	if oldName != newName && exists {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s already exists", newName))
 	}
-	id, exists := es.dcNameMap[oldName]
+	id, exists := es.dcNameToId[oldName]
 	if !exists {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s doesn't exist", oldName))
 	}
@@ -500,21 +503,23 @@ func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
 	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
 	}
-	es.dcNameMap[newName] = es.dcNameMap[oldName]
+	es.dcNameToId[newName] = es.dcNameToId[oldName]
 	if newName != oldName {
-		delete(es.dcNameMap, oldName)
+		delete(es.dcNameToId, oldName)
 	}
 	return id, nil
 }
 
 func (es *EventStore) Update() error {
-	newDcNameMap := make(map[string]string)
+	newDcNameToId := make(map[string]string)
+	newDcIdToName := make(map[string]string)
 	iter := es.cqlSession.Query("SELECT dc_id, dc FROM event_dc;").Iter()
 	var dcId gocql.UUID
 	var dcName string
 	for true {
 		if iter.Scan(&dcId, &dcName) {
-			newDcNameMap[dcName] = dcId.String()
+			newDcNameToId[dcName] = dcId.String()
+			newDcNameToId[dcId.String()] = dcName
 		} else {
 			break
 		}
@@ -523,11 +528,13 @@ func (es *EventStore) Update() error {
 		return errors.Wrap(err, "Error closing dc iter")
 	}
 	// TODO: add mutex
-	if newDcNameMap != nil {
-		es.dcNameMap = newDcNameMap
+	if newDcNameToId != nil {
+		es.dcNameToId = newDcNameToId
+		es.dcIdToName = newDcIdToName
 	}
 
-	newTopicNameMap := make(map[string]string)
+	newTopicNameToId := make(map[string]string)
+	newTopicIdToName := make(map[string]string)
 	newTopicSchemaMap := make(map[string]string)
 	iter = es.cqlSession.Query("SELECT topic_id, topic_name, data_schema FROM event_topic;").Iter()
 	var topicId gocql.UUID
@@ -535,7 +542,8 @@ func (es *EventStore) Update() error {
 	for true {
 		if iter.Scan(&topicId, &topicName, &dataSchema) {
 			id := topicId.String()
-			newTopicNameMap[topicName] = id
+			newTopicNameToId[topicName] = id
+			newTopicIdToName[id] = topicName
 			newTopicSchemaMap[id] = dataSchema
 		} else {
 			break
@@ -545,8 +553,9 @@ func (es *EventStore) Update() error {
 		return errors.Wrap(err, "Error closing topic iter")
 	}
 	// TODO: add mutex
-	if newTopicNameMap != nil {
-		es.topicNameMap = newTopicNameMap
+	if newTopicNameToId != nil {
+		es.topicNameToId = newTopicNameToId
+		es.topicIdToName = newTopicIdToName
 		es.topicSchemaMap = newTopicSchemaMap
 	}
 
@@ -561,36 +570,97 @@ func (es *EventStore) Update() error {
 }
 
 func (es *EventStore) FlushToES() error {
-	curTime := time.Now()
-	index := fmt.Sprintf("eventmaster_%d_%d_%d", curTime.Year(), curTime.Month(), curTime.Day())
-	err := es.checkIndex(index)
-	if err != nil {
-		return errors.Wrap(err, "Error creating index in elasticsearch")
-	}
+	iter := es.cqlSession.Query(`SELECT event_id, parent_event_id, dc_id, topic_id,
+		host, target_host_set, user, event_time, tag_set, data_json, event_type, received_time
+		FROM temp_event LIMIT 1000;`).Iter()
+	var eventID, parentEventID, topicID, dcID gocql.UUID
+	var eventTime, receivedTime int64
+	var eventType int32
+	var host, user, data string
+	var targetHostSet, tagSet []string
 
-	bulkReq := es.esClient.Bulk().Index(index)
-	// TODO: mutex, defer unlock b/c eventsToFlush gets cleared
-	for _, event := range es.eventsToFlush {
-		req := elastic.NewBulkIndexRequest().
-			Type("event").
-			Id(event.EventID).
-			Doc(event)
-		bulkReq = bulkReq.Add(req)
-	}
-	ctx := context.Background()
-	bulkResp, err := bulkReq.Do(ctx)
-	if err != nil {
-		return errors.Wrap(err, "Error performing bulk index in ES")
-	}
+	// keep track of event and topic IDs to generate delete query from cassandra
+	eventIDs := make([]string, 0)
+	topicIDs := make(map[string]struct{})
 
-	if bulkResp.Errors {
-		// TODO: figure out what to do with failed event writes
-		failedItems := bulkResp.Failed()
-		for _, item := range failedItems {
-			fmt.Println("failed to index event with id", item.Id)
+	esIndices := make(map[string]([]*Event))
+	var v struct{}
+	for true {
+		if iter.Scan(&eventID, &parentEventID, &dcID, &topicID, &host, &targetHostSet, &user, &eventTime, &tagSet, &data, &eventType, &receivedTime) {
+			var d map[string]interface{}
+			if data != "" {
+				if err := json.Unmarshal([]byte(data), &d); err != nil {
+					return errors.Wrap(err, "Error unmarshalling JSON in event data")
+				}
+			}
+			eventIDs = append(eventIDs, eventID.String())
+			topicIDs[topicID.String()] = v
+			parentEventIDStr := parentEventID.String()
+			if parentEventIDStr == "00000000-0000-0000-0000-000000000000" {
+				parentEventIDStr = ""
+			}
+
+			evtTime := time.Unix(eventTime, 0)
+			index := fmt.Sprintf("eventmaster_%d_%d_%d", evtTime.Year(), evtTime.Month(), evtTime.Day())
+			esIndices[index] = append(esIndices[index], &Event{
+				EventID:       eventID.String(),
+				ParentEventID: parentEventIDStr,
+				EventTime:     eventTime,
+				Dc:            es.dcIdToName[dcID.String()],
+				TopicName:     es.topicIdToName[topicID.String()],
+				Tags:          tagSet,
+				Host:          host,
+				TargetHosts:   targetHostSet,
+				User:          user,
+				Data:          d,
+				EventType:     eventType,
+				ReceivedTime:  receivedTime,
+			})
+		} else {
+			break
 		}
 	}
-	es.eventsToFlush = make([]*Event, 0)
+	if err := iter.Close(); err != nil {
+		return errors.Wrap(err, "Error closing iter")
+	}
+
+	for index, events := range esIndices {
+		err := es.checkIndex(index)
+		if err != nil {
+			return errors.Wrap(err, "Error creating index in elasticsearch")
+		}
+
+		bulkReq := es.esClient.Bulk().Index(index)
+		for _, event := range events {
+			req := elastic.NewBulkIndexRequest().
+				Type("event").
+				Id(event.EventID).
+				Doc(event)
+			bulkReq = bulkReq.Add(req)
+		}
+		ctx := context.Background()
+		bulkResp, err := bulkReq.Do(ctx)
+		if err != nil {
+			return errors.Wrap(err, "Error performing bulk index in ES")
+		}
+		if bulkResp.Errors {
+			// TODO: figure out what to do with failed event writes
+			failedItems := bulkResp.Failed()
+			for _, item := range failedItems {
+				fmt.Println("failed to index event with id", item.Id)
+			}
+		}
+	}
+
+	topicArr := make([]string, 0)
+	for tId, _ := range topicIDs {
+		topicArr = append(topicArr, tId)
+	}
+
+	if err := es.cqlSession.Query(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s) AND topic_id in (%s)",
+		strings.Join(eventIDs, ","), strings.Join(topicArr, ","))).Exec(); err != nil {
+		return errors.Wrap(err, "Error performing delete from temp_event in cassandra")
+	}
 	return nil
 }
 

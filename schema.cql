@@ -25,6 +25,23 @@ CREATE TABLE IF NOT EXISTS event (
 	PRIMARY KEY ((event_id,topic_id),event_time)
 );
 
+// Create table to store events to flush to ES
+CREATE TABLE IF NOT EXISTS temp_event (
+	event_id UUID,
+	parent_event_id UUID,
+	dc_id UUID,
+	topic_id UUID,
+	host text,
+	target_host_set set<text>,
+	user text,
+	event_time timestamp,
+	tag_set set<text>,
+	data_json text,
+	event_type int,
+	received_time timestamp,
+	PRIMARY KEY ((event_id,topic_id),event_time)
+);
+
 // Create table to store distinct topics
 CREATE TABLE IF NOT EXISTS event_topic (
 	topic_id UUID,
