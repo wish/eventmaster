@@ -1,34 +1,5 @@
 {{define "form"}}
-<script>
-	function submitForm(form) {
-		var data = $(form).serializeArray();
-		var formData = {};
-		for (var i = 0; i < data.length; i++) {
-			var key = data[i]["name"];
-			var value = data[i]["value"];
-			var date, time;
-			if (key === "tag_set" || key === "target_host_set") {
-				formData[key] = value === "" ? [] : value.split(",")
-			} else if (key === "date") {
-				date = value;
-			} else if (key === "time") {
-				time = value;
-			} else {
-				formData[key] = value
-			}
-		}
-		if (!date) {
-			alert("Must enter date")
-		}
-		var serializedTime = time ? date + " " + time : date;
-		formData["event_time"] = new Date(serializedTime).getTime() / 1000;
-		$.post("/v1/event", JSON.stringify(formData), function(data) {
-			// TODO: handle error
-			alert("Event added: " + data)
-		})
-		return false;
-	}
-</script>
+<script type="text/javascript" src="/js/create_event.js"></script>
 <div class="container">
 	<form onsubmit='return submitForm(this)'>
 		<div class="form-group">

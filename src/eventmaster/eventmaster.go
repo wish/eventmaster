@@ -62,6 +62,16 @@ func startServer(store *EventStore) {
 	r.Handle("/add_event", cph)
 	r.Handle("/topic", tph)
 	r.Handle("/dc", dph)
+
+	r.HandleFunc("/js/create_event.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "ui/js/create_event.js")
+	})
+	r.HandleFunc("/js/dc.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "ui/js/dc.js")
+	})
+	r.HandleFunc("/js/topic.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "ui/js/topic.js")
+	})
 	go func() {
 		fmt.Println("http server starting on port 8080")
 		http.ListenAndServe(":8080", r)

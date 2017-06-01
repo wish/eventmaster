@@ -33,6 +33,19 @@ func sendError(w http.ResponseWriter, code int, err error, message string) {
 	w.Write([]byte(fmt.Sprintf("%s: %s", message, err.Error())))
 }
 
+func sendResp(w http.ResponseWriter, key string, val string) {
+	resp := make(map[string]string)
+	resp[key] = val
+	str, err := json.Marshal(resp)
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(str)
+}
+
 func (eah *eventAPIHandler) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 
@@ -46,11 +59,10 @@ func (eah *eventAPIHandler) handlePostEvent(w http.ResponseWriter, r *http.Reque
 	id, err := eah.store.AddEvent(&evt)
 	if err != nil {
 		fmt.Println("Error adding event to store: ", err)
-		sendError(w, http.StatusInternalServerError, err, "Error writing event")
+		sendError(w, http.StatusBadRequest, err, "Error writing event")
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(id))
+	sendResp(w, "event_id", id)
 }
 
 func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Request) {
@@ -148,8 +160,7 @@ func (tah *topicAPIHandler) handlePostTopic(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(id))
+	sendResp(w, "topic_id", id)
 }
 
 func (dah *dcAPIHandler) handlePostDc(w http.ResponseWriter, r *http.Request) {
@@ -184,8 +195,7 @@ func (dah *dcAPIHandler) handlePostDc(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(id))
+	sendResp(w, "dc_id", id)
 }
 
 func (eah *eventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
