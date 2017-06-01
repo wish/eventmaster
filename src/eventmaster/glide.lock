@@ -1,5 +1,5 @@
-hash: 5df4616133dd382d5ac83b85d73b5c6569cfd9a56498e041a4b5c0dae8ec008a
-updated: 2017-05-30T16:42:38.780370142-07:00
+hash: e95b791c2dc92571ab0cf6bdb58d42903351e539cb39c7b27031ef198b243db4
+updated: 2017-06-01T09:46:26.452363779-07:00
 imports:
 - name: github.com/ContextLogic/eventmaster
   version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
@@ -41,6 +41,12 @@ imports:
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
+- name: github.com/xeipuuv/gojsonpointer
+  version: 6fe8760cad3569743d51ddbb243b26f8456742dc
+- name: github.com/xeipuuv/gojsonreference
+  version: e02fc20de94c78484cd5ffb007f8af96be030a45
+- name: github.com/xeipuuv/gojsonschema
+  version: 0c8571ac0ce161a5feb57375a9cdf148c98c0f70
 - name: golang.org/x/net
   version: d212a1ef2de2f5d441c327b8f26cf3ea3ea9f265
   subpackages:

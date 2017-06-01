@@ -45,6 +45,7 @@ func (eah *eventAPIHandler) handlePostEvent(w http.ResponseWriter, r *http.Reque
 	}
 	id, err := eah.store.AddEvent(&evt)
 	if err != nil {
+		fmt.Println("Error adding event to store: ", err)
 		sendError(w, http.StatusInternalServerError, err, "Error writing event")
 		return
 	}
@@ -76,6 +77,9 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 		if len(q.SortField) != len(q.SortAscending) {
 			sendError(w, http.StatusBadRequest, errors.New("sort_field and sort_ascending don't match"), "Error")
 			return
+		}
+		if len(query["data"]) > 0 {
+			q.Data = query["data"][0]
 		}
 		startEventTime := query.Get("start_event_time")
 		if startEventTime != "" {

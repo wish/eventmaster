@@ -20,6 +20,9 @@
 					})
 					formData[key] = sortArr;
 					break;
+				case "data":
+					formData[key] = value
+					break;
 				case "startEventDate":
 					startEventDate = value;
 					break;
@@ -66,7 +69,7 @@
 		}
 		params = [];
 		for (var key in formData) {
-			if (key === "start_event_time" || key === "end_event_time" || key === "start_received_time" || key === "end_received_time") {
+			if (key === "start_event_time" || key === "end_event_time" || key === "start_received_time" || key === "end_received_time" || key === "data") {
 				params.push(key + "=" + formData[key])
 			} else {
 				for (var j = 0; j < formData[key].length; j++) {
@@ -91,7 +94,8 @@
 						<td>`,event['host'],`</td>
 						<td>`,event['target_host_set'],`</td>
 						<td>`,event['user'],`</td>
-						<td>`,event['data'],`</td>
+						<td>`,JSON.stringify(event['data']),`</td>
+						<td>`,event['parent_event_id'],`</td>
 					</tr>`)
 					elem.innerHTML += item;
 				}
@@ -102,6 +106,12 @@
 </script>
 <div class="container">
 	<form onsubmit='return submitQuery(this)'>
+		<div class="form-group row">
+			<label for="parent_event_id" class="col-sm-1 col-form-label">Parent Event ID</label>
+			<div class="col-sm-6">
+				<input type="text" class="form-control" placeholder="Parent Event ID" name="parent_event_id">
+			</div>
+	  	</div>
 		<div class="form-group row">
 			<label for="dc" class="col-sm-1 col-form-label">DC</label>
 			<div class="col-sm-6">
@@ -130,6 +140,24 @@
 	  		<label for="tag_set" class="col-sm-1 col-form-label">Tag</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Tag" name="tag_set">
+			</div>
+	  	</div>
+	  	<div class="form-group row">
+	  		<label for="data" class="col-sm-1 col-form-label">Data</label>
+	  		<div class="col-sm-6">
+				<input type="text" class="form-control" placeholder="Data" name="data">
+			</div>
+	  	</div>
+	  	<div class="form-group row">
+	  		<label for="sort_field" class="col-sm-1 col-form-label">Sort Fields</label>
+	  		<div class="col-sm-6">
+				<input type="text" class="form-control" placeholder="Sort Fields" name="sort_field">
+			</div>
+	  	</div>
+	  	<div class="form-group row">
+	  		<label for="sort_ascending" class="col-sm-1 col-form-label">Sort Ascending</label>
+	  		<div class="col-sm-6">
+				<input type="text" class="form-control" placeholder="Sort Ascending" name="sort_ascending">
 			</div>
 	  	</div>
 	  	<div class="form-group input-group">
@@ -177,6 +205,7 @@
 			<th>Target Hosts</th>
 			<th>User</th>
 			<th>Data</th>
+			<th>Parent Event ID</th>
 		</tr>
 	</thead>
 	<tbody id="event_table">

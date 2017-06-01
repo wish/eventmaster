@@ -30,3 +30,4 @@ import:
   version: ^5.0.38
 - package: github.com/gorilla/mux
   version: ^1.4.0
+- package: github.com/xeipuuv/gojsonschema

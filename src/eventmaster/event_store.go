@@ -13,6 +13,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
+	"github.com/xeipuuv/gojsonschema"
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
@@ -160,7 +161,11 @@ func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
 }
 
 func (es *EventStore) validateSchema(schema string) bool {
-	// TODO: figure out how to validate json schema
+	loader := gojsonschema.NewStringLoader(schema)
+	_, err := gojsonschema.NewSchema(loader)
+	if err != nil {
+		return false
+	}
 	return true
 }
 
@@ -174,7 +179,6 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		}
 		queries = append(queries, elastic.NewTermsQuery("dc", dcs...))
 	}
-
 	if len(q.Host) != 0 {
 		hosts := make([]interface{}, 0)
 		for _, host := range q.Host {
@@ -182,7 +186,6 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		}
 		queries = append(queries, elastic.NewTermsQuery("host", hosts...))
 	}
-
 	if len(q.TargetHost) != 0 {
 		thosts := make([]interface{}, 0)
 		for _, host := range q.TargetHost {
@@ -190,7 +193,6 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		}
 		queries = append(queries, elastic.NewTermsQuery("target_host_set", thosts...))
 	}
-
 	if len(q.TopicName) != 0 {
 		topics := make([]interface{}, 0)
 		for _, topic := range q.TopicName {
@@ -198,7 +200,6 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		}
 		queries = append(queries, elastic.NewTermsQuery("topic_name", topics...))
 	}
-
 	if len(q.TagSet) != 0 {
 		tags := make([]interface{}, 0)
 		for _, tag := range q.TagSet {
@@ -206,8 +207,17 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		}
 		queries = append(queries, elastic.NewTermsQuery("tag_set", tags...))
 	}
+	if q.Data != "" {
+		var d map[string]interface{}
+		if err := json.Unmarshal([]byte(q.Data), &d); err != nil {
+			fmt.Println("Ignoring data filters - not in valid JSON format")
+		} else {
+			for k, v := range d {
+				queries = append(queries, elastic.NewTermQuery(fmt.Sprintf("%s.%s", "data", k), v))
+			}
+		}
+	}
 
-	// TODO: add data filters
 	query := elastic.NewBoolQuery().Must(queries...)
 
 	if q.StartEventTime != 0 || q.EndEventTime != 0 {
@@ -250,12 +260,25 @@ func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
 	if !ok {
 		return false, fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName))
 	}
-	schema, ok := es.topicSchemaMap[id]
-	if !ok {
-		return false, fmt.Sprintf("Topic %s does not have a schema defined", strings.ToLower(event.TopicName))
+	schema, _ := es.topicSchemaMap[id]
+	if schema != "" {
+		if event.Data == "" {
+			event.Data = "{}"
+		}
+		schemaLoader := gojsonschema.NewStringLoader(schema)
+		dataLoader := gojsonschema.NewStringLoader(event.Data)
+		result, err := gojsonschema.Validate(schemaLoader, dataLoader)
+		if err != nil {
+			return false, "Error validating event data against schema: " + err.Error()
+		}
+		if !result.Valid() {
+			errMsg := ""
+			for _, err := range result.Errors() {
+				errMsg = fmt.Sprintf("%s, %s", errMsg, err)
+			}
+			return false, errMsg
+		}
 	}
-	fmt.Println(schema)
-	// TODO: validate event against data schema for topic
 	return true, ""
 }
 
@@ -389,7 +412,7 @@ func (es *EventStore) GetDcs() ([]string, error) {
 func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 	ok := es.validateSchema(schema)
 	if !ok {
-		return "", errors.New("Error adding topic - schema is not in valid JSON schema format")
+		return "", errors.New("Error adding topic - schema is not in valid JSON format")
 	}
 	id := uuid.NewV4().String()
 	queryStr := fmt.Sprintf(`

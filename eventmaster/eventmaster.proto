@@ -34,12 +34,13 @@ message Query {
     repeated string target_host = 3;
     repeated string topic_name = 4;
     repeated string tag_set = 5;
-    int64 start_event_time = 6;
-    int64 end_event_time = 7;
-    int64 start_received_time = 8;
-    int64 end_received_time = 9;
-    repeated string sort_field = 10;
-    repeated bool sort_ascending = 11;
+    string data = 6;
+    int64 start_event_time = 7;
+    int64 end_event_time = 8;
+    int64 start_received_time = 9;
+    int64 end_received_time = 10;
+    repeated string sort_field = 11;
+    repeated bool sort_ascending = 12;
 }
 
 message HealthcheckRequest {}
