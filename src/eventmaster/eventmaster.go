@@ -21,11 +21,12 @@ import (
 )
 
 type dbConfig struct {
-	Host        string `json:"host"`
-	Port        string `json:"port"`
-	Keyspace    string `json:"keyspace"`
-	Consistency string `json:"consistency"`
-	ESUrl       string `json:"es_url"`
+	Host          string `json:"host"`
+	Port          string `json:"port"`
+	Keyspace      string `json:"keyspace"`
+	Consistency   string `json:"consistency"`
+	ESUrl         string `json:"es_url"`
+	FlushInterval int    `json:"flush_interval"`
 }
 
 func startServer(store *EventStore) {

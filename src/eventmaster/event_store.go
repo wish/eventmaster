@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -68,11 +67,12 @@ func stringifyUUID(str string) string {
 type EventStore struct {
 	cqlSession     *gocql.Session
 	esClient       *elastic.Client
-	failedEvents   []*Event
+	eventsToFlush  []*Event
 	topicNameMap   map[string]string // map of name to id
 	topicSchemaMap map[string]string // map of id to schema
 	dcNameMap      map[string]string // map of name to id
 	indexNames     []string          // list of name of all indices in es cluster
+	flushInterval  int
 }
 
 func NewEventStore() (*EventStore, error) {
@@ -124,9 +124,14 @@ func NewEventStore() (*EventStore, error) {
 		return nil, errors.Wrap(err, "Error creating elasticsearch client")
 	}
 
+	if dbConf.FlushInterval == 0 {
+		dbConf.FlushInterval = 5
+	}
+
 	return &EventStore{
-		cqlSession: session,
-		esClient:   client,
+		cqlSession:    session,
+		esClient:      client,
+		flushInterval: dbConf.FlushInterval,
 	}, nil
 }
 
@@ -336,29 +341,11 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 	}
 	fmt.Println("Event added:", evt.EventID)
 
-	receivedTime := time.Unix(evt.ReceivedTime, 0)
-	index := fmt.Sprintf("eventmaster_%d_%d_%d", receivedTime.Year(), receivedTime.Month(), receivedTime.Day())
-	err = es.checkIndex(index)
-	if err != nil {
-		es.failedEvents = append(es.failedEvents, evt)
-		return "", errors.Wrap(err, "Error creating index in elasticsearch")
+	// TODO: mutex
+	es.eventsToFlush = append(es.eventsToFlush, evt)
+	if len(es.eventsToFlush) >= es.flushInterval {
+		go es.FlushToES()
 	}
-
-	// write event to Elasticsearch
-	ctx := context.Background()
-	_, err = es.esClient.Index().
-		Index(index).
-		Type("event").
-		Id(evt.EventID).
-		Timestamp(strconv.FormatInt(evt.ReceivedTime, 10)).
-		BodyJson(evt).
-		Do(ctx)
-
-	// if write to es fails, add to cache of failed event writes
-	if err != nil {
-		es.failedEvents = append(es.failedEvents, evt)
-	}
-
 	return evt.EventID, nil
 }
 
@@ -547,6 +534,40 @@ func (es *EventStore) Update() error {
 	if indices != nil {
 		es.indexNames = indices
 	}
+	return nil
+}
+
+func (es *EventStore) FlushToES() error {
+	curTime := time.Now()
+	index := fmt.Sprintf("eventmaster_%d_%d_%d", curTime.Year(), curTime.Month(), curTime.Day())
+	err := es.checkIndex(index)
+	if err != nil {
+		return errors.Wrap(err, "Error creating index in elasticsearch")
+	}
+
+	bulkReq := es.esClient.Bulk().Index(index)
+	// TODO: mutex, defer unlock b/c eventsToFlush gets cleared
+	for _, event := range es.eventsToFlush {
+		req := elastic.NewBulkIndexRequest().
+			Type("event").
+			Id(event.EventID).
+			Doc(event)
+		bulkReq = bulkReq.Add(req)
+	}
+	ctx := context.Background()
+	bulkResp, err := bulkReq.Do(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Error performing bulk index in ES")
+	}
+
+	if bulkResp.Errors {
+		// TODO: figure out what to do with failed event writes
+		failedItems := bulkResp.Failed()
+		for _, item := range failedItems {
+			fmt.Println("failed to index event with id", item.Id)
+		}
+	}
+	es.eventsToFlush = make([]*Event, 0)
 	return nil
 }
 
