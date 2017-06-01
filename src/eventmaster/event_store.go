@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
@@ -39,6 +40,11 @@ func stringifyUUID(str string) string {
 		return "null"
 	}
 	return str
+}
+
+func getIndexFromTime(evtTime int64) string {
+	eventTime := time.Unix(evtTime, 0)
+	return fmt.Sprintf("eventmaster_%04d_%02d_%02d", eventTime.Year(), eventTime.Month(), eventTime.Day())
 }
 
 type Event struct {
@@ -75,6 +81,9 @@ type EventStore struct {
 	dcIdToName     map[string]string // map of id to name
 	indexNames     []string          // list of name of all indices in es cluster
 	FlushInterval  int
+	topicMutex     *sync.Mutex
+	dcMutex        *sync.Mutex
+	indexMutex     *sync.Mutex
 }
 
 func NewEventStore() (*EventStore, error) {
@@ -134,21 +143,44 @@ func NewEventStore() (*EventStore, error) {
 		cqlSession:    session,
 		esClient:      client,
 		FlushInterval: dbConf.FlushInterval,
+		topicMutex:    &sync.Mutex{},
+		dcMutex:       &sync.Mutex{},
+		indexMutex:    &sync.Mutex{},
 	}, nil
 }
 
 func (es *EventStore) getTopicId(topic string) string {
-	if id, ok := es.topicNameToId[strings.ToLower(topic)]; ok {
+	es.topicMutex.Lock()
+	id, ok := es.topicNameToId[strings.ToLower(topic)]
+	es.topicMutex.Unlock()
+	if ok {
 		return id
 	}
 	return "null"
 }
 
+func (es *EventStore) getTopicName(id string) string {
+	es.topicMutex.Lock()
+	name := es.topicIdToName[id]
+	es.topicMutex.Unlock()
+	return name
+}
+
 func (es *EventStore) getDcId(dc string) string {
-	if id, ok := es.dcNameToId[strings.ToLower(dc)]; ok {
+	es.dcMutex.Lock()
+	id, ok := es.dcNameToId[strings.ToLower(dc)]
+	es.dcMutex.Unlock()
+	if ok {
 		return id
 	}
 	return "null"
+}
+
+func (es *EventStore) getDcName(id string) string {
+	es.dcMutex.Lock()
+	name := es.dcIdToName[id]
+	es.dcMutex.Unlock()
+	return name
 }
 
 func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
@@ -261,15 +293,17 @@ func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
 		event.EventTime = time.Now().Unix()
 	}
 
-	id, ok := es.dcNameToId[strings.ToLower(event.Dc)]
-	if !ok {
+	id := es.getDcId(event.Dc)
+	if id == "null" {
 		return false, fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc))
 	}
-	id, ok = es.topicNameToId[strings.ToLower(event.TopicName)]
-	if !ok {
+	id = es.getTopicId(event.TopicName)
+	if id == "null" {
 		return false, fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName))
 	}
+	es.topicMutex.Lock()
 	schema, _ := es.topicSchemaMap[id]
+	es.topicMutex.Unlock()
 	if schema != "" {
 		if event.Data == "" {
 			event.Data = "{}"
@@ -334,8 +368,37 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	bq := es.buildESQuery(q)
 	ctx := context.Background()
 
+	es.indexMutex.Lock()
+	indexNames := es.indexNames
+	es.indexMutex.Unlock()
+
+	if q.StartEventTime != 0 {
+		startIndex := getIndexFromTime(q.StartEventTime)
+		for i := len(indexNames) - 1; i >= 0; i-- {
+			if strings.Compare(indexNames[i], startIndex) == -1 {
+				indexNames[i] = indexNames[len(indexNames)-1]
+				indexNames = indexNames[:len(indexNames)-1]
+			}
+		}
+	}
+	if q.EndEventTime != 0 {
+		endIndex := getIndexFromTime(q.EndEventTime)
+		for i := len(indexNames) - 1; i >= 0; i-- {
+			if strings.Compare(indexNames[i], endIndex) == 1 {
+				indexNames[i] = indexNames[len(indexNames)-1]
+				indexNames = indexNames[:len(indexNames)-1]
+			}
+		}
+	}
+
+	var evt Event
+	var evts []*Event
+	if len(indexNames) == 0 {
+		return evts, nil
+	}
+
 	sq := es.esClient.Search().
-		Index(es.indexNames...).
+		Index(indexNames...).
 		Query(bq).
 		Pretty(true)
 
@@ -347,8 +410,6 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 		return nil, errors.Wrap(err, "Error executing ES search query")
 	}
 
-	var evt Event
-	var evts []*Event
 	for _, item := range sr.Each(reflect.TypeOf(evt)) {
 		if t, ok := item.(Event); ok {
 			evts = append(evts, &t)
@@ -432,12 +493,12 @@ func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 }
 
 func (es *EventStore) UpdateTopic(oldName string, newName string, schema string) (string, error) {
-	_, exists := es.topicNameToId[newName]
-	if oldName != newName && exists {
+	id := es.getTopicId(newName)
+	if oldName != newName && id != "null" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s already exists", newName))
 	}
-	id, exists := es.topicNameToId[oldName]
-	if !exists {
+	id = es.getTopicId(oldName)
+	if id == "null" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
 	}
 	queryStr := fmt.Sprintf(`UPDATE event_topic 
@@ -453,13 +514,16 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
 	}
+	es.topicMutex.Lock()
 	es.topicNameToId[newName] = es.topicNameToId[oldName]
+	es.topicIdToName[id] = newName
 	if newName != oldName {
 		delete(es.topicNameToId, oldName)
 	}
 	if schema != "" {
 		es.topicSchemaMap[id] = schema
 	}
+	es.topicMutex.Unlock()
 	return id, nil
 }
 
@@ -467,12 +531,12 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 	if dc == "" {
 		return "", errors.New("Error adding dc - dc name is empty")
 	}
-	_, exists := es.dcNameToId[dc]
-	if exists {
+	id := es.getDcId(dc)
+	if id != "null" {
 		return "", errors.New(fmt.Sprintf("Error adding dc - dc with name %s already exists", dc))
 	}
 
-	id := uuid.NewV4().String()
+	id = uuid.NewV4().String()
 	queryStr := fmt.Sprintf(`
     INSERT INTO event_dc (dc_id, dc)
     VALUES (%[1]s, %[2]s);`,
@@ -487,12 +551,12 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 }
 
 func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
-	_, exists := es.dcNameToId[newName]
-	if oldName != newName && exists {
+	id := es.getDcId(newName)
+	if oldName != newName && id != "null" {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s already exists", newName))
 	}
-	id, exists := es.dcNameToId[oldName]
-	if !exists {
+	id = es.getDcId(oldName)
+	if id == "null" {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s doesn't exist", oldName))
 	}
 	queryStr := fmt.Sprintf(`UPDATE event_dc 
@@ -503,10 +567,13 @@ func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
 	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
 	}
+	es.dcMutex.Lock()
 	es.dcNameToId[newName] = es.dcNameToId[oldName]
+	es.dcIdToName[id] = newName
 	if newName != oldName {
 		delete(es.dcNameToId, oldName)
 	}
+	es.dcMutex.Unlock()
 	return id, nil
 }
 
@@ -527,10 +594,11 @@ func (es *EventStore) Update() error {
 	if err := iter.Close(); err != nil {
 		return errors.Wrap(err, "Error closing dc iter")
 	}
-	// TODO: add mutex
 	if newDcNameToId != nil {
+		es.dcMutex.Lock()
 		es.dcNameToId = newDcNameToId
 		es.dcIdToName = newDcIdToName
+		es.dcMutex.Unlock()
 	}
 
 	newTopicNameToId := make(map[string]string)
@@ -552,11 +620,12 @@ func (es *EventStore) Update() error {
 	if err := iter.Close(); err != nil {
 		return errors.Wrap(err, "Error closing topic iter")
 	}
-	// TODO: add mutex
 	if newTopicNameToId != nil {
+		es.topicMutex.Lock()
 		es.topicNameToId = newTopicNameToId
 		es.topicIdToName = newTopicIdToName
 		es.topicSchemaMap = newTopicSchemaMap
+		es.topicMutex.Unlock()
 	}
 
 	indices, err := es.esClient.IndexNames()
@@ -564,7 +633,9 @@ func (es *EventStore) Update() error {
 		return errors.Wrap(err, "Error getting index names in ES")
 	}
 	if indices != nil {
+		es.indexMutex.Lock()
 		es.indexNames = indices
+		es.indexMutex.Unlock()
 	}
 	return nil
 }
@@ -582,7 +653,6 @@ func (es *EventStore) FlushToES() error {
 	// keep track of event and topic IDs to generate delete query from cassandra
 	eventIDs := make([]string, 0)
 	topicIDs := make(map[string]struct{})
-
 	esIndices := make(map[string]([]*Event))
 	var v struct{}
 	for true {
@@ -599,15 +669,15 @@ func (es *EventStore) FlushToES() error {
 			if parentEventIDStr == "00000000-0000-0000-0000-000000000000" {
 				parentEventIDStr = ""
 			}
-
-			evtTime := time.Unix(eventTime, 0)
-			index := fmt.Sprintf("eventmaster_%d_%d_%d", evtTime.Year(), evtTime.Month(), evtTime.Day())
+			index := getIndexFromTime(eventTime / 1000)
+			dcName := es.getDcName(dcID.String())
+			topicName := es.getTopicName(topicID.String())
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID.String(),
 				ParentEventID: parentEventIDStr,
 				EventTime:     eventTime,
-				Dc:            es.dcIdToName[dcID.String()],
-				TopicName:     es.topicIdToName[topicID.String()],
+				Dc:            dcName,
+				TopicName:     topicName,
 				Tags:          tagSet,
 				Host:          host,
 				TargetHosts:   targetHostSet,
