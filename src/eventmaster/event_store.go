@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	"github.com/gocql/gocql"
@@ -28,6 +29,7 @@ type Event struct {
 	User          string                 `json:"user"`
 	Data          map[string]interface{} `json:"data"`
 	EventType     int32                  `json:"event_type"`
+	ReceivedTime  int64                  `json:"received_time"`
 }
 
 type TopicData struct {
@@ -70,6 +72,7 @@ type EventStore struct {
 	topicNameMap   map[string]string // map of name to id
 	topicSchemaMap map[string]string // map of id to schema
 	dcNameMap      map[string]string // map of name to id
+	indexNames     []string          // list of name of all indices in es cluster
 }
 
 func NewEventStore() (*EventStore, error) {
@@ -113,20 +116,12 @@ func NewEventStore() (*EventStore, error) {
 	}
 
 	// Establish connection to ES and initialize index if it doesn't exist
-	ctx := context.Background()
-	client, err := elastic.NewClient()
+	if dbConf.ESUrl == "" {
+		dbConf.ESUrl = "http://127.0.0.1:9200"
+	}
+	client, err := elastic.NewClient(elastic.SetURL(dbConf.ESUrl))
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating elasticsearch client")
-	}
-	exists, err := client.IndexExists("event_master").Do(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error finding if index exists in ES")
-	}
-	if !exists {
-		_, err := client.CreateIndex("event_master").Do(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error creating event_master index in ES")
-		}
 	}
 
 	return &EventStore{
@@ -152,11 +147,11 @@ func (es *EventStore) getDcId(topic string) string {
 func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
 	// TODO: change this to prevent tombstones
 	return fmt.Sprintf(`
-    INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, event_type)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);`,
+    INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, event_type, received_time)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d, %[12]d);`,
 		event.EventID, stringifyUUID(event.ParentEventID), es.getDcId(event.Dc), es.getTopicId(event.TopicName),
 		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
-		stringifyArr(event.Tags), stringify(data), event.EventType)
+		stringifyArr(event.Tags), stringify(data), event.EventType, event.ReceivedTime)
 }
 
 func (es *EventStore) validateSchema(schema string) bool {
@@ -210,13 +205,24 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	// TODO: add data filters
 	query := elastic.NewBoolQuery().Must(queries...)
 
-	if q.StartTime != -1 || q.EndTime != -1 {
+	if q.StartEventTime != 0 || q.EndEventTime != 0 {
 		rq := elastic.NewRangeQuery("event_time")
-		if q.StartTime != -1 {
-			rq.Gte(q.StartTime)
+		if q.StartEventTime != -1 {
+			rq.Gte(q.StartEventTime)
 		}
-		if q.EndTime != -1 {
-			rq.Lte(q.EndTime * 1000)
+		if q.EndEventTime != -1 {
+			rq.Lte(q.EndEventTime * 1000)
+		}
+		query = query.Must(rq)
+	}
+
+	if q.StartReceivedTime != 0 || q.EndReceivedTime != 0 {
+		rq := elastic.NewRangeQuery("received_time")
+		if q.StartReceivedTime != -1 {
+			rq.Gte(q.StartReceivedTime)
+		}
+		if q.EndReceivedTime != -1 {
+			rq.Lte(q.EndReceivedTime * 1000)
 		}
 		query = query.Must(rq)
 	}
@@ -268,21 +274,31 @@ func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
 		User:          event.User,
 		Data:          d,
 		EventType:     event.EventType,
+		ReceivedTime:  time.Now().Unix(),
 	}, nil
 }
 
+func (es *EventStore) checkIndex(index string) error {
+	ctx := context.Background()
+	exists, err := es.esClient.IndexExists(index).Do(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Error finding if index exists in ES")
+	}
+	if !exists {
+		_, err := es.esClient.CreateIndex(index).Do(ctx)
+		if err != nil {
+			return errors.Wrap(err, "Error creating event_master index in ES")
+		}
+	}
+	return nil
+}
+
 func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
-	if q.StartTime == 0 {
-		q.StartTime = -1
-	}
-	if q.EndTime == 0 {
-		q.EndTime = -1
-	}
 	bq := es.buildESQuery(q)
 	ctx := context.Background()
 
 	sq := es.esClient.Search().
-		Index("event_master").
+		Index(es.indexNames...).
 		Query(bq).
 		Pretty(true)
 
@@ -320,13 +336,21 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 	}
 	fmt.Println("Event added:", evt.EventID)
 
+	receivedTime := time.Unix(evt.ReceivedTime, 0)
+	index := fmt.Sprintf("eventmaster_%d_%d_%d", receivedTime.Year(), receivedTime.Month(), receivedTime.Day())
+	err = es.checkIndex(index)
+	if err != nil {
+		es.failedEvents = append(es.failedEvents, evt)
+		return "", errors.Wrap(err, "Error creating index in elasticsearch")
+	}
+
 	// write event to Elasticsearch
 	ctx := context.Background()
 	_, err = es.esClient.Index().
-		Index("event_master").
+		Index(index).
 		Type("event").
 		Id(evt.EventID).
-		Timestamp(strconv.FormatInt(evt.EventTime, 10)).
+		Timestamp(strconv.FormatInt(evt.ReceivedTime, 10)).
 		BodyJson(evt).
 		Do(ctx)
 
@@ -514,6 +538,14 @@ func (es *EventStore) Update() error {
 	if newTopicNameMap != nil {
 		es.topicNameMap = newTopicNameMap
 		es.topicSchemaMap = newTopicSchemaMap
+	}
+
+	indices, err := es.esClient.IndexNames()
+	if err != nil {
+		return errors.Wrap(err, "Error getting index names in ES")
+	}
+	if indices != nil {
+		es.indexNames = indices
 	}
 	return nil
 }

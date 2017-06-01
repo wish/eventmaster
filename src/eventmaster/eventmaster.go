@@ -25,6 +25,7 @@ type dbConfig struct {
 	Port        string `json:"port"`
 	Keyspace    string `json:"keyspace"`
 	Consistency string `json:"consistency"`
+	ESUrl       string `json:"es_url"`
 }
 
 func startServer(store *EventStore) {
@@ -134,7 +135,7 @@ func main() {
 		}
 	}()
 
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(time.Second * 10)
 	go func() {
 		for _ = range ticker.C {
 			err := store.Update()

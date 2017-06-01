@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS event (
 	tag_set set<text>,
 	data_json text,
 	event_type int,
+	received_time timestamp,
 	PRIMARY KEY ((event_id,topic_id),event_time)
 );
 

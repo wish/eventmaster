@@ -7,7 +7,8 @@
 		for (var i = 0; i < data.length; i++) {
 			var key = data[i]["name"];
 			var value = data[i]["value"];
-			var startDate, startTime, endDate, endTime;
+			var startEventDate, startEventTime, endEventDate, endEventTime;
+			var startReceivedDate, startReceivedTime, endReceivedDate, endReceivedTime;
 			switch(key) {
 				case "sort_ascending":
 					var sortArr = value === "" ? [] : value.split(",")
@@ -19,33 +20,53 @@
 					})
 					formData[key] = sortArr;
 					break;
-				case "startDate":
-					startDate = value;
+				case "startEventDate":
+					startEventDate = value;
 					break;
-				case "startTime":
-					startTime = value;
+				case "startEventTime":
+					startEventTime = value;
 					break;
-				case "endDate":
-					endDate = value;
+				case "endEventDate":
+					endEventDate = value;
 					break;
-				case "endTime":
-					endTime = value;
+				case "endEventTime":
+					endEventTime = value;
+					break;
+				case "startReceivedDate":
+					startReceivedDate = value;
+					break;
+				case "startReceivedTime":
+					startReceivedTime = value;
+					break;
+				case "endReceivedDate":
+					endReceivedDate = value;
+					break;
+				case "endReceivedTime":
+					endReceivedTime = value;
 					break;
 				default:
 					formData[key] = value === "" ? [] : value.split(",");
 			}
 		}
-		if (startDate) {
-			var serializedStart = startTime ? startDate + " " + startTime : startDate;
-			formData["start_time"] = new Date(serializedStart).getTime() / 1000;
+		if (startEventDate) {
+			var serializedStart = startEventTime ? startEventDate + " " + startEventTime : startEventDate;
+			formData["start_event_time"] = new Date(serializedStart).getTime() / 1000;
 		}
-		if (endDate) {
-			var serializedEnd = endTime ? endDate + " " + endTime : endDate;
-			formData["end_time"] = new Date(serializedEnd).getTime() / 1000;
+		if (endEventDate) {
+			var serializedEnd = endEventTime ? endEventDate + " " + endEventTime : endEventDate;
+			formData["end_event_time"] = new Date(serializedEnd).getTime() / 1000;
+		}
+		if (startReceivedDate) {
+			var serializedStart = startReceivedTime ? startReceivedDate + " " + startReceivedTime : startReceivedDate;
+			formData["start_received_time"] = new Date(serializedStart).getTime() / 1000;
+		}
+		if (endReceivedDate) {
+			var serializedEnd = endReceivedTime ? endReceivedDate + " " + endReceivedTime : endReceivedDate;
+			formData["end_received_time"] = new Date(serializedEnd).getTime() / 1000;
 		}
 		params = [];
 		for (var key in formData) {
-			if (key === "start_time" || key === "end_time") {
+			if (key === "start_event_time" || key === "end_event_time" || key === "start_received_time" || key === "end_received_time") {
 				params.push(key + "=" + formData[key])
 			} else {
 				for (var j = 0; j < formData[key].length; j++) {
@@ -53,28 +74,29 @@
 				}
 			}
 		}
-		
 		$.get("/v1/event?"+params.join("&"), function(data) {
 			var results = data['results'];
-			console.log(results);
-			var elem = document.getElementById("event_table")
-			elem.innerHTML = "";
-			for (var i = 0; i < results.length; i++) {
-				var event = results[i];
-				var item = 
-				`<tr>
-					<th scope="row">`.concat(event['topic_name'],`</th>
-					<td>`,event['dc'],`</td>
-					<td>`,event['tag_set'],`</td>
-					<td>`,new Date(event['event_time']*1000).toUTCString(),`</td>
-					<td>`,event['host'],`</td>
-					<td>`,event['target_host_set'],`</td>
-					<td>`,event['user'],`</td>
-					<td>`,event['data'],`</td>
-				</tr>`)
-				elem.innerHTML += item;
+			if (results) {
+				var elem = document.getElementById("event_table")
+				elem.innerHTML = "";
+				for (var i = 0; i < results.length; i++) {
+					var event = results[i];
+					var item = 
+					`<tr>
+						<th scope="row">`.concat(event['topic_name'],`</th>
+						<td>`,event['dc'],`</td>
+						<td>`,event['tag_set'],`</td>
+						<td>`,new Date(event['event_time']*1000).toUTCString(),`</td>
+						<td>`,new Date(event['received_time']*1000).toUTCString(),`</td>
+						<td>`,event['host'],`</td>
+						<td>`,event['target_host_set'],`</td>
+						<td>`,event['user'],`</td>
+						<td>`,event['data'],`</td>
+					</tr>`)
+					elem.innerHTML += item;
+				}
 			}
-		})
+		});
 		return false;
 	}
 </script>
@@ -111,17 +133,31 @@
 			</div>
 	  	</div>
 	  	<div class="form-group input-group">
-	  		<div class="input-group-addon">Start Time</div>
+	  		<div class="input-group-addon">Start Event Time</div>
 	  		<div class="col-sm-6">
-				<input type="date" class="form-control" placeholder="Start Date" name="startDate" id="startDate">
-				<input type="time" class="form-control" name="startTime" id="startTime">
+				<input type="date" class="form-control" placeholder="Start Date" name="startEventDate">
+				<input type="time" class="form-control" name="startEventTime">
 			</div>
 	  	</div>
 	  	<div class="form-group input-group">
-	  		<div class="input-group-addon">End Time</div>
+	  		<div class="input-group-addon">End Event Time</div>
 	  		<div class="col-sm-6">
-				<input type="date" class="form-control" placeholder="End Date" name="endDate" id="endDate">
-				<input type="time" class="form-control" name="endTime" id="endTime">
+				<input type="date" class="form-control" placeholder="End Date" name="endEventDate">
+				<input type="time" class="form-control" name="endEventTime">
+			</div>
+	  	</div>
+	  	<div class="form-group input-group">
+	  		<div class="input-group-addon">Start Received Time</div>
+	  		<div class="col-sm-6">
+				<input type="date" class="form-control" placeholder="Start Date" name="startReceivedDate">
+				<input type="time" class="form-control" name="startReceivedTime">
+			</div>
+	  	</div>
+	  	<div class="form-group input-group">
+	  		<div class="input-group-addon">End Received Time</div>
+	  		<div class="col-sm-6">
+				<input type="date" class="form-control" placeholder="End Date" name="endReceivedDate">
+				<input type="time" class="form-control" name="endReceivedTime">
 			</div>
 	  	</div>
         <span class="input-group-btn">
@@ -135,7 +171,8 @@
 			<th>Topic</th>
 			<th>Dc</th>
 			<th>Tags</th>
-			<th>Timestamp</th>
+			<th>Event Time</th>
+			<th>Received Time</th>
 			<th>Host</th>
 			<th>Target Hosts</th>
 			<th>User</th>

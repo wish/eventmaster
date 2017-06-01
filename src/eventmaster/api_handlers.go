@@ -77,13 +77,21 @@ func (eah *eventAPIHandler) handleGetEvent(w http.ResponseWriter, r *http.Reques
 			sendError(w, http.StatusBadRequest, errors.New("sort_field and sort_ascending don't match"), "Error")
 			return
 		}
-		startTime := query.Get("start_time")
-		if startTime != "" {
-			q.StartTime, _ = strconv.ParseInt(startTime, 10, 64)
+		startEventTime := query.Get("start_event_time")
+		if startEventTime != "" {
+			q.StartEventTime, _ = strconv.ParseInt(startEventTime, 10, 64)
 		}
-		endTime := query.Get("end_time")
-		if endTime != "" {
-			q.EndTime, _ = strconv.ParseInt(endTime, 10, 64)
+		endEventTime := query.Get("end_event_time")
+		if endEventTime != "" {
+			q.EndEventTime, _ = strconv.ParseInt(endEventTime, 10, 64)
+		}
+		startReceivedTime := query.Get("start_received_time")
+		if startReceivedTime != "" {
+			q.StartReceivedTime, _ = strconv.ParseInt(startReceivedTime, 10, 64)
+		}
+		endReceivedTime := query.Get("end_received_time")
+		if endReceivedTime != "" {
+			q.EndReceivedTime, _ = strconv.ParseInt(endReceivedTime, 10, 64)
 		}
 	}
 

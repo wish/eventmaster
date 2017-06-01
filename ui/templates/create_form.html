@@ -23,7 +23,8 @@
 		var serializedTime = time ? date + " " + time : date;
 		formData["event_time"] = new Date(serializedTime).getTime() / 1000;
 		$.post("/v1/event", JSON.stringify(formData), function(data) {
-			alert(data)
+			// TODO: handle error
+			alert("Event added: " + data)
 		})
 		return false;
 	}

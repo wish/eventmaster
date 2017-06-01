@@ -40,6 +40,7 @@
 		}
 		$.post("/v1/dc", JSON.stringify(formData), function(data) {
 			// TODO: deal with error
+			window.location.reload()
 		});
 		return false;
 	}

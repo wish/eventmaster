@@ -24,7 +24,7 @@
 			dataType: "json",
 			success: function(data) {
 				var results = data['results'];
-				var elemt = document.getElementById("topic_list")
+				var elem = document.getElementById("topic_list")
 				elem.innerHTML = "";
 				for (var i = 0; i < results.length; i++) {
 					topicName = results[i]['topic_name'];
@@ -50,6 +50,7 @@
 		}
 		$.post("/v1/topic", JSON.stringify(formData), function(data) {
 			// TODO: deal with errors
+			window.location.reload()
 		});
 		return false;
 	}
