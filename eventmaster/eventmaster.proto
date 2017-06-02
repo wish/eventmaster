@@ -6,7 +6,6 @@ package eventmaster;
 service EventMaster {
     rpc FireEvent (Event) returns (WriteResponse) {}
     rpc GetEvents (Query) returns (stream Event) {}
-    rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {}
 }
 
 message Event {
@@ -19,7 +18,6 @@ message Event {
     repeated string target_host_set = 7;
     string user = 8;
     string data = 9;
-    int32 event_type = 10;
 }
 
 message WriteResponse {

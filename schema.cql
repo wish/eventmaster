@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS event (
 	event_time timestamp,
 	tag_set set<text>,
 	data_json text,
-	event_type int,
 	received_time timestamp,
 	PRIMARY KEY ((event_id,topic_id),event_time)
 );
@@ -37,7 +36,6 @@ CREATE TABLE IF NOT EXISTS temp_event (
 	event_time timestamp,
 	tag_set set<text>,
 	data_json text,
-	event_type int,
 	received_time timestamp,
 	PRIMARY KEY ((event_id,topic_id),event_time)
 );

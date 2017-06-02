@@ -6,27 +6,15 @@ import (
 	"net/http"
 )
 
-type mainPageHandler struct {
-	store *EventStore
-}
-
-type createPageHandler struct {
-	store *EventStore
-}
-
-type topicPageHandler struct {
-	store *EventStore
-}
-
-type dcPageHandler struct {
-	store *EventStore
-}
-
 func executeTemplate(w http.ResponseWriter, t *template.Template, data interface{}) {
 	err := t.Execute(w, data)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error executing template: %v", err), http.StatusInternalServerError)
 	}
+}
+
+type mainPageHandler struct {
+	store *EventStore
 }
 
 func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +26,10 @@ func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	executeTemplate(w, t, nil)
 }
 
+type createPageHandler struct {
+	store *EventStore
+}
+
 func (cph *createPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/create_form.html")
 	if err != nil {
@@ -47,6 +39,10 @@ func (cph *createPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	executeTemplate(w, t, nil)
 }
 
+type topicPageHandler struct {
+	store *EventStore
+}
+
 func (tph *topicPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/topic_form.html")
 	if err != nil {
@@ -54,6 +50,10 @@ func (tph *topicPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	executeTemplate(w, t, nil)
+}
+
+type dcPageHandler struct {
+	store *EventStore
 }
 
 func (tph *dcPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

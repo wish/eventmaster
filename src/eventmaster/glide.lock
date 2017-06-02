@@ -1,5 +1,5 @@
-hash: e95b791c2dc92571ab0cf6bdb58d42903351e539cb39c7b27031ef198b243db4
-updated: 2017-06-01T09:46:26.452363779-07:00
+hash: fae9f35d30aad6a3505ff79d1e6eea63a204c5b1f0bf6f7dde4d1c9e3ecc5df7
+updated: 2017-06-05T10:22:09.681603584-07:00
 imports:
 - name: github.com/ContextLogic/eventmaster
   version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
@@ -16,21 +16,19 @@ imports:
   - internal/murmur
   - internal/streams
 - name: github.com/golang/protobuf
-  version: 2bba0603135d7d7f5cb73b2125beeda19c09f4ef
+  version: 9f174c986221c608fb5143bd623b6076a71feae3
   subpackages:
   - proto
   - protoc-gen-go/descriptor
   - ptypes/any
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
-- name: github.com/gorilla/context
-  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
-- name: github.com/gorilla/mux
-  version: bcd8bc72b08df0f70df986b97f95590779502d31
 - name: github.com/hailocab/go-hostpool
   version: e80d13ce29ede4452c43dea11e79b9bc8a15b478
 - name: github.com/jessevdk/go-flags
   version: 48cf8722c3375517aba351d1f7577c40663a4407
+- name: github.com/julienschmidt/httprouter
+  version: 8c199fb6259ffc1af525cc3ad52ee60ba8359669
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/rcrowley/go-metrics
@@ -41,6 +39,8 @@ imports:
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
+- name: github.com/soheilhy/cmux
+  version: bf4a8ede9e87c006fe1d4278c6c7f2b8be1fa84c
 - name: github.com/xeipuuv/gojsonpointer
   version: 6fe8760cad3569743d51ddbb243b26f8456742dc
 - name: github.com/xeipuuv/gojsonreference
@@ -48,7 +48,7 @@ imports:
 - name: github.com/xeipuuv/gojsonschema
   version: 0c8571ac0ce161a5feb57375a9cdf148c98c0f70
 - name: golang.org/x/net
-  version: d212a1ef2de2f5d441c327b8f26cf3ea3ea9f265
+  version: 3470a06c1357df533e251f14d3a181f67396fe35
   subpackages:
   - context
   - http2
@@ -58,11 +58,11 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: ea9bcade75cb975a0b9738936568ab388b845617
+  version: a55a76086885b80f79961eacb876ebd8caf3868d
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: a9a820217f98f7c8a207ec1e45a874e1fe12c478
+  version: 19e51611da83d6be54ddafce4a4af510cb3e9ea4
   subpackages:
   - secure/bidirule
   - transform
@@ -77,7 +77,6 @@ imports:
   subpackages:
   - codes
   - credentials
-  - grpclb/grpc_lb_v1
   - grpclog
   - internal
   - keepalive
