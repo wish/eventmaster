@@ -395,15 +395,15 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 		return evts, nil
 	}
 
-	size := q.Size
-	if size == 0 {
-		size = 50
+	limit := q.Limit
+	if limit == 0 {
+		limit = 50
 	}
 
 	sq := es.esClient.Search().
 		Index(indexNames...).
 		Query(bq).
-		From(int(q.From)).Size(int(size)).
+		From(int(q.Start)).Size(int(limit)).
 		Pretty(true)
 
 	for i, field := range q.SortField {
@@ -527,6 +527,10 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 	timer := metrics.GetOrRegisterTimer("UpdateTopic", es.registry)
 	defer timer.UpdateSince(start)
 
+	if newName == "" {
+		newName = oldName
+	}
+
 	id := es.getTopicId(newName)
 	if oldName != newName && id != "" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s already exists", newName))
@@ -538,6 +542,7 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 	queryStr := fmt.Sprintf(`UPDATE event_topic 
 		SET topic_name = %s"`, stringify(newName))
 	if schema != "" {
+		// TODO: check if the new schema is backwards compatible, add force option
 		ok := es.validateSchema(schema)
 		if !ok {
 			return "", errors.New("Error adding topic - schema is not in valid JSON schema format")
@@ -603,6 +608,10 @@ func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("UpdateDc", es.registry)
 	defer timer.UpdateSince(start)
+
+	if newName == "" {
+		newName = oldName
+	}
 
 	id := es.getDcId(newName)
 	if oldName != newName && id != "" {

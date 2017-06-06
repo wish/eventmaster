@@ -41,9 +41,9 @@ func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, mess
 }
 
 func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, name string) {
-	var response string
+	var response []byte
 	if key == "" {
-		response = val
+		response = []byte(val)
 	} else {
 		resp := make(map[string]string)
 		resp[key] = val
@@ -58,7 +58,7 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, na
 	meter.Mark(1)
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(str)
+	w.Write(response)
 }
 
 func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -121,13 +121,13 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		if endReceivedTime := query.Get("end_received_time"); endReceivedTime != "" {
 			q.EndReceivedTime, _ = strconv.ParseInt(endReceivedTime, 10, 64)
 		}
-		if from := query.Get("from"); from != "" {
-			fromIndex, _ := strconv.ParseInt(from, 10, 32)
-			q.From = int32(fromIndex)
+		if start := query.Get("start"); start != "" {
+			startIndex, _ := strconv.ParseInt(start, 10, 32)
+			q.Start = int32(startIndex)
 		}
-		if size := query.Get("size"); size != "" {
-			resultSize, _ := strconv.ParseInt(size, 10, 32)
-			q.Size = int32(resultSize)
+		if limit := query.Get("limit"); limit != "" {
+			resultSize, _ := strconv.ParseInt(limit, 10, 32)
+			q.Limit = int32(resultSize)
 		}
 	}
 
@@ -144,7 +144,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", "GetEventError")
 		return
 	}
-	h.sendResp(w, "", jsonSr, "Find")
+	h.sendResp(w, "", string(jsonSr), "Find")
 }
 
 func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -207,7 +207,7 @@ func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetTopicError")
 		return
 	}
-	h.sendResp(w, "".str, "GetTopic")
+	h.sendResp(w, "", string(str), "GetTopic")
 }
 
 func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -268,5 +268,5 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetDcError")
 		return
 	}
-	h.sendResp(w, "".str, id, "GetDc")
+	h.sendResp(w, "", string(str), "GetDc")
 }
