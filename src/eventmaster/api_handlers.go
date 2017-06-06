@@ -40,14 +40,22 @@ func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, mess
 	w.Write([]byte(errMsg))
 }
 
-func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, errName string) {
-	resp := make(map[string]string)
-	resp[key] = val
-	str, err := json.Marshal(resp)
-	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", errName)
-		return
+func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, name string) {
+	var response string
+	if key == "" {
+		response = val
+	} else {
+		resp := make(map[string]string)
+		resp[key] = val
+		var err error
+		response, err = json.Marshal(resp)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", name+"Error")
+			return
+		}
 	}
+	meter := metrics.GetOrRegisterMeter(name+"Success", h.registry)
+	meter.Mark(1)
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(str)
@@ -67,7 +75,7 @@ func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusBadRequest, err, "Error writing event", "AddEventError")
 		return
 	}
-	h.sendResp(w, "event_id", id, "AddEventError")
+	h.sendResp(w, "event_id", id, "AddEvent")
 }
 
 type SearchResult struct {
@@ -136,8 +144,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", "GetEventError")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonSr)
+	h.sendResp(w, "", jsonSr, "Find")
 }
 
 func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -158,7 +165,7 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusBadRequest, err, "Error adding topic", "AddTopicError")
 		return
 	}
-	h.sendResp(w, "topic_id", id, "AddTopicError")
+	h.sendResp(w, "topic_id", id, "AddTopic")
 }
 
 func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -184,7 +191,7 @@ func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, 
 		h.sendError(w, http.StatusBadRequest, err, "Error updating topic", "UpdateTopicError")
 		return
 	}
-	h.sendResp(w, "topic_id", id, "UpdateTopicError")
+	h.sendResp(w, "topic_id", id, "UpdateTopic")
 }
 
 func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -200,8 +207,7 @@ func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetTopicError")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(str)
+	h.sendResp(w, "".str, "GetTopic")
 }
 
 func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -221,7 +227,7 @@ func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ http
 		h.sendError(w, http.StatusBadRequest, err, "Error adding dc", "AddDcError")
 		return
 	}
-	h.sendResp(w, "dc_id", id, "AddDcError")
+	h.sendResp(w, "dc_id", id, "AddDc")
 }
 
 func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -246,7 +252,7 @@ func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps 
 		h.sendError(w, http.StatusBadRequest, err, "Error updating dc", "UpdateDcError")
 		return
 	}
-	h.sendResp(w, "dc_id", id, "UpdateDcError")
+	h.sendResp(w, "dc_id", id, "UpdateDc")
 }
 
 func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -262,6 +268,5 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetDcError")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(str)
+	h.sendResp(w, "".str, id, "GetDc")
 }
