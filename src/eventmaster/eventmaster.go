@@ -69,55 +69,23 @@ func getConfig() dbConfig {
 
 func getHTTPServer(store *EventStore) *http.Server {
 	r := httprouter.New()
-	aeah := &addEventAPIHandler{
+	h := httpHandler{
 		store: store,
 	}
-	geah := &getEventAPIHandler{
-		store: store,
-	}
-	atah := &addTopicAPIHandler{
-		store: store,
-	}
-	utah := &updateTopicAPIHandler{
-		store: store,
-	}
-	gtah := &getTopicAPIHandler{
-		store: store,
-	}
-	adah := &addDcAPIHandler{
-		store: store,
-	}
-	udah := &updateDcAPIHandler{
-		store: store,
-	}
-	gdah := &getDcAPIHandler{
-		store: store,
-	}
-	r.Handler("POST", "/v1/event", aeah)
-	r.Handler("GET", "/v1/event", geah)
-	r.Handler("POST", "/v1/topic", atah)
-	r.Handler("PUT", "/v1/topic/:name", utah)
-	r.Handler("GET", "/v1/topic", gtah)
-	r.Handler("POST", "/v1/dc", adah)
-	r.Handler("PUT", "/v1/dc/:name", udah)
-	r.Handler("GET", "/v1/dc", gdah)
 
-	mph := &mainPageHandler{
-		store: store,
-	}
-	cph := &createPageHandler{
-		store: store,
-	}
-	tph := &topicPageHandler{
-		store: store,
-	}
-	dph := &dcPageHandler{
-		store: store,
-	}
-	r.Handler("GET", "/", mph)
-	r.Handler("GET", "/add_event", cph)
-	r.Handler("GET", "/topic", tph)
-	r.Handler("GET", "/dc", dph)
+	r.POST("/v1/event", wrapHandler(h.handleAddEvent))
+	r.GET("/v1/event", wrapHandler(h.handleGetEvent))
+	r.POST("/v1/topic", wrapHandler(h.handleAddTopic))
+	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic))
+	r.GET("/v1/topic", wrapHandler(h.handleGetTopic))
+	r.POST("/v1/dc", wrapHandler(h.handleAddDc))
+	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc))
+	r.GET("/v1/dc", wrapHandler(h.handleGetDc))
+
+	r.GET("/", HandleMainPage)
+	r.GET("/add_event", HandleCreatePage)
+	r.GET("/topic", HandleTopicPage)
+	r.GET("/dc", HandleDcPage)
 
 	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
 
@@ -197,7 +165,7 @@ func main() {
 
 	flushTicker := time.NewTicker(time.Second * time.Duration(dbConf.FlushInterval))
 	go func() {
-		for _ = range flushTicker.C {
+		for range flushTicker.C {
 			if err := store.FlushToES(); err != nil {
 				fmt.Println("Error flushing events from temp_event to ES:", err)
 			}
@@ -206,7 +174,7 @@ func main() {
 
 	updateTicker := time.NewTicker(time.Second * time.Duration(dbConf.UpdateInterval))
 	go func() {
-		for _ = range updateTicker.C {
+		for range updateTicker.C {
 			if err := store.Update(); err != nil {
 				fmt.Println("Error updating dcs and topics from cassandra:", err)
 			}

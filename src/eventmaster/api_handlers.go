@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
+	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )
 
@@ -30,21 +32,27 @@ func sendResp(w http.ResponseWriter, key string, val string) {
 	w.Write(str)
 }
 
-type addEventAPIHandler struct {
+type httpHandler struct {
 	store *EventStore
 }
 
-func (eah *addEventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
+func wrapHandler(h httprouter.Handle) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		start := time.Now()
+		h(w, r, ps)
+		fmt.Println(r.URL, time.Now().Sub(start))
+	}
+}
 
+func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var evt eventmaster.Event
-	err := decoder.Decode(&evt)
 
-	if err != nil {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&evt); err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error decoding JSON event")
 		return
 	}
-	id, err := eah.store.AddEvent(&evt)
+	id, err := h.store.AddEvent(&evt)
 	if err != nil {
 		fmt.Println("Error adding event to store: ", err)
 		sendError(w, http.StatusBadRequest, err, "Error writing event")
@@ -53,21 +61,16 @@ func (eah *addEventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	sendResp(w, "event_id", id)
 }
 
-type getEventAPIHandler struct {
-	store *EventStore
-}
-
 type SearchResult struct {
 	Results []*Event `json:"results"`
 }
 
-func (eah *getEventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var q eventmaster.Query
 
 	// read from request body first - if there's an error, read from query params
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&q)
-	if err != nil {
+	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
 		q.Dc = query["dc"]
 		q.Host = query["host"]
@@ -107,7 +110,7 @@ func (eah *getEventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	results, err := eah.store.Find(&q)
+	results, err := h.store.Find(&q)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, err, "Error executing query")
 		return
@@ -124,24 +127,20 @@ func (eah *getEventAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	w.Write(jsonSr)
 }
 
-type addTopicAPIHandler struct {
-	store *EventStore
-}
-
-func (tah *addTopicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var td TopicData
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error reading request body")
 		return
 	}
-	err = json.Unmarshal(reqBody, &td)
-	if err != nil {
+
+	if err = json.Unmarshal(reqBody, &td); err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request")
 		return
 	}
 
-	id, err := tah.store.AddTopic(td.Name, td.Schema)
+	id, err := h.store.AddTopic(td.Name, td.Schema)
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error adding topic")
 		return
@@ -149,11 +148,7 @@ func (tah *addTopicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	sendResp(w, "topic_id", id)
 }
 
-type updateTopicAPIHandler struct {
-	store *EventStore
-}
-
-func (tah *updateTopicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var td TopicData
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -166,12 +161,12 @@ func (tah *updateTopicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	topicName := r.URL.Query().Get(":name")
+	topicName := ps.ByName("name")
 	if topicName == "" {
 		sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided")
 		return
 	}
-	id, err := tah.store.UpdateTopic(topicName, td.Name, td.Schema)
+	id, err := h.store.UpdateTopic(topicName, td.Name, td.Schema)
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error updating topic")
 		return
@@ -179,13 +174,9 @@ func (tah *updateTopicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	sendResp(w, "topic_id", id)
 }
 
-type getTopicAPIHandler struct {
-	store *EventStore
-}
-
-func (tah *getTopicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	topicSet := make(map[string][]TopicData)
-	topics, err := tah.store.GetTopics()
+	topics, err := h.store.GetTopics()
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, err, "Error getting topics from store")
 		return
@@ -200,11 +191,7 @@ func (tah *getTopicAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	w.Write(str)
 }
 
-type addDcAPIHandler struct {
-	store *EventStore
-}
-
-func (dah *addDcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dd DcData
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -216,7 +203,7 @@ func (dah *addDcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request")
 		return
 	}
-	id, err := dah.store.AddDc(dd.Name)
+	id, err := h.store.AddDc(dd.Name)
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error adding dc")
 		return
@@ -224,11 +211,7 @@ func (dah *addDcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sendResp(w, "dc_id", id)
 }
 
-type updateDcAPIHandler struct {
-	store *EventStore
-}
-
-func (dah *updateDcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var dd DcData
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -240,12 +223,12 @@ func (dah *updateDcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request")
 		return
 	}
-	dcName := r.URL.Query().Get(":name")
+	dcName := ps.ByName("name")
 	if dcName == "" {
 		sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided")
 		return
 	}
-	id, err := dah.store.UpdateDc(dcName, dd.Name)
+	id, err := h.store.UpdateDc(dcName, dd.Name)
 	if err != nil {
 		sendError(w, http.StatusBadRequest, err, "Error updating dc")
 		return
@@ -253,13 +236,9 @@ func (dah *updateDcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	sendResp(w, "dc_id", id)
 }
 
-type getDcAPIHandler struct {
-	store *EventStore
-}
-
-func (dah *getDcAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	dcSet := make(map[string][]string)
-	dcs, err := dah.store.GetDcs()
+	dcs, err := h.store.GetDcs()
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store")
 		return
