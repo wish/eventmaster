@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"sync"
@@ -18,6 +17,7 @@ import (
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
+// stringify* used for mapping to cassandra inputs
 func stringify(str string) string {
 	if str == "" {
 		return "null"
@@ -58,7 +58,6 @@ type Event struct {
 	TargetHosts   []string               `json:"target_host_set"`
 	User          string                 `json:"user"`
 	Data          map[string]interface{} `json:"data"`
-	EventType     int32                  `json:"event_type"`
 	ReceivedTime  int64                  `json:"received_time"`
 }
 
@@ -74,45 +73,21 @@ type DcData struct {
 type EventStore struct {
 	cqlSession     *gocql.Session
 	esClient       *elastic.Client
-	topicNameToId  map[string]string // map of name to id
-	topicIdToName  map[string]string // map of id to name
-	topicSchemaMap map[string]string // map of id to schema
-	dcNameToId     map[string]string // map of name to id
-	dcIdToName     map[string]string // map of id to name
-	indexNames     []string          // list of name of all indices in es cluster
-	FlushInterval  int
-	topicMutex     *sync.Mutex
-	dcMutex        *sync.Mutex
-	indexMutex     *sync.Mutex
+	topicNameToId  map[string]string               // map of name to id
+	topicIdToName  map[string]string               // map of id to name
+	topicSchemaMap map[string]*gojsonschema.Schema // map of topic id to json loader for schema validation
+	dcNameToId     map[string]string               // map of name to id
+	dcIdToName     map[string]string               // map of id to name
+	indexNames     []string                        // list of name of all indices in es cluster
+	topicMutex     *sync.RWMutex
+	dcMutex        *sync.RWMutex
+	indexMutex     *sync.RWMutex
 }
 
-func NewEventStore() (*EventStore, error) {
+func NewEventStore(dbConf dbConfig) (*EventStore, error) {
 	// Establish connection to Cassandra
-	dbConf := dbConfig{}
-	confFile, err := ioutil.ReadFile("db_config.json")
-	if err != nil {
-		fmt.Println("No db_config file specified")
-	} else {
-		err = json.Unmarshal(confFile, &dbConf)
-		if err != nil {
-			fmt.Println("Error parsing db_config.json, using defaults:", err)
-		}
-	}
-	if dbConf.Host == "" {
-		dbConf.Host = "127.0.0.1"
-	}
-	if dbConf.Port == "" {
-		dbConf.Port = "9042"
-	}
-	if dbConf.Keyspace == "" {
-		dbConf.Keyspace = "event_master"
-	}
-	if dbConf.Consistency == "" {
-		dbConf.Consistency = "quorum"
-	}
 	cluster := gocql.NewCluster(fmt.Sprintf("%s:%s", dbConf.Host, dbConf.Port))
 	cluster.Keyspace = dbConf.Keyspace
-
 	if dbConf.Consistency == "one" {
 		cluster.Consistency = gocql.One
 	} else if dbConf.Consistency == "two" {
@@ -127,74 +102,74 @@ func NewEventStore() (*EventStore, error) {
 	}
 
 	// Establish connection to ES and initialize index if it doesn't exist
-	if dbConf.ESUrl == "" {
-		dbConf.ESUrl = "http://127.0.0.1:9200"
-	}
 	client, err := elastic.NewClient(elastic.SetURL(dbConf.ESUrl))
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating elasticsearch client")
 	}
 
-	if dbConf.FlushInterval == 0 {
-		dbConf.FlushInterval = 5
-	}
-
 	return &EventStore{
-		cqlSession:    session,
-		esClient:      client,
-		FlushInterval: dbConf.FlushInterval,
-		topicMutex:    &sync.Mutex{},
-		dcMutex:       &sync.Mutex{},
-		indexMutex:    &sync.Mutex{},
+		cqlSession: session,
+		esClient:   client,
+		topicMutex: &sync.RWMutex{},
+		dcMutex:    &sync.RWMutex{},
+		indexMutex: &sync.RWMutex{},
 	}, nil
 }
 
 func (es *EventStore) getTopicId(topic string) string {
-	es.topicMutex.Lock()
-	id, ok := es.topicNameToId[strings.ToLower(topic)]
-	es.topicMutex.Unlock()
-	if ok {
-		return id
-	}
-	return "null"
+	es.topicMutex.RLock()
+	id := es.topicNameToId[strings.ToLower(topic)]
+	es.topicMutex.RUnlock()
+	return id
 }
 
 func (es *EventStore) getTopicName(id string) string {
-	es.topicMutex.Lock()
+	es.topicMutex.RLock()
 	name := es.topicIdToName[id]
-	es.topicMutex.Unlock()
+	es.topicMutex.RUnlock()
+	return name
+}
+
+func (es *EventStore) getTopicSchema(id string) *gojsonschema.Schema {
+	es.topicMutex.RLock()
+	name := es.topicSchemaMap[id]
+	es.topicMutex.RUnlock()
 	return name
 }
 
 func (es *EventStore) getDcId(dc string) string {
-	es.dcMutex.Lock()
-	id, ok := es.dcNameToId[strings.ToLower(dc)]
-	es.dcMutex.Unlock()
-	if ok {
-		return id
-	}
-	return "null"
+	es.dcMutex.RLock()
+	id := es.dcNameToId[strings.ToLower(dc)]
+	es.dcMutex.RUnlock()
+	return id
 }
 
 func (es *EventStore) getDcName(id string) string {
-	es.dcMutex.Lock()
+	es.dcMutex.RLock()
 	name := es.dcIdToName[id]
-	es.dcMutex.Unlock()
+	es.dcMutex.RUnlock()
 	return name
 }
 
-func (es *EventStore) buildCQLInsertQuery(event *Event, data string) string {
+func (es *EventStore) getESIndices() []string {
+	es.indexMutex.RLock()
+	names := es.indexNames
+	es.indexMutex.RUnlock()
+	return names
+}
+
+func (event *Event) toCassandra(dcID string, topicID string, data string) string {
 	// TODO: change this to prevent tombstones
 	return fmt.Sprintf(`
 	BEGIN BATCH
-    INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, event_type, received_time)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d, %[12]d);
-    INSERT INTO temp_event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, event_type, received_time)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d, %[12]d);
+    INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
+    INSERT INTO temp_event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
     APPLY BATCH;`,
-		event.EventID, stringifyUUID(event.ParentEventID), es.getDcId(event.Dc), es.getTopicId(event.TopicName),
+		event.EventID, stringifyUUID(event.ParentEventID), dcID, topicID,
 		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
-		stringifyArr(event.Tags), stringify(data), event.EventType, event.ReceivedTime)
+		stringifyArr(event.Tags), stringify(data), event.ReceivedTime)
 }
 
 func (es *EventStore) validateSchema(schema string) bool {
@@ -294,23 +269,20 @@ func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
 	}
 
 	id := es.getDcId(event.Dc)
-	if id == "null" {
+	if id == "" {
 		return false, fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc))
 	}
 	id = es.getTopicId(event.TopicName)
-	if id == "null" {
+	if id == "" {
 		return false, fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName))
 	}
-	es.topicMutex.Lock()
-	schema, _ := es.topicSchemaMap[id]
-	es.topicMutex.Unlock()
-	if schema != "" {
+	topicSchema := es.getTopicSchema(id)
+	if topicSchema != nil {
 		if event.Data == "" {
 			event.Data = "{}"
 		}
-		schemaLoader := gojsonschema.NewStringLoader(schema)
 		dataLoader := gojsonschema.NewStringLoader(event.Data)
-		result, err := gojsonschema.Validate(schemaLoader, dataLoader)
+		result, err := topicSchema.Validate(dataLoader)
 		if err != nil {
 			return false, "Error validating event data against schema: " + err.Error()
 		}
@@ -344,7 +316,6 @@ func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
 		TargetHosts:   event.TargetHostSet,
 		User:          event.User,
 		Data:          d,
-		EventType:     event.EventType,
 		ReceivedTime:  time.Now().Unix(),
 	}, nil
 }
@@ -368,9 +339,7 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	bq := es.buildESQuery(q)
 	ctx := context.Background()
 
-	es.indexMutex.Lock()
-	indexNames := es.indexNames
-	es.indexMutex.Unlock()
+	indexNames := es.getESIndices()
 
 	if q.StartEventTime != 0 {
 		startIndex := getIndexFromTime(q.StartEventTime)
@@ -400,6 +369,7 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	sq := es.esClient.Search().
 		Index(indexNames...).
 		Query(bq).
+		From(0).Size(50).
 		Pretty(true)
 
 	for i, field := range q.SortField {
@@ -427,7 +397,7 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 		return "", errors.Wrap(err, "Error augmenting event")
 	}
 	// write event to Cassandra
-	queryStr := es.buildCQLInsertQuery(evt, event.Data)
+	queryStr := evt.toCassandra(es.getDcId(evt.Dc), es.getDcId(evt.TopicName), event.Data)
 	query := es.cqlSession.Query(queryStr)
 	if err := query.Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
@@ -440,7 +410,7 @@ func (es *EventStore) GetTopics() ([]TopicData, error) {
 	iter := es.cqlSession.Query("SELECT topic_name, data_schema FROM event_topic;").Iter()
 	var name, schema string
 	var topics []TopicData
-	for true {
+	for {
 		if iter.Scan(&name, &schema) {
 			topics = append(topics, TopicData{
 				Name:   name,
@@ -494,11 +464,11 @@ func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 
 func (es *EventStore) UpdateTopic(oldName string, newName string, schema string) (string, error) {
 	id := es.getTopicId(newName)
-	if oldName != newName && id != "null" {
+	if oldName != newName && id != "" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s already exists", newName))
 	}
 	id = es.getTopicId(oldName)
-	if id == "null" {
+	if id == "" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
 	}
 	queryStr := fmt.Sprintf(`UPDATE event_topic 
@@ -514,15 +484,22 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
 	}
+	var jsonSchema *gojsonschema.Schema
+	var err error
+	if schema != "" {
+		schemaLoader := gojsonschema.NewStringLoader(schema)
+		jsonSchema, err = gojsonschema.NewSchema(schemaLoader)
+		if err != nil {
+			return "", errors.Wrap(err, "Schema is not in valid JSON format")
+		}
+	}
 	es.topicMutex.Lock()
 	es.topicNameToId[newName] = es.topicNameToId[oldName]
 	es.topicIdToName[id] = newName
 	if newName != oldName {
 		delete(es.topicNameToId, oldName)
 	}
-	if schema != "" {
-		es.topicSchemaMap[id] = schema
-	}
+	es.topicSchemaMap[id] = jsonSchema
 	es.topicMutex.Unlock()
 	return id, nil
 }
@@ -532,7 +509,7 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 		return "", errors.New("Error adding dc - dc name is empty")
 	}
 	id := es.getDcId(dc)
-	if id != "null" {
+	if id != "" {
 		return "", errors.New(fmt.Sprintf("Error adding dc - dc with name %s already exists", dc))
 	}
 
@@ -552,11 +529,11 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 
 func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
 	id := es.getDcId(newName)
-	if oldName != newName && id != "null" {
+	if oldName != newName && id != "" {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s already exists", newName))
 	}
 	id = es.getDcId(oldName)
-	if id == "null" {
+	if id == "" {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s doesn't exist", oldName))
 	}
 	queryStr := fmt.Sprintf(`UPDATE event_dc 
@@ -603,7 +580,8 @@ func (es *EventStore) Update() error {
 
 	newTopicNameToId := make(map[string]string)
 	newTopicIdToName := make(map[string]string)
-	newTopicSchemaMap := make(map[string]string)
+	schemaMap := make(map[string]string)
+	newTopicSchemaMap := make(map[string]*gojsonschema.Schema)
 	iter = es.cqlSession.Query("SELECT topic_id, topic_name, data_schema FROM event_topic;").Iter()
 	var topicId gocql.UUID
 	var topicName, dataSchema string
@@ -612,7 +590,7 @@ func (es *EventStore) Update() error {
 			id := topicId.String()
 			newTopicNameToId[topicName] = id
 			newTopicIdToName[id] = topicName
-			newTopicSchemaMap[id] = dataSchema
+			schemaMap[id] = dataSchema
 		} else {
 			break
 		}
@@ -620,13 +598,21 @@ func (es *EventStore) Update() error {
 	if err := iter.Close(); err != nil {
 		return errors.Wrap(err, "Error closing topic iter")
 	}
-	if newTopicNameToId != nil {
-		es.topicMutex.Lock()
-		es.topicNameToId = newTopicNameToId
-		es.topicIdToName = newTopicIdToName
-		es.topicSchemaMap = newTopicSchemaMap
-		es.topicMutex.Unlock()
+	for id, schema := range schemaMap {
+		if schema != "" {
+			schemaLoader := gojsonschema.NewStringLoader(schema)
+			jsonSchema, err := gojsonschema.NewSchema(schemaLoader)
+			if err != nil {
+				return errors.Wrap(err, "Error validating schema for topic "+id)
+			}
+			newTopicSchemaMap[id] = jsonSchema
+		}
 	}
+	es.topicMutex.Lock()
+	es.topicNameToId = newTopicNameToId
+	es.topicIdToName = newTopicIdToName
+	es.topicSchemaMap = newTopicSchemaMap
+	es.topicMutex.Unlock()
 
 	indices, err := es.esClient.IndexNames()
 	if err != nil {
@@ -642,11 +628,10 @@ func (es *EventStore) Update() error {
 
 func (es *EventStore) FlushToES() error {
 	iter := es.cqlSession.Query(`SELECT event_id, parent_event_id, dc_id, topic_id,
-		host, target_host_set, user, event_time, tag_set, data_json, event_type, received_time
+		host, target_host_set, user, event_time, tag_set, data_json, received_time
 		FROM temp_event LIMIT 1000;`).Iter()
 	var eventID, parentEventID, topicID, dcID gocql.UUID
 	var eventTime, receivedTime int64
-	var eventType int32
 	var host, user, data string
 	var targetHostSet, tagSet []string
 
@@ -656,7 +641,7 @@ func (es *EventStore) FlushToES() error {
 	esIndices := make(map[string]([]*Event))
 	var v struct{}
 	for true {
-		if iter.Scan(&eventID, &parentEventID, &dcID, &topicID, &host, &targetHostSet, &user, &eventTime, &tagSet, &data, &eventType, &receivedTime) {
+		if iter.Scan(&eventID, &parentEventID, &dcID, &topicID, &host, &targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
 			var d map[string]interface{}
 			if data != "" {
 				if err := json.Unmarshal([]byte(data), &d); err != nil {
@@ -683,7 +668,6 @@ func (es *EventStore) FlushToES() error {
 				TargetHosts:   targetHostSet,
 				User:          user,
 				Data:          d,
-				EventType:     eventType,
 				ReceivedTime:  receivedTime,
 			})
 		} else {

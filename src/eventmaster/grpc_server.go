@@ -9,40 +9,41 @@ import (
 	context "golang.org/x/net/context"
 )
 
-func NewServer(config *Config, s *EventStore) (*server, error) {
+func NewGRPCServer(config *Config, s *EventStore) (*grpcServer, error) {
 	statsClient := statsd.NewClient(
 		fmt.Sprintf("eventmaster_", config.EventStoreName),
 		config.StatsdServer,
 		false, // TODO disable this outside of prod
 	)
 
-	return &server{
+	return &grpcServer{
 		config: config,
 		statsd: statsClient,
 		store:  s,
 	}, nil
 }
 
-type server struct {
+type grpcServer struct {
 	config *Config
 	statsd *statsd.Client
 	store  *EventStore
 }
 
-func (s *server) FireEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+func (s *grpcServer) FireEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
 	id, err := s.store.AddEvent(evt)
 	if err != nil {
 		fmt.Println("Error writing event to cassandra:", err)
 		return &eventmaster.WriteResponse{
 			Errcode: 1,
 			Errmsg:  err.Error(),
-			EventId: id,
 		}, err
 	}
-	return &eventmaster.WriteResponse{}, nil
+	return &eventmaster.WriteResponse{
+		EventId: id,
+	}, nil
 }
 
-func (s *server) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
+func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
 	events, err := s.store.Find(q)
 	if err != nil {
 		return err
@@ -62,12 +63,7 @@ func (s *server) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_
 			TargetHostSet: ev.TargetHosts,
 			User:          ev.User,
 			Data:          string(d),
-			EventType:     ev.EventType,
 		})
 	}
 	return nil
-}
-
-func (s *server) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {
-	return &eventmaster.HealthcheckResponse{"OK"}, nil
 }

@@ -9,12 +9,20 @@
 		    <div class="navbar-header">
 		      <a class="navbar-brand" href="/">eventmaster</a>
 		    </div>
-			<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+			<div class="collapse navbar-collapse">
 		      <ul class="nav navbar-nav">
 		        <li><a href="/add_event">Add Event</a></li>
 		        <li><a href="/topic">Topics</a></li>
 		        <li><a href="/dc">Data Centers</a></li>
 		      </ul>
+              <div class="nav navbar-nav navbar-right">
+            	<form class="navbar-form">
+			      <select name="timezone" id="timezone" class="form-control" style="width: 200px;">
+			        <option value="7">PDT (UTC−7:00)</option>
+			        <option value="8">PST (UTC−8:00</option>
+			      </select>
+		   		</form>
+              </ul>
 		    </div>
 		  </div>
 		</nav>

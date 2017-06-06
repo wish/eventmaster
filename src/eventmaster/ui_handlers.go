@@ -4,32 +4,17 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+
+	"github.com/julienschmidt/httprouter"
 )
 
-type mainPageHandler struct {
-	store *EventStore
-}
-
-type createPageHandler struct {
-	store *EventStore
-}
-
-type topicPageHandler struct {
-	store *EventStore
-}
-
-type dcPageHandler struct {
-	store *EventStore
-}
-
 func executeTemplate(w http.ResponseWriter, t *template.Template, data interface{}) {
-	err := t.Execute(w, data)
-	if err != nil {
+	if err := t.Execute(w, data); err != nil {
 		http.Error(w, fmt.Sprintf("error executing template: %v", err), http.StatusInternalServerError)
 	}
 }
 
-func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func HandleMainPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/query_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
@@ -38,7 +23,7 @@ func (mph *mainPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	executeTemplate(w, t, nil)
 }
 
-func (cph *createPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func HandleCreatePage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/create_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
@@ -47,7 +32,7 @@ func (cph *createPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	executeTemplate(w, t, nil)
 }
 
-func (tph *topicPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func HandleTopicPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/topic_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
@@ -56,7 +41,7 @@ func (tph *topicPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	executeTemplate(w, t, nil)
 }
 
-func (tph *dcPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func HandleDcPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := template.New("main.html").ParseFiles("ui/templates/main.html", "ui/templates/dc_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
