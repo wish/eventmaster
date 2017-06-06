@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
-	"github.com/rcrowley/go-metrics/exp"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 )
@@ -67,20 +65,20 @@ func getConfig() dbConfig {
 	return dbConf
 }
 
-func getHTTPServer(store *EventStore) *http.Server {
+func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 	r := httprouter.New()
 	h := httpHandler{
 		store: store,
 	}
 
-	r.POST("/v1/event", wrapHandler(h.handleAddEvent))
-	r.GET("/v1/event", wrapHandler(h.handleGetEvent))
-	r.POST("/v1/topic", wrapHandler(h.handleAddTopic))
-	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic))
-	r.GET("/v1/topic", wrapHandler(h.handleGetTopic))
-	r.POST("/v1/dc", wrapHandler(h.handleAddDc))
-	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc))
-	r.GET("/v1/dc", wrapHandler(h.handleGetDc))
+	r.POST("/v1/event", wrapHandler(h.handleAddEvent, registry))
+	r.GET("/v1/event", wrapHandler(h.handleGetEvent, registry))
+	r.POST("/v1/topic", wrapHandler(h.handleAddTopic, registry))
+	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic, registry))
+	r.GET("/v1/topic", wrapHandler(h.handleGetTopic, registry))
+	r.POST("/v1/dc", wrapHandler(h.handleAddDc, registry))
+	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
+	r.GET("/v1/dc", wrapHandler(h.handleGetDc, registry))
 
 	r.GET("/", HandleMainPage)
 	r.GET("/add_event", HandleCreatePage)
@@ -101,28 +99,11 @@ func main() {
 		log.Fatalf("Error parsing flags: %v", err)
 	}
 
-	exp.Exp(metrics.DefaultRegistry)
-	sock, err := net.Listen("tcp", "0.0.0.0:12345")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	go func() {
-		fmt.Println("go-metrics server listening at port 12345")
-		http.Serve(sock, nil)
-	}()
-
-	g := metrics.NewGauge()
-	metrics.Register("goroutines", g)
-	go func() {
-		for {
-			g.Update(int64(runtime.NumGoroutine()))
-			time.Sleep(time.Duration(10) * time.Second)
-		}
-	}()
+	r := metrics.NewRegistry()
 
 	// Set up event store
 	dbConf := getConfig()
-	store, err := NewEventStore(dbConf)
+	store, err := NewEventStore(dbConf, r)
 	if err != nil {
 		log.Fatalf("Unable to create event store: %v", err)
 	}
@@ -140,10 +121,10 @@ func main() {
 	httpL := mux.Match(cmux.HTTP1Fast())
 	grpcL := mux.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 
-	httpS := getHTTPServer(store)
+	httpS := getHTTPServer(store, r)
 
 	// Create the EventMaster server
-	grpcServer, err := NewGRPCServer(&config, store)
+	grpcServer, err := NewGRPCServer(&config, store, r)
 	if err != nil {
 		log.Fatalf("Unable to start server: %v", err)
 	}
