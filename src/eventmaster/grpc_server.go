@@ -3,13 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	statsd "github.com/ContextLogic/gobrubeckclient/brubeck"
+	metrics "github.com/rcrowley/go-metrics"
 	context "golang.org/x/net/context"
 )
 
-func NewGRPCServer(config *Config, s *EventStore) (*grpcServer, error) {
+func NewGRPCServer(config *Config, s *EventStore, r metrics.Registry) (*grpcServer, error) {
 	statsClient := statsd.NewClient(
 		fmt.Sprintf("eventmaster_", config.EventStoreName),
 		config.StatsdServer,
@@ -17,19 +19,27 @@ func NewGRPCServer(config *Config, s *EventStore) (*grpcServer, error) {
 	)
 
 	return &grpcServer{
-		config: config,
-		statsd: statsClient,
-		store:  s,
+		config:   config,
+		statsd:   statsClient,
+		store:    s,
+		registry: r,
 	}, nil
 }
 
 type grpcServer struct {
-	config *Config
-	statsd *statsd.Client
-	store  *EventStore
+	config   *Config
+	statsd   *statsd.Client
+	store    *EventStore
+	registry metrics.Registry
 }
 
 func (s *grpcServer) FireEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+	meter := metrics.GetOrRegisterMeter("grpcFireEvent:Meter", s.registry)
+	meter.Mark(1)
+	start := time.Now()
+	timer := metrics.GetOrRegisterTimer("grpcFireEvent:Timer", s.registry)
+	defer timer.UpdateSince(start)
+
 	id, err := s.store.AddEvent(evt)
 	if err != nil {
 		fmt.Println("Error writing event to cassandra:", err)
@@ -44,6 +54,12 @@ func (s *grpcServer) FireEvent(ctx context.Context, evt *eventmaster.Event) (*ev
 }
 
 func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
+	meter := metrics.GetOrRegisterMeter("grpcGetEvents:Meter", s.registry)
+	meter.Mark(1)
+	start := time.Now()
+	timer := metrics.GetOrRegisterTimer("grpcGetEvents:Timer", s.registry)
+	defer timer.UpdateSince(start)
+
 	events, err := s.store.Find(q)
 	if err != nil {
 		return err
