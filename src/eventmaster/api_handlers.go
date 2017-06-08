@@ -71,7 +71,6 @@ func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ h
 	}
 	id, err := h.store.AddEvent(&evt)
 	if err != nil {
-		fmt.Println("Error adding event to store: ", err)
 		h.sendError(w, http.StatusBadRequest, err, "Error writing event", "AddEventError")
 		return
 	}
@@ -79,7 +78,7 @@ func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ h
 }
 
 type SearchResult struct {
-	Results []*Event `json:"results"`
+	Results []*eventmaster.Event `json:"results"`
 }
 
 func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -131,10 +130,29 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		}
 	}
 
-	results, err := h.store.Find(&q)
+	events, err := h.store.Find(&q)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error executing query", "GetEventError")
 		return
+	}
+	var results []*eventmaster.Event
+	for _, ev := range events {
+		d, err := json.Marshal(ev.Data)
+		if err != nil {
+			d = []byte("Error marshalling into JSON")
+		}
+		results = append(results, &eventmaster.Event{
+			EventId:       ev.EventID,
+			ParentEventId: ev.ParentEventID,
+			EventTime:     ev.EventTime,
+			Dc:            h.store.getDcName(ev.DcID),
+			TopicName:     h.store.getTopicName(ev.TopicID),
+			TagSet:        ev.Tags,
+			Host:          ev.Host,
+			TargetHostSet: ev.TargetHosts,
+			User:          ev.User,
+			Data:          string(d),
+		})
 	}
 	sr := SearchResult{
 		Results: results,

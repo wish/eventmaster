@@ -34,11 +34,11 @@ type grpcServer struct {
 }
 
 func (s *grpcServer) FireEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
-	meter := metrics.GetOrRegisterMeter("grpcFireEvent:Meter", s.registry)
-	meter.Mark(1)
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("grpcFireEvent:Timer", s.registry)
 	defer timer.UpdateSince(start)
+	meter := metrics.GetOrRegisterMeter("grpcFireEvent:Meter", s.registry)
+	meter.Mark(1)
 
 	id, err := s.store.AddEvent(evt)
 	if err != nil {
@@ -54,11 +54,11 @@ func (s *grpcServer) FireEvent(ctx context.Context, evt *eventmaster.Event) (*ev
 }
 
 func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
-	meter := metrics.GetOrRegisterMeter("grpcGetEvents:Meter", s.registry)
-	meter.Mark(1)
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("grpcGetEvents:Timer", s.registry)
 	defer timer.UpdateSince(start)
+	meter := metrics.GetOrRegisterMeter("grpcGetEvents:Meter", s.registry)
+	meter.Mark(1)
 
 	events, err := s.store.Find(q)
 	if err != nil {
@@ -70,10 +70,11 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 			return err
 		}
 		stream.Send(&eventmaster.Event{
+			EventId:       ev.EventID,
 			ParentEventId: ev.ParentEventID,
 			EventTime:     ev.EventTime,
-			Dc:            ev.Dc,
-			TopicName:     ev.TopicName,
+			Dc:            s.store.getDcName(ev.DcID),
+			TopicName:     s.store.getTopicName(ev.TopicID),
 			TagSet:        ev.Tags,
 			Host:          ev.Host,
 			TargetHostSet: ev.TargetHosts,

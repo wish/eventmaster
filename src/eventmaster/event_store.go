@@ -73,14 +73,28 @@ type Event struct {
 	EventID       string                 `json:"event_id"`
 	ParentEventID string                 `json:"parent_event_id"`
 	EventTime     int64                  `json:"event_time"`
-	Dc            string                 `json:"dc"`
-	TopicName     string                 `json:"topic_name"`
+	DcID          string                 `json:"dc_id"`
+	TopicID       string                 `json:"topic_id"`
 	Tags          []string               `json:"tag_set"`
 	Host          string                 `json:"host"`
 	TargetHosts   []string               `json:"target_host_set"`
 	User          string                 `json:"user"`
 	Data          map[string]interface{} `json:"data"`
 	ReceivedTime  int64                  `json:"received_time"`
+}
+
+func (event *Event) toCassandra(data string) string {
+	// TODO: change this to prevent tombstones
+	return fmt.Sprintf(`
+	BEGIN BATCH
+    INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
+    INSERT INTO temp_event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
+    APPLY BATCH;`,
+		event.EventID, stringifyUUID(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
+		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
+		stringifyArr(event.Tags), stringify(data), event.ReceivedTime)
 }
 
 type TopicData struct {
@@ -182,20 +196,6 @@ func (es *EventStore) getESIndices() []string {
 	return names
 }
 
-func (event *Event) toCassandra(dcID string, topicID string, data string) string {
-	// TODO: change this to prevent tombstones
-	return fmt.Sprintf(`
-	BEGIN BATCH
-    INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
-    INSERT INTO temp_event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
-    APPLY BATCH;`,
-		event.EventID, stringifyUUID(event.ParentEventID), dcID, topicID,
-		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
-		stringifyArr(event.Tags), stringify(data), event.ReceivedTime)
-}
-
 func (es *EventStore) validateSchema(schema string) bool {
 	loader := gojsonschema.NewStringLoader(schema)
 	_, err := gojsonschema.NewSchema(loader)
@@ -211,9 +211,11 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	if len(q.Dc) != 0 {
 		dcs := make([]interface{}, 0)
 		for _, dc := range q.Dc {
-			dcs = append(dcs, dc)
+			if id := es.getDcId(strings.ToLower(dc)); id != "" {
+				dcs = append(dcs, id)
+			}
 		}
-		queries = append(queries, elastic.NewTermsQuery("dc", dcs...))
+		queries = append(queries, elastic.NewTermsQuery("dc_id", dcs...))
 	}
 	if len(q.Host) != 0 {
 		hosts := make([]interface{}, 0)
@@ -232,9 +234,11 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	if len(q.TopicName) != 0 {
 		topics := make([]interface{}, 0)
 		for _, topic := range q.TopicName {
-			topics = append(topics, topic)
+			if id := es.getTopicId(strings.ToLower(topic)); id != "" {
+				topics = append(topics, id)
+			}
 		}
-		queries = append(queries, elastic.NewTermsQuery("topic_name", topics...))
+		queries = append(queries, elastic.NewTermsQuery("topic_id", topics...))
 	}
 	if len(q.TagSet) != 0 {
 		tags := make([]interface{}, 0)
@@ -282,26 +286,28 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	return query
 }
 
-func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
+func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
+	// validate Event
 	if event.Dc == "" {
-		return false, "Event missing dc"
+		return nil, errors.New("Event missing dc")
 	} else if event.Host == "" {
-		return false, "Event missing host"
+		return nil, errors.New("Event missing host")
 	} else if event.TopicName == "" {
-		return false, "Event missing topic_name"
+		return nil, errors.New("Event missing topic_name")
 	} else if event.EventTime == 0 {
 		event.EventTime = time.Now().Unix()
 	}
 
-	id := es.getDcId(event.Dc)
-	if id == "" {
-		return false, fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc))
+	dcID := es.getDcId(strings.ToLower(event.Dc))
+	if dcID == "" {
+		return nil, errors.New(fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc)))
 	}
-	id = es.getTopicId(event.TopicName)
-	if id == "" {
-		return false, fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName))
+	topicID := es.getTopicId(strings.ToLower(event.TopicName))
+	if topicID == "" {
+		return nil, errors.New(fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName)))
 	}
-	topicSchema := es.getTopicSchema(id)
+
+	topicSchema := es.getTopicSchema(topicID)
 	if topicSchema != nil {
 		if event.Data == "" {
 			event.Data = "{}"
@@ -309,20 +315,17 @@ func (es *EventStore) validateEvent(event *eventmaster.Event) (bool, string) {
 		dataLoader := gojsonschema.NewStringLoader(event.Data)
 		result, err := topicSchema.Validate(dataLoader)
 		if err != nil {
-			return false, "Error validating event data against schema: " + err.Error()
+			return nil, errors.Wrap(err, "Error validating event data against schema")
 		}
 		if !result.Valid() {
 			errMsg := ""
 			for _, err := range result.Errors() {
 				errMsg = fmt.Sprintf("%s, %s", errMsg, err)
 			}
-			return false, errMsg
+			return nil, errors.New(errMsg)
 		}
 	}
-	return true, ""
-}
 
-func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
 	var d map[string]interface{}
 	if event.Data != "" {
 		if err := json.Unmarshal([]byte(event.Data), &d); err != nil {
@@ -334,8 +337,8 @@ func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
 		EventID:       uuid.NewV4().String(),
 		ParentEventID: event.ParentEventId,
 		EventTime:     event.EventTime,
-		Dc:            strings.ToLower(event.Dc),
-		TopicName:     strings.ToLower(event.TopicName),
+		DcID:          dcID,
+		TopicID:       topicID,
 		Tags:          event.TagSet,
 		Host:          event.Host,
 		TargetHosts:   event.TargetHostSet,
@@ -429,15 +432,12 @@ func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
 	timer := metrics.GetOrRegisterTimer("AddEvent", es.registry)
 	defer timer.UpdateSince(start)
 
-	if ok, msg := es.validateEvent(event); !ok {
-		return "", errors.New(msg)
-	}
 	evt, err := es.augmentEvent(event)
 	if err != nil {
 		return "", errors.Wrap(err, "Error augmenting event")
 	}
 	// write event to Cassandra
-	queryStr := evt.toCassandra(es.getDcId(evt.Dc), es.getDcId(evt.TopicName), event.Data)
+	queryStr := evt.toCassandra(event.Data)
 	query := es.cqlSession.Query(queryStr)
 	if err := query.Exec(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
@@ -756,14 +756,12 @@ func (es *EventStore) FlushToES() error {
 				parentEventIDStr = ""
 			}
 			index := getIndexFromTime(eventTime / 1000)
-			dcName := es.getDcName(dcID.String())
-			topicName := es.getTopicName(topicID.String())
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID.String(),
 				ParentEventID: parentEventIDStr,
 				EventTime:     eventTime,
-				Dc:            dcName,
-				TopicName:     topicName,
+				DcID:          dcID.String(),
+				TopicID:       topicID.String(),
 				Tags:          tagSet,
 				Host:          host,
 				TargetHosts:   targetHostSet,

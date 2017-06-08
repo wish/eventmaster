@@ -9,15 +9,16 @@ service EventMaster {
 }
 
 message Event {
-    string parent_event_id = 1;
-    int64 event_time = 2;
-    string dc = 3;
-    string topic_name = 4;
-    repeated string tag_set = 5;
-    string host = 6;
-    repeated string target_host_set = 7;
-    string user = 8;
-    string data = 9;
+    string event_id = 1;
+    string parent_event_id = 2;
+    int64 event_time = 3;
+    string dc = 4;
+    string topic_name = 5;
+    repeated string tag_set = 6;
+    string host = 7;
+    repeated string target_host_set = 8;
+    string user = 9;
+    string data = 10;
 }
 
 message WriteResponse {
