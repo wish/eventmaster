@@ -90,7 +90,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		query := r.URL.Query()
 		q.Dc = query["dc"]
 		q.Host = query["host"]
-		q.TargetHost = query["target_host"]
+		q.TargetHostSet = query["target_host_set"]
 		q.TagSet = query["tag"]
 		q.TopicName = query["topic_name"]
 		q.SortField = query["sort_field"]
@@ -201,7 +201,7 @@ func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, 
 
 	topicName := ps.ByName("name")
 	if topicName == "" {
-		h.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", "UpdateTopicError")
+		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error updating topic, no topic name provided", "UpdateTopicError")
 		return
 	}
 	id, err := h.store.UpdateTopic(topicName, td.Name, td.Schema)
@@ -226,6 +226,20 @@ func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ h
 		return
 	}
 	h.sendResp(w, "", string(str), "GetTopic")
+}
+
+func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	topicName := ps.ByName("name")
+	if topicName == "" {
+		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error deleting topic, no topic name provided", "DeleteTopicError")
+		return
+	}
+	err := h.store.DeleteTopic(topicName)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", "DeleteTopicError")
+		return
+	}
+	h.sendResp(w, "", "", "DeleteTopic")
 }
 
 func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
