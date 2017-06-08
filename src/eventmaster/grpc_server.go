@@ -33,24 +33,33 @@ type grpcServer struct {
 	registry metrics.Registry
 }
 
-func (s *grpcServer) FireEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+func (s *grpcServer) performOperation(method string, op func() (string, error)) (*eventmaster.WriteResponse, error) {
+	name := "grpc" + method
+
 	start := time.Now()
-	timer := metrics.GetOrRegisterTimer("grpcFireEvent:Timer", s.registry)
+	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
 	defer timer.UpdateSince(start)
-	meter := metrics.GetOrRegisterMeter("grpcFireEvent:Meter", s.registry)
+	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
 	meter.Mark(1)
 
-	id, err := s.store.AddEvent(evt)
+	id, err := op()
 	if err != nil {
-		fmt.Println("Error writing event to cassandra:", err)
+		fmt.Println("Error performing operation", method, err)
 		return &eventmaster.WriteResponse{
 			Errcode: 1,
 			Errmsg:  err.Error(),
 		}, err
 	}
+
 	return &eventmaster.WriteResponse{
-		EventId: id,
+		Id: id,
 	}, nil
+}
+
+func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+	return s.performOperation("AddEvent", func() (string, error) {
+		return s.store.AddEvent(evt)
+	})
 }
 
 func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
@@ -83,4 +92,45 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 		})
 	}
 	return nil
+}
+
+func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {
+	return s.performOperation("AddTopic", func() (string, error) {
+		return s.store.AddTopic(t.TopicName, t.DataSchema)
+	})
+}
+
+func (s *grpcServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopicRequest) (*eventmaster.WriteResponse, error) {
+	return s.performOperation("UpdateTopic", func() (string, error) {
+		return s.store.UpdateTopic(t.OldName, t.NewName, t.NewSchema)
+	})
+}
+
+func (s *grpcServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopicRequest) (*eventmaster.WriteResponse, error) {
+	start := time.Now()
+	timer := metrics.GetOrRegisterTimer("grpcDeleteTopic:Timer", s.registry)
+	defer timer.UpdateSince(start)
+	meter := metrics.GetOrRegisterMeter("grpcDeleteTopic:Meter", s.registry)
+	meter.Mark(1)
+
+	err := s.store.DeleteTopic(t.TopicName)
+	if err != nil {
+		return &eventmaster.WriteResponse{
+			Errcode: 1,
+			Errmsg:  err.Error(),
+		}, err
+	}
+	return &eventmaster.WriteResponse{}, nil
+}
+
+func (s *grpcServer) AddDc(ctx context.Context, d *eventmaster.Dc) (*eventmaster.WriteResponse, error) {
+	return s.performOperation("AddDc", func() (string, error) {
+		return s.store.AddDc(d.Dc)
+	})
+}
+
+func (s *grpcServer) UpdateDc(ctx context.Context, t *eventmaster.UpdateDcRequest) (*eventmaster.WriteResponse, error) {
+	return s.performOperation("UpdateDc", func() (string, error) {
+		return s.store.UpdateDc(t.OldDc, t.NewDc)
+	})
 }

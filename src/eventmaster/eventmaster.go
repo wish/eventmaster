@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,11 +22,10 @@ import (
 )
 
 type dbConfig struct {
-	Host           string `json:"host"`
-	Port           string `json:"port"`
+	CassandraAddr  string `json:"cassandra_addr"`
 	Keyspace       string `json:"keyspace"`
 	Consistency    string `json:"consistency"`
-	ESUrl          string `json:"es_url"`
+	ESAddr         string `json:"es_addr"`
 	FlushInterval  int    `json:"flush_interval"`
 	UpdateInterval int    `json:"update_interval"`
 }
@@ -41,11 +41,8 @@ func getConfig() dbConfig {
 			fmt.Println("Error parsing db_config.json, using defaults:", err)
 		}
 	}
-	if dbConf.Host == "" {
-		dbConf.Host = "127.0.0.1"
-	}
-	if dbConf.Port == "" {
-		dbConf.Port = "9042"
+	if dbConf.CassandraAddr == "" {
+		dbConf.CassandraAddr = "127.0.0.1:9042"
 	}
 	if dbConf.Keyspace == "" {
 		dbConf.Keyspace = "event_master"
@@ -53,8 +50,10 @@ func getConfig() dbConfig {
 	if dbConf.Consistency == "" {
 		dbConf.Consistency = "quorum"
 	}
-	if dbConf.ESUrl == "" {
-		dbConf.ESUrl = "http://127.0.0.1:9200"
+	if dbConf.ESAddr == "" {
+		dbConf.ESAddr = "http://127.0.0.1:9200"
+	} else if !strings.HasPrefix(dbConf.ESAddr, "http://") {
+		dbConf.ESAddr = "http://" + dbConf.ESAddr
 	}
 	if dbConf.FlushInterval == 0 {
 		dbConf.FlushInterval = 5
@@ -76,9 +75,10 @@ func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 	r.POST("/v1/topic", wrapHandler(h.handleAddTopic, registry))
 	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic, registry))
 	r.GET("/v1/topic", wrapHandler(h.handleGetTopic, registry))
+	r.DELETE("/v1/topic", wrapHandler(h.handleDeleteTopic, registry))
 	r.POST("/v1/dc", wrapHandler(h.handleAddDc, registry))
 	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
-	r.GET("/v1/dc", wrapHandler(h.handleGetDc, registry))
+	r.GET("/v1/dc/:name", wrapHandler(h.handleGetDc, registry))
 
 	r.GET("/", HandleMainPage)
 	r.GET("/add_event", HandleCreatePage)

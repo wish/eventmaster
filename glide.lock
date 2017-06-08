@@ -1,5 +1,5 @@
 hash: fae9f35d30aad6a3505ff79d1e6eea63a204c5b1f0bf6f7dde4d1c9e3ecc5df7
-updated: 2017-06-05T10:22:09.681603584-07:00
+updated: 2017-06-09T11:18:13.985168073-07:00
 imports:
 - name: github.com/ContextLogic/eventmaster
   version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
@@ -19,7 +19,6 @@ imports:
   version: 9f174c986221c608fb5143bd623b6076a71feae3
   subpackages:
   - proto
-  - protoc-gen-go/descriptor
   - ptypes/any
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
@@ -27,6 +26,12 @@ imports:
   version: e80d13ce29ede4452c43dea11e79b9bc8a15b478
 - name: github.com/jessevdk/go-flags
   version: 48cf8722c3375517aba351d1f7577c40663a4407
+- name: github.com/juju/gojsonpointer
+  version: afe8b77aa08f272b49e01b82de78510c11f61500
+- name: github.com/juju/gojsonreference
+  version: f0d24ac5ee330baa21721cdff56d45e4ee42628e
+- name: github.com/juju/gojsonschema
+  version: e1ad140384f254c82f89450d9a7c8dd38a632838
 - name: github.com/julienschmidt/httprouter
   version: 8c199fb6259ffc1af525cc3ad52ee60ba8359669
 - name: github.com/pkg/errors
@@ -77,6 +82,7 @@ imports:
   subpackages:
   - codes
   - credentials
+  - grpclb/grpc_lb_v1
   - grpclog
   - internal
   - keepalive
@@ -84,7 +90,6 @@ imports:
   - naming
   - peer
   - reflection
-  - reflection/grpc_reflection_v1alpha
   - stats
   - status
   - tap
