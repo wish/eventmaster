@@ -17,6 +17,11 @@ import (
 	elastic "gopkg.in/olivere/elastic.v5"
 )
 
+type Pair struct {
+	a string
+	b interface{}
+}
+
 // stringify* used for mapping to cassandra inputs
 func stringify(str string) string {
 	if str == "" {
@@ -45,6 +50,22 @@ func stringifyUUID(str string) string {
 func getIndexFromTime(evtTime int64) string {
 	eventTime := time.Unix(evtTime, 0)
 	return fmt.Sprintf("eventmaster_%04d_%02d_%02d", eventTime.Year(), eventTime.Month(), eventTime.Day())
+}
+
+func getDataQueries(data map[string]interface{}) []Pair {
+	var pairs []Pair
+	for k, v := range data {
+		m, ok := v.(map[string]interface{})
+		if ok {
+			nextPairs := getDataQueries(m)
+			for _, pair := range nextPairs {
+				pairs = append(pairs, Pair{fmt.Sprintf("%s.%s", k, pair.a), pair.b})
+			}
+		} else {
+			pairs = append(pairs, Pair{k, v})
+		}
+	}
+	return pairs
 }
 
 type Event struct {
@@ -224,8 +245,9 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		if err := json.Unmarshal([]byte(q.Data), &d); err != nil {
 			fmt.Println("Ignoring data filters - not in valid JSON format")
 		} else {
-			for k, v := range d {
-				queries = append(queries, elastic.NewTermQuery(fmt.Sprintf("%s.%s", "data", k), v))
+			dataQueries := getDataQueries(d)
+			for _, pair := range dataQueries {
+				queries = append(queries, elastic.NewTermQuery(fmt.Sprintf("%s.%s", "data", pair.a), pair.b))
 			}
 		}
 	}
