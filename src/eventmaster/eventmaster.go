@@ -78,7 +78,7 @@ func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 	r.DELETE("/v1/topic", wrapHandler(h.handleDeleteTopic, registry))
 	r.POST("/v1/dc", wrapHandler(h.handleAddDc, registry))
 	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
-	r.GET("/v1/dc/:name", wrapHandler(h.handleGetDc, registry))
+	r.GET("/v1/dc/", wrapHandler(h.handleGetDc, registry))
 
 	r.GET("/", HandleMainPage)
 	r.GET("/add_event", HandleCreatePage)
