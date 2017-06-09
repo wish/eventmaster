@@ -48,26 +48,32 @@
 				formData[key] = value === "" ? [] : value.split(",");
 		}
 	}
+	var e = document.getElementById("timezone");
+	var offset = parseInt(e.options[e.selectedIndex].value);
 	if (startEventDate) {
-		var serializedStart = startEventTime ? startEventDate + " " + startEventTime : startEventDate + " 00:00";
-		formData["start_event_time"] = new Date(serializedStart).getTime() / 1000;
+		var startDate = new Date(startEventDate);
+		if (startEventTime) {
+			var timeParts = startEventTime.split(":");
+			startDate.setUTCHours(parseInt(timeParts[0]) + offset);
+			startDate.setUTCMinutes(parseInt(timeParts[1]));
+		}
+		formData["start_event_time"] = startDate.getTime() / 1000;
 	}
 	if (endEventDate) {
-		var serializedEnd = endEventTime ? endEventDate + " " + endEventTime : endEventDate + " 00:00";
-		formData["end_event_time"] = new Date(serializedEnd).getTime() / 1000;
-	}
-	if (startReceivedDate) {
-		var serializedStart = startReceivedTime ? startReceivedDate + " " + startReceivedTime : startReceivedDate + " 00:00";
-		formData["start_received_time"] = new Date(serializedStart).getTime() / 1000;
-	}
-	if (endReceivedDate) {
-		var serializedEnd = endReceivedTime ? endReceivedDate + " " + endReceivedTime : endReceivedDate + " 00:00";
-		formData["end_received_time"] = new Date(serializedEnd).getTime() / 1000;
+		var endDate = new Date(endEventDate);
+		if (endEventTime) {
+			var timeParts = startEventTime.split(":");
+			endDate.setUTCHours(parseInt(timeParts[0]) + offset);
+			endDate.setUTCMinutes(parseInt(timeParts[1]));
+		}
+		formData["end_event_time"] = endDate.getTime() / 1000;
 	}
 	params = [];
 	for (var key in formData) {
-		if (key === "start_event_time" || key === "end_event_time" || key === "start_received_time" || key === "end_received_time" || key === "data") {
-			params.push(key + "=" + formData[key])
+		if (key === "start_event_time" || key === "end_event_time" || key == "data") {
+			if (formData[key] != "") {
+				params.push(key + "=" + formData[key])
+			}
 		} else {
 			for (var j = 0; j < formData[key].length; j++) {
 				params.push(key + "=" + formData[key][j])
@@ -90,7 +96,7 @@
 						<th scope="row">`.concat(event['topic_name'],`</th>
 						<td>`,event['dc'],`</td>
 						<td>`,event['tag_set'],`</td>
-						<td>`,new Date(event['event_time']*1000).toUTCString(),`</td>
+						<td>`,new Date(event['event_time']).toString(),`</td>
 						<td>`,event['host'],`</td>
 						<td>`,event['target_host_set'],`</td>
 						<td>`,event['user'],`</td>

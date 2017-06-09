@@ -15,6 +15,25 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
+type EventResult struct {
+	EventID       string                 `json:"event_id"`
+	ParentEventID string                 `json:"parent_event_id"`
+	EventTime     int64                  `json:"event_time"`
+	Dc            string                 `json:"dc"`
+	TopicName     string                 `json:"topic_name"`
+	Tags          []string               `json:"tag_set"`
+	Host          string                 `json:"host"`
+	TargetHosts   []string               `json:"target_host_set"`
+	User          string                 `json:"user"`
+	Data          map[string]interface{} `json:"data"`
+	ReceivedTime  int64                  `json:"received_time"`
+}
+
+type TopicResult struct {
+	Name   string                 `json:"topic_name"`
+	Schema map[string]interface{} `json:"data_schema"`
+}
+
 func wrapHandler(h httprouter.Handle, registry metrics.Registry) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", r.URL.Path, "Meter"), registry)
@@ -78,7 +97,7 @@ func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ h
 }
 
 type SearchResult struct {
-	Results []*eventmaster.Event `json:"results"`
+	Results []*EventResult `json:"results"`
 }
 
 func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -135,23 +154,19 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error executing query", "GetEventError")
 		return
 	}
-	var results []*eventmaster.Event
+	var results []*EventResult
 	for _, ev := range events {
-		d, err := json.Marshal(ev.Data)
-		if err != nil {
-			d = []byte("Error marshalling into JSON")
-		}
-		results = append(results, &eventmaster.Event{
-			EventId:       ev.EventID,
-			ParentEventId: ev.ParentEventID,
+		results = append(results, &EventResult{
+			EventID:       ev.EventID,
+			ParentEventID: ev.ParentEventID,
 			EventTime:     ev.EventTime,
 			Dc:            h.store.getDcName(ev.DcID),
 			TopicName:     h.store.getTopicName(ev.TopicID),
-			TagSet:        ev.Tags,
+			Tags:          ev.Tags,
 			Host:          ev.Host,
-			TargetHostSet: ev.TargetHosts,
+			TargetHosts:   ev.TargetHosts,
 			User:          ev.User,
-			Data:          string(d),
+			Data:          ev.Data,
 		})
 	}
 	sr := SearchResult{
@@ -213,13 +228,27 @@ func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, 
 }
 
 func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	topicSet := make(map[string][]TopicData)
+	topicSet := make(map[string][]TopicResult)
 	topics, err := h.store.GetTopics()
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store", "GetTopicError")
 		return
 	}
-	topicSet["results"] = topics
+	var results []TopicResult
+	for _, topic := range topics {
+		var s map[string]interface{}
+		err := json.Unmarshal([]byte(topic.Schema), &s)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error unmarshalling topic schema", "GetTopicError")
+			return
+		}
+		results = append(results, TopicResult{
+			Name:   topic.Name,
+			Schema: s,
+		})
+	}
+
+	topicSet["results"] = results
 	str, err := json.Marshal(topicSet)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetTopicError")

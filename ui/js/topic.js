@@ -7,16 +7,19 @@ $(document).ready(function() {
 			var results = data['results'];
 			var elem = document.getElementById("topic_list")
 			elem.innerHTML = "";
-			for (var i = 0; i < results.length; i++) {
-				topicName = results[i]['topic_name'];
-				schema = results[i]['data_schema'];
-				var inner = `
-				<div class="panel panel-default">
-				    <div class="panel-heading">`.concat(topicName, `</div>
-				    <div class="panel-body">`, schema, `</div>
-			    </div>`);
-				elem.innerHTML += inner;
+			if (results) {
+				for (var i = 0; i < results.length; i++) {
+					topicName = results[i]['topic_name'];
+					schema = JSON.stringify(results[i]['data_schema']);
+					var inner = `
+					<div class="panel panel-default">
+					    <div class="panel-heading">`.concat(topicName, `</div>
+					    <div class="panel-body">`, schema, `</div>
+				    </div>`);
+					elem.innerHTML += inner;
+				}
 			}
+			
 		}
 	});
 });

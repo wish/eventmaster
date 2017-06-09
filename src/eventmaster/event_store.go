@@ -609,18 +609,17 @@ func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 	timer := metrics.GetOrRegisterTimer("AddTopic", es.registry)
 	defer timer.UpdateSince(start)
 
-	var s map[string]interface{}
-	var jsonSchema *gojsonschema.Schema
-	if schema != "" {
-		var ok bool
-		jsonSchema, ok = es.validateSchema(schema)
-		if !ok {
-			return "", errors.New("Error adding topic - schema is not in valid JSON format")
-		}
+	if schema == "" {
+		schema = "{}"
+	}
 
-		if err := json.Unmarshal([]byte(schema), &s); err != nil {
-			return "", errors.Wrap(err, "Error unmarshalling json schema")
-		}
+	jsonSchema, ok := es.validateSchema(schema)
+	if !ok {
+		return "", errors.New("Error adding topic - schema is not in valid JSON format")
+	}
+	var s map[string]interface{}
+	if err := json.Unmarshal([]byte(schema), &s); err != nil {
+		return "", errors.Wrap(err, "Error unmarshalling json schema")
 	}
 
 	id := uuid.NewV4().String()
@@ -816,7 +815,7 @@ func (es *EventStore) Update() error {
 	for true {
 		if iter.Scan(&dcId, &dcName) {
 			newDcNameToId[dcName] = dcId.String()
-			newDcNameToId[dcId.String()] = dcName
+			newDcIdToName[dcId.String()] = dcName
 		} else {
 			break
 		}

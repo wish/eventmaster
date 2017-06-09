@@ -7,9 +7,11 @@ $(document).ready(function() {
 			var dcs = data['results'];
 			var elem = document.getElementById("dc_list");
 			elem.innerHTML = "";
-			for (var i = 0; i < dcs.length; i++) {
-				var item = `<a class="list-group-item">`.concat(dcs[i], `</a>`)
-				elem.innerHTML += item;
+			if (dcs) {
+				for (var i = 0; i < dcs.length; i++) {
+					var item = `<a class="list-group-item">`.concat(dcs[i], `</a>`)
+					elem.innerHTML += item;
+				}
 			}
 		}
 	});
