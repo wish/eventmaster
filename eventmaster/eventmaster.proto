@@ -29,17 +29,19 @@ message Query {
     repeated string dc = 1;
     repeated string host = 2;
     repeated string target_host_set = 3;
-    repeated string topic_name = 4;
-    repeated string tag_set = 5;
-    string data = 6;
-    int64 start_event_time = 7;
-    int64 end_event_time = 8;
-    int64 start_received_time = 9;
-    int64 end_received_time = 10;
-    repeated string sort_field = 11;
-    repeated bool sort_ascending = 12;
-    int32 start = 13;
-    int32 limit = 14;
+    repeated string user = 4;
+    repeated string topic_name = 5;
+    repeated string tag_set = 6;
+    repeated string parent_event_id = 7;
+    string data = 8;
+    int64 start_event_time = 9;
+    int64 end_event_time = 10;
+    int64 start_received_time = 11;
+    int64 end_received_time = 12;
+    repeated string sort_field = 13;
+    repeated bool sort_ascending = 14;
+    int32 start = 15;
+    int32 limit = 16;
 }
  
 message Topic {
@@ -50,7 +52,7 @@ message Topic {
 message UpdateTopicRequest {
     string old_name = 1;
     string new_name = 2;
-    string new_schema = 3;
+    string data_schema = 3;
 }
 
 message DeleteTopicRequest {
@@ -62,8 +64,8 @@ message Dc {
 }
  
 message UpdateDcRequest {
-    string old_dc = 1;
-    string new_dc = 2;
+    string old_name = 1;
+    string new_name = 2;
 }
  
 message WriteResponse {

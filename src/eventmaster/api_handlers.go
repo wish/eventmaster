@@ -107,10 +107,12 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
+		q.ParentEventId = query["parent_event_id"]
 		q.Dc = query["dc"]
 		q.Host = query["host"]
 		q.TargetHostSet = query["target_host_set"]
-		q.TagSet = query["tag"]
+		q.User = query["user"]
+		q.TagSet = query["tag_set"]
 		q.TopicName = query["topic_name"]
 		q.SortField = query["sort_field"]
 		for _, elem := range query["sort_ascending"] {
@@ -193,7 +195,10 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 		return
 	}
 
-	id, err := h.store.AddTopic(td.Name, td.Schema)
+	id, err := h.store.AddTopic(&eventmaster.Topic{
+		TopicName:  td.Name,
+		DataSchema: td.Schema,
+	})
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error adding topic", "AddTopicError")
 		return
@@ -219,7 +224,11 @@ func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, 
 		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error updating topic, no topic name provided", "UpdateTopicError")
 		return
 	}
-	id, err := h.store.UpdateTopic(topicName, td.Name, td.Schema)
+	id, err := h.store.UpdateTopic(&eventmaster.UpdateTopicRequest{
+		OldName:    topicName,
+		NewName:    td.Name,
+		DataSchema: td.Schema,
+	})
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error updating topic", "UpdateTopicError")
 		return
@@ -263,7 +272,9 @@ func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, 
 		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error deleting topic, no topic name provided", "DeleteTopicError")
 		return
 	}
-	err := h.store.DeleteTopic(topicName)
+	err := h.store.DeleteTopic(&eventmaster.DeleteTopicRequest{
+		TopicName: topicName,
+	})
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", "DeleteTopicError")
 		return
@@ -283,7 +294,9 @@ func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ http
 		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", "AddDcError")
 		return
 	}
-	id, err := h.store.AddDc(dd.Name)
+	id, err := h.store.AddDc(&eventmaster.Dc{
+		Dc: dd.Name,
+	})
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error adding dc", "AddDcError")
 		return
@@ -308,7 +321,10 @@ func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps 
 		h.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", "UpdateDcError")
 		return
 	}
-	id, err := h.store.UpdateDc(dcName, dd.Name)
+	id, err := h.store.UpdateDc(&eventmaster.UpdateDcRequest{
+		OldName: dcName,
+		NewName: dd.Name,
+	})
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error updating dc", "UpdateDcError")
 		return
