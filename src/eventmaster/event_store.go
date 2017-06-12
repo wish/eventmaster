@@ -120,7 +120,10 @@ func checkBackwardsCompatible(oldSchema map[string]interface{}, newSchema map[st
 
 		if !exists {
 			prop := p.(string)
-			property := newP[prop]
+			property, ok := newP[prop]
+			if !ok {
+				return false
+			}
 			if typedProperty, ok := property.(map[string]interface{}); ok {
 				if _, ok := typedProperty["default"]; !ok {
 					return false
@@ -134,7 +137,10 @@ func checkBackwardsCompatible(oldSchema map[string]interface{}, newSchema map[st
 	// check backwards compatibility for all nested objects
 	for k, v := range newP {
 		if innerP, ok := v.(map[string]interface{}); ok {
-			oldInnerP := oldP[k]
+			oldInnerP, ok := oldP[k]
+			if !ok {
+				continue
+			}
 			typedOldInnerP := oldInnerP.(map[string]interface{})
 			if !checkBackwardsCompatible(typedOldInnerP, innerP) {
 				return false
@@ -295,7 +301,7 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		dcs := make([]interface{}, 0)
 		for _, dc := range q.Dc {
 			if id := es.getDcId(strings.ToLower(dc)); id != "" {
-				dcs = append(dcs, id)
+				dcs = append(dcs, strings.Replace(id, "-", "_", -1))
 			}
 		}
 		queries = append(queries, elastic.NewTermsQuery("dc_id", dcs...))
@@ -318,7 +324,7 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		topics := make([]interface{}, 0)
 		for _, topic := range q.TopicName {
 			if id := es.getTopicId(strings.ToLower(topic)); id != "" {
-				topics = append(topics, id)
+				topics = append(topics, strings.Replace(id, "-", "_", -1))
 			}
 		}
 		queries = append(queries, elastic.NewTermsQuery("topic_id", topics...))
@@ -329,6 +335,20 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 			tags = append(tags, tag)
 		}
 		queries = append(queries, elastic.NewTermsQuery("tag_set", tags...))
+	}
+	if len(q.ParentEventId) != 0 {
+		parentEventIds := make([]interface{}, 0)
+		for _, id := range q.ParentEventId {
+			parentEventIds = append(parentEventIds, strings.Replace(id, "-", "_", -1))
+		}
+		queries = append(queries, elastic.NewTermsQuery("parent_event_id", parentEventIds...))
+	}
+	if len(q.User) != 0 {
+		users := make([]interface{}, 0)
+		for _, user := range q.User {
+			users = append(users, user)
+		}
+		queries = append(queries, elastic.NewTermsQuery("user", users...))
 	}
 	if q.Data != "" {
 		var d map[string]interface{}
@@ -346,22 +366,22 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 
 	if q.StartEventTime != 0 || q.EndEventTime != 0 {
 		rq := elastic.NewRangeQuery("event_time")
-		if q.StartEventTime != -1 {
+		if q.StartEventTime != 0 {
 			rq.Gte(q.StartEventTime)
 		}
-		if q.EndEventTime != -1 {
-			rq.Lte(q.EndEventTime * 1000)
+		if q.EndEventTime != 0 {
+			rq.Lte(q.EndEventTime)
 		}
 		query = query.Must(rq)
 	}
 
 	if q.StartReceivedTime != 0 || q.EndReceivedTime != 0 {
 		rq := elastic.NewRangeQuery("received_time")
-		if q.StartReceivedTime != -1 {
+		if q.StartReceivedTime != 0 {
 			rq.Gte(q.StartReceivedTime)
 		}
-		if q.EndReceivedTime != -1 {
-			rq.Lte(q.EndReceivedTime * 1000)
+		if q.EndReceivedTime != 0 {
+			rq.Lte(q.EndReceivedTime)
 		}
 		query = query.Must(rq)
 	}
@@ -505,6 +525,7 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	for i, field := range q.SortField {
 		sq.Sort(field, q.SortAscending[i])
 	}
+
 	sr, err := sq.Do(ctx)
 	if err != nil {
 		esMeter := metrics.GetOrRegisterMeter("esSearchError", es.registry)
@@ -517,6 +538,9 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	var evt Event
 	for _, item := range sr.Each(reflect.TypeOf(evt)) {
 		if e, ok := item.(Event); ok {
+			e.TopicID = strings.Replace(e.TopicID, "_", "-", -1)
+			e.DcID = strings.Replace(e.DcID, "_", "-", -1)
+			e.ParentEventID = strings.Replace(e.ParentEventID, "_", "-", -1)
 			topicID := e.TopicID
 			eventsByTopic[topicID] = append(eventsByTopic[topicID], &e)
 		}
@@ -604,10 +628,13 @@ func (es *EventStore) GetDcs() ([]string, error) {
 	return dcs, nil
 }
 
-func (es *EventStore) AddTopic(name string, schema string) (string, error) {
+func (es *EventStore) AddTopic(topic *eventmaster.Topic) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("AddTopic", es.registry)
 	defer timer.UpdateSince(start)
+
+	name := topic.TopicName
+	schema := topic.DataSchema
 
 	if schema == "" {
 		schema = "{}"
@@ -645,10 +672,14 @@ func (es *EventStore) AddTopic(name string, schema string) (string, error) {
 	return id, nil
 }
 
-func (es *EventStore) UpdateTopic(oldName string, newName string, schema string) (string, error) {
+func (es *EventStore) UpdateTopic(updateReq *eventmaster.UpdateTopicRequest) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("UpdateTopic", es.registry)
 	defer timer.UpdateSince(start)
+
+	oldName := updateReq.OldName
+	newName := updateReq.NewName
+	schema := updateReq.DataSchema
 
 	if newName == "" {
 		newName = oldName
@@ -663,7 +694,7 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
 	}
 	queryStr := fmt.Sprintf(`UPDATE event_topic 
-		SET topic_name = %s"`, stringify(newName))
+		SET topic_name = %s`, stringify(newName))
 
 	var jsonSchema *gojsonschema.Schema
 	var ok bool
@@ -682,6 +713,7 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 		if !ok {
 			return "", errors.New("Error adding topic - new schema is not backwards compatible")
 		}
+		queryStr = fmt.Sprintf("%s, data_schema = %s", schema)
 	}
 
 	queryStr = fmt.Sprintf("%s WHERE topic_id = %s;", queryStr, id)
@@ -705,7 +737,8 @@ func (es *EventStore) UpdateTopic(oldName string, newName string, schema string)
 	return id, nil
 }
 
-func (es *EventStore) DeleteTopic(topicName string) error {
+func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) error {
+	topicName := strings.ToLower(deleteReq.TopicName)
 	id := es.getTopicId(topicName)
 	if id == "" {
 		return errors.New("Couldn't find topic id for topic:" + topicName)
@@ -716,10 +749,9 @@ func (es *EventStore) DeleteTopic(topicName string) error {
 		return errors.Wrap(err, "Error deleting events under topic from ES")
 	}
 
-	if err := es.cqlSession.Query(fmt.Sprintf(`BEGIN BATCH
-		DELETE FROM event WHERE topic_id=%[1]s;
-		DELETE FROM event_topic WHERE topic_id=%[1]s;
-		APPLY BATCH;`, id)).Exec(); err != nil {
+	if err := es.cqlSession.Query(fmt.Sprintf(`
+		DELETE FROM event_topic WHERE topic_id=%[1]s;`,
+		id)).Exec(); err != nil {
 		return errors.Wrap(err, "Error deleting topic and its events from cassandra")
 	}
 	es.topicMutex.Lock()
@@ -731,15 +763,16 @@ func (es *EventStore) DeleteTopic(topicName string) error {
 	return nil
 }
 
-func (es *EventStore) AddDc(dc string) (string, error) {
+func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("AddDc", es.registry)
 	defer timer.UpdateSince(start)
 
-	if dc == "" {
+	name := strings.ToLower(dc.Dc)
+	if name == "" {
 		return "", errors.New("Error adding dc - dc name is empty")
 	}
-	id := es.getDcId(dc)
+	id := es.getDcId(name)
 	if id != "" {
 		return "", errors.New(fmt.Sprintf("Error adding dc - dc with name %s already exists", dc))
 	}
@@ -748,7 +781,7 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 	queryStr := fmt.Sprintf(`
     INSERT INTO event_dc (dc_id, dc)
     VALUES (%[1]s, %[2]s);`,
-		id, stringify(dc))
+		id, stringify(name))
 	query := es.cqlSession.Query(queryStr)
 
 	if err := query.Exec(); err != nil {
@@ -756,19 +789,22 @@ func (es *EventStore) AddDc(dc string) (string, error) {
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
-	fmt.Println("Dc Added:", dc, id)
+	fmt.Println("Dc Added:", name, id)
 
 	es.dcMutex.Lock()
-	es.dcIdToName[id] = dc
-	es.dcNameToId[dc] = id
+	es.dcIdToName[id] = name
+	es.dcNameToId[name] = id
 	es.dcMutex.Unlock()
 	return id, nil
 }
 
-func (es *EventStore) UpdateDc(oldName string, newName string) (string, error) {
+func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("UpdateDc", es.registry)
 	defer timer.UpdateSince(start)
+
+	oldName := updateReq.OldName
+	newName := updateReq.NewName
 
 	if newName == "" {
 		newName = oldName
@@ -814,8 +850,9 @@ func (es *EventStore) Update() error {
 	var dcName string
 	for true {
 		if iter.Scan(&dcId, &dcName) {
-			newDcNameToId[dcName] = dcId.String()
-			newDcIdToName[dcId.String()] = dcName
+			id := dcId.String()
+			newDcNameToId[dcName] = id
+			newDcIdToName[id] = dcName
 		} else {
 			break
 		}
@@ -906,10 +943,11 @@ func (es *EventStore) FlushToES() error {
 	var targetHostSet, tagSet []string
 
 	// keep track of event and topic IDs to generate delete query from cassandra
-	var eventIDs []string
+	eventIDs := make(map[string]struct{}) // make eventIDs a set to facilitate deletion in event of bulk error
 	topicIDs := make(map[string]struct{})
 	esIndices := make(map[string]([]*Event))
 	var v struct{}
+
 	for true {
 		if iter.Scan(&eventID, &parentEventID, &dcID, &topicID, &host, &targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
 			var d map[string]interface{}
@@ -918,7 +956,7 @@ func (es *EventStore) FlushToES() error {
 					return errors.Wrap(err, "Error unmarshalling JSON in event data")
 				}
 			}
-			eventIDs = append(eventIDs, eventID.String())
+			eventIDs[eventID.String()] = v
 			topicIDs[topicID.String()] = v
 			parentEventIDStr := parentEventID.String()
 			if parentEventIDStr == "00000000-0000-0000-0000-000000000000" {
@@ -927,16 +965,16 @@ func (es *EventStore) FlushToES() error {
 			index := getIndexFromTime(eventTime / 1000)
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID.String(),
-				ParentEventID: parentEventIDStr,
-				EventTime:     eventTime,
-				DcID:          dcID.String(),
-				TopicID:       topicID.String(),
+				ParentEventID: strings.Replace(parentEventIDStr, "-", ")", -1),
+				EventTime:     eventTime / 1000,
+				DcID:          strings.Replace(dcID.String(), "-", "_", -1),
+				TopicID:       strings.Replace(topicID.String(), "-", "_", -1),
 				Tags:          tagSet,
 				Host:          host,
 				TargetHosts:   targetHostSet,
 				User:          user,
 				Data:          d,
-				ReceivedTime:  receivedTime,
+				ReceivedTime:  receivedTime / 1000,
 			})
 		} else {
 			break
@@ -970,21 +1008,26 @@ func (es *EventStore) FlushToES() error {
 			return errors.Wrap(err, "Error performing bulk index in ES")
 		}
 		if bulkResp.Errors {
-			// TODO: figure out what to do with failed event writes
 			failedItems := bulkResp.Failed()
 			for _, item := range failedItems {
 				fmt.Println("failed to index event with id", item.Id)
+				delete(eventIDs, item.Id) // don't include event in list of events to de
 			}
 		}
 	}
 
-	topicArr := make([]string, 0)
+	var idArr []string
+	for eventId, _ := range eventIDs {
+		idArr = append(idArr, eventId)
+	}
+
+	var topicArr []string
 	for tId, _ := range topicIDs {
 		topicArr = append(topicArr, tId)
 	}
 
 	if err := es.cqlSession.Query(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s) AND topic_id in (%s)",
-		strings.Join(eventIDs, ","), strings.Join(topicArr, ","))).Exec(); err != nil {
+		strings.Join(idArr, ","), strings.Join(topicArr, ","))).Exec(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
 		cassMeter.Mark(1)
 		return errors.Wrap(err, "Error performing delete from temp_event in cassandra")

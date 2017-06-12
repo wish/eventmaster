@@ -32,18 +32,6 @@
 			case "endEventTime":
 				endEventTime = value;
 				break;
-			case "startReceivedDate":
-				startReceivedDate = value;
-				break;
-			case "startReceivedTime":
-				startReceivedTime = value;
-				break;
-			case "endReceivedDate":
-				endReceivedDate = value;
-				break;
-			case "endReceivedTime":
-				endReceivedTime = value;
-				break;
 			default:
 				formData[key] = value === "" ? [] : value.split(",");
 		}
@@ -96,7 +84,7 @@
 						<th scope="row">`.concat(event['topic_name'],`</th>
 						<td>`,event['dc'],`</td>
 						<td>`,event['tag_set'],`</td>
-						<td>`,new Date(event['event_time']).toString(),`</td>
+						<td>`,new Date(event['event_time']*1000).toString(),`</td>
 						<td>`,event['host'],`</td>
 						<td>`,event['target_host_set'],`</td>
 						<td>`,event['user'],`</td>
