@@ -1,6 +1,6 @@
 {
   "cassandra_addr": "127.0.0.1:9042",
-  "keyspace": "event_master",
+  "cassandra_keyspace": "event_master",
   "es_addr": "http://127.0.0.1:9200"
 }
 

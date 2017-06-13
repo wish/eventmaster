@@ -62,7 +62,22 @@ func (s *grpcServer) performOperation(method string, op func() (string, error)) 
 
 func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddEvent", func() (string, error) {
-		return s.store.AddEvent(evt)
+		var data map[string]interface{}
+		err := json.Unmarshal(evt.Data, &data)
+		if err != nil {
+			return "", err
+		}
+		return s.store.AddEvent(&UnaddedEvent{
+			ParentEventID: evt.ParentEventId,
+			EventTime:     evt.EventTime,
+			Dc:            evt.Dc,
+			TopicName:     evt.TopicName,
+			Tags:          evt.TagSet,
+			Host:          evt.Host,
+			TargetHosts:   evt.TargetHostSet,
+			User:          evt.User,
+			Data:          data,
+		})
 	})
 }
 
@@ -100,7 +115,7 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 			Host:          ev.Host,
 			TargetHostSet: ev.TargetHosts,
 			User:          ev.User,
-			Data:          string(d),
+			Data:          d,
 		}); err != nil {
 			errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
 			errMeter.Mark(1)
@@ -115,13 +130,29 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 
 func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddTopic", func() (string, error) {
-		return s.store.AddTopic(t)
+		var schema map[string]interface{}
+		err := json.Unmarshal(t.DataSchema, &schema)
+		if err != nil {
+			return "", err
+		}
+		return s.store.AddTopic(TopicData{
+			Name:   t.TopicName,
+			Schema: schema,
+		})
 	})
 }
 
 func (s *grpcServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopicRequest) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("UpdateTopic", func() (string, error) {
-		return s.store.UpdateTopic(t)
+		var schema map[string]interface{}
+		err := json.Unmarshal(t.DataSchema, &schema)
+		if err != nil {
+			return "", err
+		}
+		return s.store.UpdateTopic(t.OldName, TopicData{
+			Name:   t.NewName,
+			Schema: schema,
+		})
 	})
 }
 

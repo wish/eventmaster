@@ -22,7 +22,7 @@ message Event {
     string host = 7;
     repeated string target_host_set = 8;
     string user = 9;
-    string data = 10;
+    bytes data = 10;
 }
  
 message Query {
@@ -46,13 +46,13 @@ message Query {
  
 message Topic {
     string topic_name = 1;
-    string data_schema = 2;
+    bytes data_schema = 2;
 }
  
 message UpdateTopicRequest {
     string old_name = 1;
     string new_name = 2;
-    string data_schema = 3;
+    bytes data_schema = 3;
 }
 
 message DeleteTopicRequest {

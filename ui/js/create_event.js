@@ -11,6 +11,8 @@ function submitForm(form) {
 			date = value;
 		} else if (key === "time") {
 			time = value;
+		} else if (key === "data") {
+			formData["data"] = JSON.parse(value)
 		} else {
 			formData[key] = value
 		}
@@ -19,6 +21,7 @@ function submitForm(form) {
 	if (serializedTime) {
 		formData["event_time"] = new Date(serializedTime).getTime() / 1000;
 	}
+	
 	$.ajax({
 		type: 'POST',
 		url: '/v1/event',

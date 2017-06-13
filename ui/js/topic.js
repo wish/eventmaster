@@ -30,7 +30,11 @@ function submitTopic(form) {
 	for (var i = 0; i < data.length; i++) {
 		var key = data[i]["name"];
 		var value = data[i]["value"];
-		formData[key] = value;
+		if (key === "data_schema") {
+			formData[key] = JSON.parse(value)
+		} else {
+			formData[key] = value;
+		}
 	}
 	$.ajax({
 		type: 'POST',

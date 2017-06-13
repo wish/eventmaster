@@ -164,6 +164,19 @@ type Event struct {
 	ReceivedTime  int64                  `json:"received_time"`
 }
 
+type UnaddedEvent struct {
+	EventID       string                 `json:"event_id"`
+	ParentEventID string                 `json:"parent_event_id"`
+	EventTime     int64                  `json:"event_time"`
+	Dc            string                 `json:"dc"`
+	TopicName     string                 `json:"topic_name"`
+	Tags          []string               `json:"tag_set"`
+	Host          string                 `json:"host"`
+	TargetHosts   []string               `json:"target_host_set"`
+	User          string                 `json:"user"`
+	Data          map[string]interface{} `json:"data"`
+}
+
 func (event *Event) toCassandra(data string) string {
 	// TODO: change this to prevent tombstones
 	return fmt.Sprintf(`
@@ -179,8 +192,8 @@ func (event *Event) toCassandra(data string) string {
 }
 
 type TopicData struct {
-	Name   string `json:"topic_name"`
-	Schema string `json:"data_schema"`
+	Name   string                 `json:"topic_name"`
+	Schema map[string]interface{} `json:"data_schema"`
 }
 
 type DcData struct {
@@ -221,7 +234,7 @@ func NewEventStore(dbConf dbConfig, registry metrics.Registry) (*EventStore, err
 	}
 
 	// Establish connection to ES and initialize index if it doesn't exist
-	client, err := elastic.NewClient(elastic.SetURL(dbConf.ESAddr))
+	client, err := elastic.NewClient(elastic.SetURL(dbConf.ESAddr), elastic.SetBasicAuth(dbConf.ESUsername, dbConf.ESPassword))
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating elasticsearch client")
 	}
@@ -395,71 +408,69 @@ func (es *EventStore) insertDefaults(s map[string]interface{}, m map[string]inte
 	insertDefaults(p, m)
 }
 
-func (es *EventStore) augmentEvent(event *eventmaster.Event) (*Event, error) {
+func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, string, error) {
 	// validate Event
 	if event.Dc == "" {
-		return nil, errors.New("Event missing dc")
+		return nil, "", errors.New("Event missing dc")
 	} else if event.Host == "" {
-		return nil, errors.New("Event missing host")
+		return nil, "", errors.New("Event missing host")
 	} else if event.TopicName == "" {
-		return nil, errors.New("Event missing topic_name")
+		return nil, "", errors.New("Event missing topic_name")
 	}
 
 	if event.EventTime == 0 {
 		event.EventTime = time.Now().Unix()
 	}
-	if event.Data == "" {
-		event.Data = "{}"
-	}
 
 	dcID := es.getDcId(strings.ToLower(event.Dc))
 	if dcID == "" {
-		return nil, errors.New(fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc)))
+		return nil, "", errors.New(fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc)))
 	}
 	topicID := es.getTopicId(strings.ToLower(event.TopicName))
 	if topicID == "" {
-		return nil, errors.New(fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName)))
+		return nil, "", errors.New(fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName)))
 	}
 
 	topicSchema := es.getTopicSchema(topicID)
-	var d map[string]interface{}
+	data := "{}"
 	if topicSchema != nil {
 		propertiesSchema := es.getTopicSchemaProperties(topicID)
-		if err := json.Unmarshal([]byte(event.Data), &d); err != nil {
-			return nil, errors.Wrap(err, "Error unmarshalling JSON in event data")
+		if event.Data == nil {
+			event.Data = make(map[string]interface{})
 		}
-		es.insertDefaults(propertiesSchema, d)
-		dataJson, err := json.Marshal(d)
+		es.insertDefaults(propertiesSchema, event.Data)
+		dataBytes, err := json.Marshal(event.Data)
 		if err != nil {
-			return nil, errors.Wrap(err, "Error marshalling data with defaults into json")
+			return nil, "", errors.Wrap(err, "Error marshalling data with defaults into json")
 		}
-		dataLoader := gojsonschema.NewBytesLoader(dataJson)
+		data = string(dataBytes)
+		dataLoader := gojsonschema.NewStringLoader(data)
 		result, err := topicSchema.Validate(dataLoader)
 		if err != nil {
-			return nil, errors.Wrap(err, "Error validating event data against schema")
+			return nil, "", errors.Wrap(err, "Error validating event data against schema")
 		}
 		if !result.Valid() {
 			errMsg := ""
 			for _, err := range result.Errors() {
 				errMsg = fmt.Sprintf("%s, %s", errMsg, err)
 			}
-			return nil, errors.New(errMsg)
+			return nil, "", errors.New(errMsg)
 		}
 	}
 
 	return &Event{
 		EventID:       uuid.NewV4().String(),
-		ParentEventID: event.ParentEventId,
+		ParentEventID: event.ParentEventID,
 		EventTime:     event.EventTime,
 		DcID:          dcID,
 		TopicID:       topicID,
-		Tags:          event.TagSet,
+		Tags:          event.Tags,
 		Host:          event.Host,
-		TargetHosts:   event.TargetHostSet,
+		TargetHosts:   event.TargetHosts,
 		User:          event.User,
-		Data:          d,
+		Data:          event.Data,
 		ReceivedTime:  time.Now().Unix(),
-	}, nil
+	}, data, nil
 }
 
 func (es *EventStore) checkIndex(index string) error {
@@ -558,17 +569,18 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	return evts, nil
 }
 
-func (es *EventStore) AddEvent(event *eventmaster.Event) (string, error) {
+func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("AddEvent", es.registry)
 	defer timer.UpdateSince(start)
 
-	evt, err := es.augmentEvent(event)
+	evt, data, err := es.augmentEvent(event)
 	if err != nil {
 		return "", errors.Wrap(err, "Error augmenting event")
 	}
+
 	// write event to Cassandra
-	queryStr := evt.toCassandra(event.Data)
+	queryStr := evt.toCassandra(data)
 	query := es.cqlSession.Query(queryStr)
 	if err := query.Exec(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
@@ -589,9 +601,14 @@ func (es *EventStore) GetTopics() ([]TopicData, error) {
 	var topics []TopicData
 	for {
 		if iter.Scan(&name, &schema) {
+			var s map[string]interface{}
+			err := json.Unmarshal([]byte(schema), &s)
+			if err != nil {
+				return nil, errors.Wrap(err, "Error unmarshalling schema")
+			}
 			topics = append(topics, TopicData{
 				Name:   name,
-				Schema: schema,
+				Schema: s,
 			})
 		} else {
 			break
@@ -628,32 +645,33 @@ func (es *EventStore) GetDcs() ([]string, error) {
 	return dcs, nil
 }
 
-func (es *EventStore) AddTopic(topic *eventmaster.Topic) (string, error) {
+func (es *EventStore) AddTopic(topic TopicData) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("AddTopic", es.registry)
 	defer timer.UpdateSince(start)
 
-	name := topic.TopicName
-	schema := topic.DataSchema
+	name := topic.Name
+	schema := topic.Schema
 
-	if schema == "" {
-		schema = "{}"
+	schemaStr := "{}"
+	if schema != nil {
+		schemaBytes, err := json.Marshal(schema)
+		if err != nil {
+			return "", errors.Wrap(err, "Error marshalling schema into json")
+		}
+		schemaStr = string(schemaBytes)
 	}
 
-	jsonSchema, ok := es.validateSchema(schema)
+	jsonSchema, ok := es.validateSchema(schemaStr)
 	if !ok {
 		return "", errors.New("Error adding topic - schema is not in valid JSON format")
-	}
-	var s map[string]interface{}
-	if err := json.Unmarshal([]byte(schema), &s); err != nil {
-		return "", errors.Wrap(err, "Error unmarshalling json schema")
 	}
 
 	id := uuid.NewV4().String()
 	queryStr := fmt.Sprintf(`
     INSERT INTO event_topic (topic_id, topic_name, data_schema)
     VALUES (%[1]s, %[2]s, %[3]s);`,
-		id, stringify(name), stringify(schema))
+		id, stringify(name), stringify(schemaStr))
 	query := es.cqlSession.Query(queryStr)
 
 	if err := query.Exec(); err != nil {
@@ -666,20 +684,19 @@ func (es *EventStore) AddTopic(topic *eventmaster.Topic) (string, error) {
 	es.topicMutex.Lock()
 	es.topicNameToId[name] = id
 	es.topicIdToName[id] = name
-	es.topicSchemaPropertiesMap[id] = s
+	es.topicSchemaPropertiesMap[id] = schema
 	es.topicSchemaMap[id] = jsonSchema
 	es.topicMutex.Unlock()
 	return id, nil
 }
 
-func (es *EventStore) UpdateTopic(updateReq *eventmaster.UpdateTopicRequest) (string, error) {
+func (es *EventStore) UpdateTopic(oldName string, td TopicData) (string, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("UpdateTopic", es.registry)
 	defer timer.UpdateSince(start)
 
-	oldName := updateReq.OldName
-	newName := updateReq.NewName
-	schema := updateReq.DataSchema
+	newName := td.Name
+	schema := td.Schema
 
 	if newName == "" {
 		newName = oldName
@@ -698,22 +715,24 @@ func (es *EventStore) UpdateTopic(updateReq *eventmaster.UpdateTopicRequest) (st
 
 	var jsonSchema *gojsonschema.Schema
 	var ok bool
-	var s map[string]interface{}
-	if schema != "" {
-		jsonSchema, ok = es.validateSchema(schema)
+	schemaStr := "{}"
+	if schema != nil {
+		schemaBytes, err := json.Marshal(schema)
+		if err != nil {
+			return "", errors.Wrap(err, "Error marshalling schema into json")
+		}
+		schemaStr = string(schemaBytes)
+		jsonSchema, ok = es.validateSchema(schemaStr)
 		if !ok {
 			return "", errors.New("Error adding topic - schema is not in valid JSON schema format")
 		}
-		if err := json.Unmarshal([]byte(schema), &s); err != nil {
-			return "", errors.Wrap(err, "Error unmarshalling json schema")
-		}
 
 		old := es.getTopicSchemaProperties(id)
-		ok = checkBackwardsCompatible(old, s)
+		ok = checkBackwardsCompatible(old, schema)
 		if !ok {
 			return "", errors.New("Error adding topic - new schema is not backwards compatible")
 		}
-		queryStr = fmt.Sprintf("%s, data_schema = %s", schema)
+		queryStr = fmt.Sprintf("%s, data_schema = %s", schemaStr)
 	}
 
 	queryStr = fmt.Sprintf("%s WHERE topic_id = %s;", queryStr, id)
@@ -730,9 +749,7 @@ func (es *EventStore) UpdateTopic(updateReq *eventmaster.UpdateTopicRequest) (st
 		delete(es.topicNameToId, oldName)
 	}
 	es.topicSchemaMap[id] = jsonSchema
-	if schema != "" {
-		es.topicSchemaPropertiesMap[id] = s
-	}
+	es.topicSchemaPropertiesMap[id] = schema
 	es.topicMutex.Unlock()
 	return id, nil
 }
