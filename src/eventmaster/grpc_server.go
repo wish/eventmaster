@@ -47,10 +47,7 @@ func (s *grpcServer) performOperation(method string, op func() (string, error)) 
 		meter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
 		meter.Mark(1)
 		fmt.Println("Error performing operation", method, err)
-		return &eventmaster.WriteResponse{
-			Errcode: 1,
-			Errmsg:  err.Error(),
-		}, err
+		return nil, err
 	}
 
 	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
@@ -62,6 +59,9 @@ func (s *grpcServer) performOperation(method string, op func() (string, error)) 
 
 func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddEvent", func() (string, error) {
+		if evt.Data == nil {
+			evt.Data = []byte("{}")
+		}
 		var data map[string]interface{}
 		err := json.Unmarshal(evt.Data, &data)
 		if err != nil {
@@ -130,6 +130,9 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 
 func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddTopic", func() (string, error) {
+		if t.DataSchema == nil {
+			t.DataSchema = []byte("{}")
+		}
 		var schema map[string]interface{}
 		err := json.Unmarshal(t.DataSchema, &schema)
 		if err != nil {
@@ -170,14 +173,55 @@ func (s *grpcServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopic
 		errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
 		errMeter.Mark(1)
 		fmt.Println("Error deleting topic: ", err)
-		return &eventmaster.WriteResponse{
-			Errcode: 1,
-			Errmsg:  err.Error(),
-		}, err
+		return nil, err
 	}
 	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
 	successMeter.Mark(1)
 	return &eventmaster.WriteResponse{}, nil
+}
+
+func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.TopicResult, error) {
+	name := "grpcGetTopics"
+
+	start := time.Now()
+	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
+	defer timer.UpdateSince(start)
+	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
+	meter.Mark(1)
+
+	topics, err := s.store.GetTopics()
+	if err != nil {
+		errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
+		errMeter.Mark(1)
+		fmt.Println("Error getting topics: ", err)
+		return nil, err
+	}
+
+	var topicResults []*eventmaster.Topic
+
+	for _, topic := range topics {
+		var schemaBytes []byte
+		if topic.Schema == nil {
+			schemaBytes = []byte("{}")
+		} else {
+			schemaBytes, err = json.Marshal(topic.Schema)
+			if err != nil {
+				errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
+				errMeter.Mark(1)
+				fmt.Println("Error marshalling topic schema: ", err)
+				return nil, err
+			}
+		}
+		topicResults = append(topicResults, &eventmaster.Topic{
+			TopicName:  topic.Name,
+			DataSchema: schemaBytes,
+		})
+	}
+	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
+	successMeter.Mark(1)
+	return &eventmaster.TopicResult{
+		Results: topicResults,
+	}, nil
 }
 
 func (s *grpcServer) AddDc(ctx context.Context, d *eventmaster.Dc) (*eventmaster.WriteResponse, error) {
@@ -190,4 +234,35 @@ func (s *grpcServer) UpdateDc(ctx context.Context, t *eventmaster.UpdateDcReques
 	return s.performOperation("UpdateDc", func() (string, error) {
 		return s.store.UpdateDc(t)
 	})
+}
+
+func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.DcResult, error) {
+	name := "grpcGetDcs"
+
+	start := time.Now()
+	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
+	defer timer.UpdateSince(start)
+	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
+	meter.Mark(1)
+
+	dcs, err := s.store.GetDcs()
+	if err != nil {
+		errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
+		errMeter.Mark(1)
+		fmt.Println("Error getting topics: ", err)
+		return nil, err
+	}
+
+	var dcResults []*eventmaster.Dc
+
+	for _, dc := range dcs {
+		dcResults = append(dcResults, &eventmaster.Dc{
+			Dc: dc,
+		})
+	}
+	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
+	successMeter.Mark(1)
+	return &eventmaster.DcResult{
+		Results: dcResults,
+	}, nil
 }

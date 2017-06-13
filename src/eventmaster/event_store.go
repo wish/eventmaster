@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"reflect"
 	"strings"
 	"sync"
@@ -233,8 +237,33 @@ func NewEventStore(dbConf dbConfig, registry metrics.Registry) (*EventStore, err
 		return nil, errors.Wrap(err, "Error creating cassandra session")
 	}
 
-	// Establish connection to ES and initialize index if it doesn't exist
-	client, err := elastic.NewClient(elastic.SetURL(dbConf.ESAddr), elastic.SetBasicAuth(dbConf.ESUsername, dbConf.ESPassword))
+	var client *elastic.Client
+	if dbConf.CertFile != "" {
+		cert, err := tls.LoadX509KeyPair(dbConf.CertFile, dbConf.KeyFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error loading x509 key pair")
+		}
+		caCert, err := ioutil.ReadFile(dbConf.CAFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error loading CA file")
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		// Setup HTTPS client
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+		}
+		tlsConfig.BuildNameToCertificate()
+		transport := &http.Transport{TLSClientConfig: tlsConfig}
+		httpClient := &http.Client{Transport: transport}
+
+		client, err = elastic.NewClient(elastic.SetURL(dbConf.ESAddr), elastic.SetHttpClient(httpClient))
+	} else {
+		client, err = elastic.NewClient(elastic.SetURL(dbConf.ESAddr), elastic.SetBasicAuth(dbConf.ESUsername, dbConf.ESPassword))
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating elasticsearch client")
 	}
@@ -966,7 +995,8 @@ func (es *EventStore) FlushToES() error {
 	var v struct{}
 
 	for true {
-		if iter.Scan(&eventID, &parentEventID, &dcID, &topicID, &host, &targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
+		if iter.Scan(&eventID, &parentEventID, &dcID, &topicID, &host,
+			&targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
 			var d map[string]interface{}
 			if data != "" {
 				if err := json.Unmarshal([]byte(data), &d); err != nil {
