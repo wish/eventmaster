@@ -8,8 +8,10 @@ service EventMaster {
     rpc AddTopic (Topic) returns (WriteResponse) {}
     rpc UpdateTopic (UpdateTopicRequest) returns (WriteResponse) {}
     rpc DeleteTopic (DeleteTopicRequest) returns (WriteResponse) {}
+    rpc GetTopics (EmptyRequest) returns (TopicResult) {}
     rpc AddDc (Dc) returns (WriteResponse) {}
     rpc UpdateDc (UpdateDcRequest) returns (WriteResponse) {}
+    rpc GetDcs (EmptyRequest) returns (DcResult) {}
 }
  
 message Event {
@@ -48,6 +50,10 @@ message Topic {
     string topic_name = 1;
     bytes data_schema = 2;
 }
+
+message TopicResult {
+    repeated Topic results = 1;
+}
  
 message UpdateTopicRequest {
     string old_name = 1;
@@ -62,6 +68,10 @@ message DeleteTopicRequest {
 message Dc {
     string dc = 1;
 }
+
+message DcResult {
+    repeated Dc results = 1;
+}
  
 message UpdateDcRequest {
     string old_name = 1;
@@ -69,8 +79,7 @@ message UpdateDcRequest {
 }
  
 message WriteResponse {
-    int32 errcode = 1;
-    string errmsg = 2;
     string id = 3;
 }
 
+message EmptyRequest {}

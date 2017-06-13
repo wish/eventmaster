@@ -30,6 +30,9 @@ type dbConfig struct {
 	ESPassword     string `json:"es_password"`
 	FlushInterval  int    `json:"flush_interval"`
 	UpdateInterval int    `json:"update_interval"`
+	CertFile       string `json:"cert"`
+	KeyFile        string `json:"key"`
+	CAFile         string `json:"CA"`
 }
 
 func getConfig() dbConfig {

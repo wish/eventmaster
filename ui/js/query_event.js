@@ -81,7 +81,8 @@
 					var event = results[i];
 					var item = 
 					`<tr>
-						<th scope="row">`.concat(event['topic_name'],`</th>
+						<td>`.concat(event['event_id'],`</td>
+						<th scope="row">`,event['topic_name'],`</th>
 						<td>`,event['dc'],`</td>
 						<td>`,event['tag_set'],`</td>
 						<td>`,new Date(event['event_time']*1000).toString(),`</td>
