@@ -29,11 +29,6 @@ type EventResult struct {
 	ReceivedTime  int64                  `json:"received_time"`
 }
 
-type TopicResult struct {
-	Name   string                 `json:"topic_name"`
-	Schema map[string]interface{} `json:"data_schema"`
-}
-
 func wrapHandler(h httprouter.Handle, registry metrics.Registry) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", r.URL.Path, "Meter"), registry)
@@ -81,7 +76,7 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, na
 }
 
 func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var evt eventmaster.Event
+	var evt UnaddedEvent
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&evt); err != nil {
@@ -195,10 +190,7 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 		return
 	}
 
-	id, err := h.store.AddTopic(&eventmaster.Topic{
-		TopicName:  td.Name,
-		DataSchema: td.Schema,
-	})
+	id, err := h.store.AddTopic(td)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error adding topic", "AddTopicError")
 		return
@@ -224,11 +216,7 @@ func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, 
 		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error updating topic, no topic name provided", "UpdateTopicError")
 		return
 	}
-	id, err := h.store.UpdateTopic(&eventmaster.UpdateTopicRequest{
-		OldName:    topicName,
-		NewName:    td.Name,
-		DataSchema: td.Schema,
-	})
+	id, err := h.store.UpdateTopic(topicName, td)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error updating topic", "UpdateTopicError")
 		return
@@ -237,27 +225,14 @@ func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, 
 }
 
 func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	topicSet := make(map[string][]TopicResult)
 	topics, err := h.store.GetTopics()
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store", "GetTopicError")
 		return
 	}
-	var results []TopicResult
-	for _, topic := range topics {
-		var s map[string]interface{}
-		err := json.Unmarshal([]byte(topic.Schema), &s)
-		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error unmarshalling topic schema", "GetTopicError")
-			return
-		}
-		results = append(results, TopicResult{
-			Name:   topic.Name,
-			Schema: s,
-		})
-	}
 
-	topicSet["results"] = results
+	topicSet := make(map[string][]TopicData)
+	topicSet["results"] = topics
 	str, err := json.Marshal(topicSet)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetTopicError")

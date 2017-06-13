@@ -23,9 +23,11 @@ import (
 
 type dbConfig struct {
 	CassandraAddr  string `json:"cassandra_addr"`
-	Keyspace       string `json:"keyspace"`
+	Keyspace       string `json:"cassandra_keyspace"`
 	Consistency    string `json:"consistency"`
 	ESAddr         string `json:"es_addr"`
+	ESUsername     string `json:"es_username"`
+	ESPassword     string `json:"es_password"`
 	FlushInterval  int    `json:"flush_interval"`
 	UpdateInterval int    `json:"update_interval"`
 }
