@@ -8,5 +8,5 @@ type Config struct {
 
 	StatsdServer string `long:"statsdserver" description:"server to send statsd stats to"`
 
-	EventStoreName string `long:"eventstorename" required:"true" description:"event store name to talk to"`
+	EventStoreName string `long:"eventstorename" description:"event store name to talk to"`
 }
