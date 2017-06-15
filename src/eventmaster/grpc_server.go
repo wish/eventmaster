@@ -13,7 +13,7 @@ import (
 
 func NewGRPCServer(config *Config, s *EventStore, r metrics.Registry) (*grpcServer, error) {
 	statsClient := statsd.NewClient(
-		fmt.Sprintf("eventmaster_", config.EventStoreName),
+		"eventmaster",
 		config.StatsdServer,
 		false, // TODO disable this outside of prod
 	)

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -46,19 +45,11 @@ func getConfig() dbConfig {
 			fmt.Println("Error parsing db_config.json, using defaults:", err)
 		}
 	}
-	if dbConf.CassandraAddr == "" {
-		dbConf.CassandraAddr = "127.0.0.1:9042"
-	}
 	if dbConf.Keyspace == "" {
 		dbConf.Keyspace = "event_master"
 	}
 	if dbConf.Consistency == "" {
 		dbConf.Consistency = "quorum"
-	}
-	if dbConf.ESAddr == "" {
-		dbConf.ESAddr = "http://127.0.0.1:9200"
-	} else if !strings.HasPrefix(dbConf.ESAddr, "http://") {
-		dbConf.ESAddr = "http://" + dbConf.ESAddr
 	}
 	if dbConf.FlushInterval == 0 {
 		dbConf.FlushInterval = 5
@@ -108,7 +99,7 @@ func main() {
 
 	// Set up event store
 	dbConf := getConfig()
-	store, err := NewEventStore(dbConf, r)
+	store, err := NewEventStore(dbConf, config, r)
 	if err != nil {
 		log.Fatalf("Unable to create event store: %v", err)
 	}

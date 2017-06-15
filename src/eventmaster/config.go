@@ -8,5 +8,9 @@ type Config struct {
 
 	StatsdServer string `long:"statsdserver" description:"server to send statsd stats to"`
 
-	EventStoreName string `long:"eventstorename" description:"event store name to talk to"`
+	ESServiceName string `long:"es_servicename" description:"name of elasticsearch service to talk to"`
+
+	CassandraServiceName string `long:"cassandra_servicename" description:"name of cassandra service to talk to"`
+
+	CassandraPort string `long:"cassandra_port" default:"9201" description:"port of cassandra service"`
 }

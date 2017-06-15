@@ -178,16 +178,35 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 }
 
 func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var td TopicData
+	td := TopicData{}
+	var reqMap map[string]interface{}
+
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", "AddTopicError")
 		return
 	}
 
-	if err = json.Unmarshal(reqBody, &td); err != nil {
+	if err = json.Unmarshal(reqBody, &reqMap); err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", "AddTopicError")
 		return
+	}
+
+	if name, ok := reqMap["topic_name"]; ok {
+		if nameStr, ok := name.(string); ok {
+			td.Name = nameStr
+		}
+	}
+
+	if td.Name == "" {
+		h.sendError(w, http.StatusBadRequest, errors.New("Must include topic_name in request"), "Error adding topic", "AddTopicError")
+		return
+	}
+
+	if data, ok := reqMap["data_schema"]; ok {
+		if dataMap, ok := data.(map[string]interface{}); ok {
+			td.Schema = dataMap
+		}
 	}
 
 	id, err := h.store.AddTopic(td)

@@ -19,7 +19,7 @@ $(document).ready(function() {
 					elem.innerHTML += inner;
 				}
 			}
-			
+
 		}
 	});
 });
@@ -31,7 +31,11 @@ function submitTopic(form) {
 		var key = data[i]["name"];
 		var value = data[i]["value"];
 		if (key === "data_schema") {
-			formData[key] = JSON.parse(value)
+            if (value) {
+			    formData[key] = JSON.parse(value)
+            } else {
+                formData[key] = {}
+            }
 		} else {
 			formData[key] = value;
 		}
