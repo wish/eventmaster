@@ -333,7 +333,7 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 
 	fmt.Println("Connecting to ES:", esIps)
 
-	var client *elastic.Client
+	esOpts := []elastic.ClientOptionFunc{elastic.SetURL(esIps...)}
 	if dbConf.CertFile != "" {
 		cert, err := tls.LoadX509KeyPair(dbConf.CertFile, dbConf.KeyFile)
 		if err != nil {
@@ -355,11 +355,12 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 		transport := &http.Transport{TLSClientConfig: tlsConfig}
 		httpClient := &http.Client{Transport: transport}
 
-		client, err = elastic.NewClient(elastic.SetURL(esIps...), elastic.SetHttpClient(httpClient))
+		esOpts = append(esOpts, elastic.SetHttpClient(httpClient))
 	} else {
-		client, err = elastic.NewClient(elastic.SetURL(esIps...), elastic.SetBasicAuth(dbConf.ESUsername, dbConf.ESPassword))
+		esOpts = append(esOpts, elastic.SetBasicAuth(dbConf.ESUsername, dbConf.ESPassword))
 	}
 
+	client, err := elastic.NewClient(esOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating elasticsearch client")
 	}
@@ -1107,7 +1108,7 @@ func (es *EventStore) FlushToES() error {
 			index := getIndexFromTime(eventTime / 1000)
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID.String(),
-				ParentEventID: strings.Replace(parentEventIDStr, "-", ")", -1),
+				ParentEventID: strings.Replace(parentEventIDStr, "-", "_", -1),
 				EventTime:     eventTime / 1000,
 				DcID:          strings.Replace(dcID.String(), "-", "_", -1),
 				TopicID:       strings.Replace(topicID.String(), "-", "_", -1),

@@ -1,39 +1,41 @@
  function submitQuery(form) {
 	var data = $(form).serializeArray();
 	var formData = {};
+	var startEventDate, startEventTime, endEventDate, endEventTime;
+	var startReceivedDate, startReceivedTime, endReceivedDate, endReceivedTime;
 	for (var i = 0; i < data.length; i++) {
 		var key = data[i]["name"];
 		var value = data[i]["value"];
-		var startEventDate, startEventTime, endEventDate, endEventTime;
-		var startReceivedDate, startReceivedTime, endReceivedDate, endReceivedTime;
-		switch(key) {
-			case "sort_ascending":
-				var sortArr = value === "" ? [] : value.split(",")
-				sortArr.map(function(v) {
-					if (v.toLowerCase() === "t" || v.toLowerCase() === "true") {
-						return true;
-					}
-					return false;
-				})
-				formData[key] = sortArr;
-				break;
-			case "data":
-				formData[key] = value
-				break;
-			case "startEventDate":
-				startEventDate = value;
-				break;
-			case "startEventTime":
-				startEventTime = value;
-				break;
-			case "endEventDate":
-				endEventDate = value;
-				break;
-			case "endEventTime":
-				endEventTime = value;
-				break;
-			default:
-				formData[key] = value === "" ? [] : value.split(",");
+		if (value) {
+			switch(key) {
+				case "sort_ascending":
+					var sortArr = value === "" ? [] : value.split(",")
+					sortArr.map(function(v) {
+						if (v.toLowerCase() === "t" || v.toLowerCase() === "true") {
+							return true;
+						}
+						return false;
+					})
+					formData[key] = sortArr;
+					break;
+				case "data":
+					formData[key] = value
+					break;
+				case "startEventDate":
+					startEventDate = value;
+					break;
+				case "startEventTime":
+					startEventTime = value;
+					break;
+				case "endEventDate":
+					endEventDate = value;
+					break;
+				case "endEventTime":
+					endEventTime = value;
+					break;
+				default:
+					formData[key] = value === "" ? [] : value.split(",");
+			}
 		}
 	}
 	var e = document.getElementById("timezone");
