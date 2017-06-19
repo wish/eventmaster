@@ -43,22 +43,24 @@ function submitTopic(form) {
 				}
 			}
 		}
-		$.ajax({
-			type: 'POST',
-			url: '/v1/topic',
-			data: JSON.stringify(formData),
-			dataType: "json",
-			success: function(data) {
-				alert("Topic added: " + data["topic_id"])
-				window.location.reload();
-			},
-			error: function(data) {
-				alert("Error adding topic: " + data.responseText);
-			}
-		});
 	} catch (err) {
 		alert(err)
+		return false;
 	}
+	
+	$.ajax({
+		type: 'POST',
+		url: '/v1/topic',
+		data: JSON.stringify(formData),
+		dataType: "json",
+		success: function(data) {
+			alert("Topic added: " + data["topic_id"])
+			window.location.reload();
+		},
+		error: function(data) {
+			alert("Error adding topic: " + data.responseText);
+		}
+	});
 	
 	return false;
 }

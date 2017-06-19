@@ -26,6 +26,7 @@ function submitForm(form) {
 		}
 	} catch (err) {
 		alert(err)
+		return false;
 	}
 	
 	$.ajax({

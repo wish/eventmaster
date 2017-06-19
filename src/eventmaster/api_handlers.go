@@ -78,11 +78,12 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, na
 func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var evt UnaddedEvent
 
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&evt); err != nil {
+	body, err := ioutil.ReadAll(r.Body)
+	if err := json.Unmarshal(body, &evt); err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", "AddEventError")
 		return
 	}
+
 	id, err := h.store.AddEvent(&evt)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error writing event", "AddEventError")

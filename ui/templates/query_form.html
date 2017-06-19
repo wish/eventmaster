@@ -2,43 +2,43 @@
 <div class="container">
 	<form onsubmit='return submitQuery(this)'>
 		<div class="form-group row">
-			<label for="parent_event_id" class="col-sm-1 col-form-label">Parent Event ID</label>
+			<label for="parent_event_id" class="col-sm-1 col-form-label">Parent Event ID *</label>
 			<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Parent Event ID" name="parent_event_id">
 			</div>
 	  	</div>
 		<div class="form-group row">
-			<label for="dc" class="col-sm-1 col-form-label">DC</label>
+			<label for="dc" class="col-sm-1 col-form-label">DC *</label>
 			<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Data center" name="dc">
 			</div>
 	  	</div>
 		<div class="form-group row">
-			<label for="host" class="col-sm-1 col-form-label">Host</label>
+			<label for="host" class="col-sm-1 col-form-label">Host *</label>
 			<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Host" name="host" id="host">
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="target_host" class="col-sm-1 col-form-label">Target Host</label>
+	  		<label for="target_host" class="col-sm-1 col-form-label">Target Host *</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Target Host" name="target_host_set">
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="user" class="col-sm-1 col-form-label">User</label>
+	  		<label for="user" class="col-sm-1 col-form-label">User *</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="User" name="user">
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="topicName" class="col-sm-1 col-form-label">Topic</label>
+	  		<label for="topicName" class="col-sm-1 col-form-label">Topic *</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Topic" name="topic_name" id="topicName">
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="tag_set" class="col-sm-1 col-form-label">Tag</label>
+	  		<label for="tag_set" class="col-sm-1 col-form-label">Tag *</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Tag" name="tag_set">
 			</div>
@@ -50,13 +50,14 @@
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="sort_field" class="col-sm-1 col-form-label">Sort Fields</label>
+	  		<label for="sort_field" class="col-sm-1 col-form-label">Sort Fields *</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Sort Fields" name="sort_field">
+				<small class="form-text text-muted">Valid fields: topic_name, dc, event_time, received_time, host, target_host_set, user, parent_event_id</small>
 			</div>
 	  	</div>
 	  	<div class="form-group row">
-	  		<label for="sort_ascending" class="col-sm-1 col-form-label">Sort Ascending</label>
+	  		<label for="sort_ascending" class="col-sm-1 col-form-label">Sort Ascending *</label>
 	  		<div class="col-sm-6">
 				<input type="text" class="form-control" placeholder="Sort Ascending" name="sort_ascending">
 			</div>
@@ -79,6 +80,7 @@
             <button class="btn btn-default" type="submit">Search</button>
         </span>
     </form>
+    (*) Multiple values can be searched by providing values in comma-separated form
 </div>
 <table class="table table-striped">
 	<thead>
