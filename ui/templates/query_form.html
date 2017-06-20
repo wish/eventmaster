@@ -1,86 +1,94 @@
 {{ define "form" }}
+<script type="text/javascript" src="/bootstrap/js/bootstrap-datetimepicker.min.js"></script>
+<link rel="stylesheet" href="/bootstrap/css/bootstrap-datetimepicker.min.css"/>
+<script type="text/javascript" src="/js/query_event.js"></script>
 <div class="container">
 	<form onsubmit='return submitQuery(this)'>
-		<div class="form-group row">
-			<label for="parent_event_id" class="col-sm-1 col-form-label">Parent Event ID *</label>
-			<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Parent Event ID" name="parent_event_id">
-			</div>
-	  	</div>
-		<div class="form-group row">
-			<label for="dc" class="col-sm-1 col-form-label">DC *</label>
-			<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Data center" name="dc">
-			</div>
-	  	</div>
-		<div class="form-group row">
-			<label for="host" class="col-sm-1 col-form-label">Host *</label>
-			<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Host" name="host" id="host">
-			</div>
-	  	</div>
-	  	<div class="form-group row">
-	  		<label for="target_host" class="col-sm-1 col-form-label">Target Host *</label>
-	  		<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="Target Host" name="target_host_set">
-			</div>
-	  	</div>
-	  	<div class="form-group row">
-	  		<label for="user" class="col-sm-1 col-form-label">User *</label>
-	  		<div class="col-sm-6">
-				<input type="text" class="form-control" placeholder="User" name="user">
-			</div>
-	  	</div>
-	  	<div class="form-group row">
-	  		<label for="topicName" class="col-sm-1 col-form-label">Topic *</label>
-	  		<div class="col-sm-6">
+        <div class="row">
+		    <div class="form-group col-sm-6">
+			    <label for="parent_event_id">Parent Event ID *</label>
+			    <input type="text" class="form-control" placeholder="Parent Event ID" name="parent_event_id">
+	  	    </div>
+		    <div class="form-group col-sm-6">
+			    <label for="dc">DC *</label>
+			    <input type="text" class="form-control" placeholder="Data center" name="dc">
+	  	    </div>
+        </div>
+        <div class="row">
+        	<div class="form-group col-sm-6">
+	  		    <label for="topicName">Topic *</label>
 				<input type="text" class="form-control" placeholder="Topic" name="topic_name" id="topicName">
-			</div>
-	  	</div>
-	  	<div class="form-group row">
-	  		<label for="tag_set" class="col-sm-1 col-form-label">Tag *</label>
-	  		<div class="col-sm-6">
+	  	    </div>
+		    <div class="form-group col-sm-6">
+			    <label for="host">Host *</label>
+				<input type="text" class="form-control" placeholder="Host" name="host" id="host">
+	  	    </div>
+        </div>
+        <div class="row">
+        	<div class="form-group col-sm-6">
+	  		    <label for="target_host">Target Host *</label>
+				<input type="text" class="form-control" placeholder="Target Host" name="target_host_set">
+	  	    </div>
+	  	    <div class="form-group col-sm-6">
+	  		    <label for="user">User *</label>
+				<input type="text" class="form-control" placeholder="User" name="user">
+	  	    </div>
+        </div>
+        <div class="row">
+	  	    <div class="form-group col-sm-6">
+	  	    	<label for="tag_set">Tag *</label>
 				<input type="text" class="form-control" placeholder="Tag" name="tag_set">
-			</div>
-	  	</div>
-	  	<div class="form-group row">
-	  		<label for="data" class="col-sm-1 col-form-label">Data</label>
-	  		<div class="col-sm-6">
+	  	    </div>
+	  	    <div class="form-group col-sm-6">
+	  	        <label for="data">Data</label>
 				<input type="text" class="form-control" placeholder="Data" name="data">
-			</div>
-	  	</div>
-	  	<div class="form-group row">
-	  		<label for="sort_field" class="col-sm-1 col-form-label">Sort Fields *</label>
-	  		<div class="col-sm-6">
+	  	    </div>
+        </div>
+        <div class="row">
+	  	    <div class="form-group col-sm-6">
+	  		    <label for="sort_field">Sort Fields *</label>
 				<input type="text" class="form-control" placeholder="Sort Fields" name="sort_field">
 				<small class="form-text text-muted">Valid fields: topic_name, dc, event_time, received_time, host, target_host_set, user, parent_event_id</small>
-			</div>
-	  	</div>
-	  	<div class="form-group row">
-	  		<label for="sort_ascending" class="col-sm-1 col-form-label">Sort Ascending *</label>
-	  		<div class="col-sm-6">
+	  	    </div>
+	  	    <div class="form-group col-sm-6">
+	  		    <label for="sort_ascending">Sort Ascending *</label>
 				<input type="text" class="form-control" placeholder="Sort Ascending" name="sort_ascending">
+                <small class="form-text text-muted">Comma-separated true/false values corresponding to sort fields</small>
 			</div>
 	  	</div>
-	  	<div class="form-group input-group">
-	  		<div class="input-group-addon">Start Event Time</div>
-	  		<div class="col-sm-6">
-				<input type="date" class="form-control" placeholder="Start Date" name="startEventDate">
-				<input type="time" class="form-control" name="startEventTime">
-			</div>
-	  	</div>
-	  	<div class="form-group input-group">
-	  		<div class="input-group-addon">End Event Time</div>
-	  		<div class="col-sm-6">
-				<input type="date" class="form-control" placeholder="End Date" name="endEventDate">
-				<input type="time" class="form-control" name="endEventTime">
-			</div>
-	  	</div>
+        <div class="row">
+	  	    <div class="form-group col-sm-6">
+                <label>Start Event Time</label>
+                <div class='input-group date' id='starttimepicker'>
+                    <input type="text" class="form-control" name="startEventTime">
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-calendar"></span>
+                    </span>
+                </div>
+            </div>
+	  	    <div class="form-group col-sm-6">
+	  		    <label>End Event Time</label>
+                <div class="input-group date" id="endtimepicker">
+                    <input type="text" class="form-control" name="endEventTime">
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-calendar"></span>
+                    </span>
+                </div>
+	  	    </div>
+        </div>
         <span class="input-group-btn">
             <button class="btn btn-default" type="submit">Search</button>
         </span>
     </form>
+    <div>
     (*) Multiple values can be searched by providing values in comma-separated form
+    </div>
+    <div>
+        <input id="refreshCheckbox" type="checkbox">
+        <label for="refreshCheckbox">
+            Refresh Results
+        </label>
+    </div>
 </div>
 <table class="table table-striped">
 	<thead>
@@ -100,5 +108,4 @@
 	<tbody id="event_table">
 	</tbody>
 </table>
-<script type="text/javascript" src="/js/query_event.js"></script>
 {{ end }}

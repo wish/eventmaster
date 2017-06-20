@@ -1,18 +1,20 @@
+$(document).ready(function() {
+    $('#datetimepicker').datetimepicker();
+});
+
 function submitForm(form) {
 	try {
 		var data = $(form).serializeArray();
+		var eventTime;
 		var formData = {};
 		for (var i = 0; i < data.length; i++) {
 			var key = data[i]["name"];
 			var value = data[i]["value"];
 			if (value) {
-				var date, time;
 				if (key === "tag_set" || key === "target_host_set") {
 					formData[key] = value === "" ? [] : value.split(",")
-				} else if (key === "date") {
-					date = value;
-				} else if (key === "time") {
-					time = value;
+				} else if (key === "event_time") {
+					eventTime = value;
 				} else if (key === "data") {
 					formData["data"] = JSON.parse(value)
 				} else {
@@ -20,9 +22,8 @@ function submitForm(form) {
 				}
 			}
 		}
-		var serializedTime = date ? (time ? date + " " + time : date) : "";
-		if (serializedTime) {
-			formData["event_time"] = new Date(serializedTime).getTime() / 1000;
+		if (eventTime) {
+			formData["event_time"] = getTimestamp(eventTime);
 		}
 	} catch (err) {
 		alert(err)

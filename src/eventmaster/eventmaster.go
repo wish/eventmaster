@@ -82,6 +82,7 @@ func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 	r.GET("/dc", HandleDcPage)
 
 	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
+	r.ServeFiles("/bootstrap/*filepath", http.Dir("ui/bootstrap"))
 
 	return &http.Server{
 		Handler: r,

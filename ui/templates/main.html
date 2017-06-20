@@ -3,6 +3,7 @@
 	<head>
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+        <script src="https://momentjs.com/downloads/moment.js"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 		<nav class="navbar navbar-default">
 		  <div class="container-fluid">
@@ -28,6 +29,29 @@
 		</nav>
 	</head>
 	<body>
+		<script>
+		var e = document.getElementById("timezone");
+		var offset = parseInt(e.options[e.selectedIndex].value);
+		
+		var getTimestamp = function(timeStr) {
+		    var parts = timeStr.split(" ");
+		    var dateParts = parts[0].split("/");
+		    var month = parseInt(dateParts[0]);
+		    var day = parseInt(dateParts[1]);
+		    var year = parseInt(dateParts[2]);
+		    var timeParts = parts[1].split(":");
+		    var hour = parseInt(timeParts[0]);
+		    var minute = parseInt(timeParts[1]);
+		    if (parts[2] === "PM") {
+		        hour += 12;
+		    } else if (hour == 12 && parts[2] == "AM") {
+		        hour = 0;
+		    }
+			var newTime = new Date(Date.UTC(year, month-1, day, hour, minute));
+		    newTime.setTime(newTime.getTime() + offset*60*60*1000);
+		    return newTime / 1000
+		}
+		</script>
 		{{ template "form" . }}
 	</body>
 </html>
