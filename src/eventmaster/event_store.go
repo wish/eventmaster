@@ -193,7 +193,7 @@ func (event *Event) toCassandra(data string) string {
     APPLY BATCH;`,
 		event.EventID, stringifyUUID(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
 		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
-		stringifyArr(event.Tags), stringify(data), event.ReceivedTime)
+		stringifyArr(event.Tags), stringify(data), event.ReceivedTime*1000)
 }
 
 type TopicData struct {
@@ -658,8 +658,22 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 		From(int(q.Start)).Size(int(limit)).
 		Pretty(true)
 
+	sortByTime := false
 	for i, field := range q.SortField {
-		sq.Sort(field, q.SortAscending[i])
+		if field == "dc" {
+			sq.Sort("dc_id.keyword", q.SortAscending[i])
+		} else if field == "topic" {
+			sq.Sort("topic_id.keyword", q.SortAscending[i])
+		} else {
+			if field == "event_time" {
+				sortByTime = true
+			}
+			sq.Sort(fmt.Sprintf("%s.%s", field, "keyword"), q.SortAscending[i])
+		}
+	}
+
+	if !sortByTime {
+		sq.Sort("event_time", false)
 	}
 
 	sr, err := sq.Do(ctx)
@@ -669,7 +683,13 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 		return nil, errors.Wrap(err, "Error executing ES search query")
 
 	}
-	eventsByTopic := make(map[string][]*Event)
+
+	schemas := make(map[string](map[string]interface{}))
+	es.topicMutex.Lock()
+	for k, v := range es.topicSchemaPropertiesMap {
+		schemas[k] = v
+	}
+	es.topicMutex.Unlock()
 
 	var evt Event
 	for _, item := range sr.Each(reflect.TypeOf(evt)) {
@@ -678,19 +698,14 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 			e.DcID = strings.Replace(e.DcID, "_", "-", -1)
 			e.ParentEventID = strings.Replace(e.ParentEventID, "_", "-", -1)
 			topicID := e.TopicID
-			eventsByTopic[topicID] = append(eventsByTopic[topicID], &e)
+			propertiesSchema := schemas[topicID]
+			if propertiesSchema != nil {
+				es.insertDefaults(propertiesSchema, e.Data)
+			}
+			evts = append(evts, &e)
 		}
 	}
 
-	for topicID, events := range eventsByTopic {
-		propertiesSchema := es.getTopicSchemaProperties(topicID)
-		if propertiesSchema != nil || len(propertiesSchema) != 0 {
-			for i, _ := range events {
-				es.insertDefaults(propertiesSchema, events[i].Data)
-			}
-		}
-		evts = append(evts, events...)
-	}
 	return evts, nil
 }
 
