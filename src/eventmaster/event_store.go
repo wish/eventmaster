@@ -819,7 +819,6 @@ func (es *EventStore) AddTopic(topic TopicData) (string, error) {
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
-	fmt.Println("Topic Added:", name, id)
 
 	es.topicMutex.Lock()
 	es.topicNameToId[name] = id
@@ -827,6 +826,8 @@ func (es *EventStore) AddTopic(topic TopicData) (string, error) {
 	es.topicSchemaPropertiesMap[id] = schema
 	es.topicSchemaMap[id] = jsonSchema
 	es.topicMutex.Unlock()
+
+	fmt.Println("Topic Added:", name, id)
 	return id, nil
 }
 
@@ -872,7 +873,7 @@ func (es *EventStore) UpdateTopic(oldName string, td TopicData) (string, error) 
 		if !ok {
 			return "", errors.New("Error adding topic - new schema is not backwards compatible")
 		}
-		queryStr = fmt.Sprintf("%s, data_schema = %s", schemaStr)
+		queryStr = fmt.Sprintf("%s, data_schema = %s", queryStr, stringify(schemaStr))
 	}
 
 	queryStr = fmt.Sprintf("%s WHERE topic_id = %s;", queryStr, id)
@@ -891,6 +892,8 @@ func (es *EventStore) UpdateTopic(oldName string, td TopicData) (string, error) 
 	es.topicSchemaMap[id] = jsonSchema
 	es.topicSchemaPropertiesMap[id] = schema
 	es.topicMutex.Unlock()
+
+	fmt.Println("Topic Updated:", newName, id)
 	return id, nil
 }
 
@@ -901,7 +904,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 		return errors.New("Couldn't find topic id for topic:" + topicName)
 	}
 	if _, err := es.esClient.DeleteByQuery(es.getESIndices()...).
-		Query(elastic.NewTermQuery("topic_id", topicName)).
+		Query(elastic.NewTermQuery("topic_id", strings.Replace(id, "-", "_", -1))).
 		Do(context.Background()); err != nil {
 		return errors.Wrap(err, "Error deleting events under topic from ES")
 	}
@@ -917,6 +920,8 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	delete(es.topicSchemaMap, id)
 	delete(es.topicSchemaPropertiesMap, id)
 	es.topicMutex.Unlock()
+
+	fmt.Println("Topic Deleted:", topicName, id)
 	return nil
 }
 
@@ -946,12 +951,13 @@ func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
-	fmt.Println("Dc Added:", name, id)
 
 	es.dcMutex.Lock()
 	es.dcIdToName[id] = name
 	es.dcNameToId[name] = id
 	es.dcMutex.Unlock()
+
+	fmt.Println("Dc Added:", name, id)
 	return id, nil
 }
 
@@ -992,6 +998,8 @@ func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, 
 		delete(es.dcNameToId, oldName)
 	}
 	es.dcMutex.Unlock()
+
+	fmt.Println("Dc Updated:", newName, id)
 	return id, nil
 }
 
