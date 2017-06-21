@@ -1,16 +1,14 @@
-hash: 2f58d10f52163764730b6cad57af37bcbbad73c49cf194392572445083ede480
-updated: 2017-06-15T11:47:15.84014733-07:00
+hash: cc7bcca9140a790e4de7ea86bb99763c7c2ecb00f545948f9969c9052163ec41
+updated: 2017-06-20T17:43:18.780415176-07:00
 imports:
-- name: github.com/ContextLogic/eventmaster
-  version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
-  subpackages:
-  - eventmaster
 - name: github.com/ContextLogic/gobrubeckclient
   version: d4f432c8594db6b27d0282033dc5429b714ca9d5
   subpackages:
   - brubeck
 - name: github.com/ContextLogic/goServiceLookup
   version: 43a14c585a6f18c18fca4d63ad12dcf8d83388a8
+  subpackages:
+  - servicelookup
 - name: github.com/gocql/gocql
   version: 05df4896cf271375039b0645117594e861bde0d9
   subpackages:
@@ -93,7 +91,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/olivere/elastic.v5
-  version: f1fd7305d0b6270192b27010fe1193568b18e4b6
+  version: 3113f9b9ad37509fe5f8a0e5e91c96fdc4435e26
   subpackages:
   - uritemplates
 testImports: []

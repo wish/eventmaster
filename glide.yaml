@@ -1,8 +1,5 @@
 package: github.com/ContextLogic/eventmaster/src/eventmaster
 import:
-- package: github.com/ContextLogic/eventmaster
-  subpackages:
-  - eventmaster
 - package: github.com/ContextLogic/gobrubeckclient
   subpackages:
   - brubeck
