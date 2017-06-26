@@ -66,6 +66,7 @@ func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 		store: store,
 	}
 
+	// API endpoints
 	r.POST("/v1/event", wrapHandler(h.handleAddEvent, registry))
 	r.GET("/v1/event", wrapHandler(h.handleGetEvent, registry))
 	r.POST("/v1/topic", wrapHandler(h.handleAddTopic, registry))
@@ -76,13 +77,19 @@ func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
 	r.GET("/v1/dc/", wrapHandler(h.handleGetDc, registry))
 
+	// GitHub webhook endpoint
+	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent, registry))
+
+	// UI endpoints
 	r.GET("/", HandleMainPage)
 	r.GET("/add_event", HandleCreatePage)
 	r.GET("/topic", HandleTopicPage)
 	r.GET("/dc", HandleDcPage)
 
+	// JS file endpoints
 	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
 	r.ServeFiles("/bootstrap/*filepath", http.Dir("ui/bootstrap"))
+	r.ServeFiles("/css/*filepath", http.Dir("ui/css"))
 
 	return &http.Server{
 		Handler: r,

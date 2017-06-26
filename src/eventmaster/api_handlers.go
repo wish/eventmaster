@@ -324,3 +324,28 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 	}
 	h.sendResp(w, "", string(str), "GetDc")
 }
+
+func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var info map[string]interface{}
+
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", "GitHubEventError")
+		return
+	}
+	if err := json.Unmarshal(reqBody, &info); err != nil {
+		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", "GitHubEventError")
+		return
+	}
+
+	if _, err := h.store.AddEvent(&UnaddedEvent{
+		Dc:        "github",
+		Host:      "github",
+		TopicName: "github",
+		Data:      info,
+	}); err != nil {
+		h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", "GitHubEventError")
+		return
+	}
+	h.sendResp(w, "", "", "GitHubEvent")
+}

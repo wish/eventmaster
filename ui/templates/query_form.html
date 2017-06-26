@@ -1,105 +1,106 @@
 {{ define "form" }}
 <script type="text/javascript" src="/bootstrap/js/bootstrap-datetimepicker.min.js"></script>
 <link rel="stylesheet" href="/bootstrap/css/bootstrap-datetimepicker.min.css"/>
-<script type="text/javascript" src="/js/query_event.js"></script>
-<div class="container">
-	<form onsubmit='return submitQuery(this)' onKeyPress='return checkSubmit(event)'>
-        <div class="row">
-		    <div class="form-group col-sm-6">
+
+<div id="wrapper">
+	<div id="sidebar-wrapper">
+		<form onsubmit='return submitQuery(this)' onKeyPress='return checkSubmit(event)'>
+			<div class="form-group">
 			    <label for="parent_event_id">Parent Event ID *</label>
 			    <input type="text" class="form-control" placeholder="Parent Event ID" name="parent_event_id">
-	  	    </div>
-		    <div class="form-group col-sm-6">
+		    </div>
+		    <div class="form-group">
 			    <label for="dc">DC *</label>
 			    <input type="text" class="form-control" placeholder="Data center" name="dc">
 	  	    </div>
-        </div>
-        <div class="row">
-        	<div class="form-group col-sm-6">
+	  	    <div class="form-group">
 	  		    <label for="topicName">Topic *</label>
 				<input type="text" class="form-control" placeholder="Topic" name="topic_name" id="topicName">
 	  	    </div>
-	  	    <div class="form-group col-sm-6">
+	  	    <div class="form-group">
 	  	    	<label for="tag_set">Tags *</label>
 				<input type="text" class="form-control" placeholder="Tag" name="tag_set">
 	  	    </div>
-        </div>
-        <div class="row">
-        	<div class="form-group col-sm-6">
+	  	    <div class="form-group">
 			    <label for="host">Host *</label>
 				<input type="text" class="form-control" placeholder="Host" name="host" id="host">
 	  	    </div>
-        	<div class="form-group col-sm-6">
+	    	<div class="form-group">
 	  		    <label for="target_host">Target Host *</label>
 				<input type="text" class="form-control" placeholder="Target Host" name="target_host_set">
 	  	    </div>
-        </div>
-        <div class="row">
-	  	    <div class="form-group col-sm-6">
+	  	    <div class="form-group">
 	  		    <label for="user">User *</label>
 				<input type="text" class="form-control" placeholder="User" name="user">
 	  	    </div>
-	  	    <div class="form-group col-sm-6">
+	  	    <div class="form-group">
 	  	        <label for="data">Data</label>
 				<input type="text" class="form-control" placeholder="Data" name="data">
 	  	    </div>
-        </div>
-        <div class="row">
 	  	    <div class="form-group col-sm-12" id="sortFields">
 	  		    <label for="sort_field">Sort Fields *</label>
-                <button onclick="addSortField();" class="btn btn-secondary btn-sm">+ Add Sort Field</button>
+	            <button onclick="addSortField();" class="btn btn-secondary btn-sm">+ Add Sort Field</button>
 	  	    </div>
-	  	</div>
-        <div class="row">
-	  	    <div class="form-group col-sm-6">
-                <label>Start Event Time</label>
-                <div class='input-group date' id='starttimepicker'>
-                    <input type="text" class="form-control" name="startEventTime">
-                    <span class="input-group-addon">
-                        <span class="glyphicon glyphicon-calendar"></span>
-                    </span>
-                </div>
-            </div>
-	  	    <div class="form-group col-sm-6">
+	  	    <div class="form-group">
+	            <label>Start Event Time</label>
+	            <div class='input-group date' id='starttimepicker'>
+	                <input type="text" class="form-control" name="startEventTime">
+	                <span class="input-group-addon">
+	                    <span class="glyphicon glyphicon-calendar"></span>
+	                </span>
+	            </div>
+	        </div>
+	  	    <div class="form-group">
 	  		    <label>End Event Time</label>
-                <div class="input-group date" id="endtimepicker">
-                    <input type="text" class="form-control" name="endEventTime">
-                    <span class="input-group-addon">
-                        <span class="glyphicon glyphicon-calendar"></span>
-                    </span>
-                </div>
+	            <div class="input-group date" id="endtimepicker">
+	                <input type="text" class="form-control" name="endEventTime">
+	                <span class="input-group-addon">
+	                    <span class="glyphicon glyphicon-calendar"></span>
+	                </span>
+	            </div>
 	  	    </div>
-        </div>
-        <span class="input-group-btn">
-            <button class="btn btn-default" type="submit">Search</button>
-        </span>
-    </form>
-    <div>
-    (*) Multiple values can be searched by providing values in comma-separated form
-    </div>
-    <div>
-        <input id="refreshCheckbox" type="checkbox" checked>
-        <label for="refreshCheckbox">
-            Refresh Results
-        </label>
-    </div>
+	  	    <span class="input-group-btn">
+	            <button class="btn btn-default" type="submit">Search</button>
+	        </span>
+		</form>
+		 (*) Multiple values can be searched by providing values in comma-separated form
+		 <div>
+	        <input id="refreshCheckbox" type="checkbox" checked>
+	        <label for="refreshCheckbox">
+	            Refresh Results
+	        </label>
+	    </div>
+	</div>
+	<!-- /#sidebar-wrapper -->
+
+	<!-- Page Content -->
+	<div id="page-content-wrapper">
+	    <div class="container-fluid">
+	    	<a href="#menu-toggle" class="btn btn-default glyphicon glyphicon-search" id="menu-toggle"></a>
+	        <table class="table table-striped">
+				<thead>
+					<tr>
+						<th>Event ID</th>
+						<th>Topic</th>
+						<th>Dc</th>
+						<th>Tags</th>
+						<th>Event Time</th>
+						<th>Host</th>
+						<th>Target Hosts</th>
+						<th>User</th>
+						<th>Data</th>
+						<th>Parent Event ID</th>
+					</tr>
+				</thead>
+				<tbody id="event_table">
+				</tbody>
+			</table>
+	    </div>
+	</div>
+	<!-- /#page-content-wrapper -->
 </div>
-<table class="table table-striped">
-	<thead>
-		<tr>
-			<th>Event ID</th>
-			<th>Topic</th>
-			<th>Dc</th>
-			<th>Tags</th>
-			<th>Event Time</th>
-			<th>Host</th>
-			<th>Target Hosts</th>
-			<th>User</th>
-			<th>Data</th>
-			<th>Parent Event ID</th>
-		</tr>
-	</thead>
-	<tbody id="event_table">
-	</tbody>
-</table>
+
+<script type="text/javascript" src="/js/query_event.js"></script>
+<link rel="stylesheet" href="/css/query_sidebar.css"/>
+
 {{ end }}

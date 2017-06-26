@@ -170,7 +170,6 @@ type Event struct {
 }
 
 type UnaddedEvent struct {
-	EventID       string                 `json:"event_id"`
 	ParentEventID string                 `json:"parent_event_id"`
 	EventTime     int64                  `json:"event_time"`
 	Dc            string                 `json:"dc"`
@@ -605,9 +604,16 @@ func (es *EventStore) checkIndex(index string) error {
 		return errors.Wrap(err, "Error finding if index exists in ES")
 	}
 	if !exists {
-		_, err := es.esClient.CreateIndex(index).Do(ctx)
-		if err != nil {
+		if _, err := es.esClient.CreateIndex(index).Do(ctx); err != nil {
 			return errors.Wrap(err, "Error creating event_master index in ES")
+		}
+		if _, err := es.esClient.
+			PutMapping().
+			Index(index).
+			Type("event").
+			BodyString(EventTypeMapping).
+			Do(ctx); err != nil {
+			return errors.Wrap(err, "Error creating event mapping in ES")
 		}
 	}
 	return nil

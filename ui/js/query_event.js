@@ -53,6 +53,11 @@ $(document).ready(function() {
 	backgroundUpdate()
 });
 
+$("#menu-toggle").click(function(e) {
+	e.preventDefault();
+	$("#wrapper").toggleClass("toggled");
+});
+
 function submitQuery(form) {
 	var data = $(form).serializeArray();
 	var formData = {};
