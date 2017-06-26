@@ -44,10 +44,11 @@
 		    var timeParts = parts[1].split(":");
 		    var hour = parseInt(timeParts[0]);
 		    var minute = parseInt(timeParts[1]);
+            if (hour == 12) {
+                hour = 0;
+            }
 		    if (parts[2] === "PM") {
 		        hour += 12;
-		    } else if (hour == 12 && parts[2] == "AM") {
-		        hour = 0;
 		    }
 			var newTime = new Date(Date.UTC(year, month-1, day, hour, minute));
 		    newTime.setTime(newTime.getTime() + offset*60*60*1000);

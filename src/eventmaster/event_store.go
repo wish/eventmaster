@@ -191,8 +191,8 @@ func (event *Event) toCassandra(data string) string {
     VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
     APPLY BATCH;`,
 		event.EventID, stringifyUUID(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
-		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime*1000,
-		stringifyArr(event.Tags), stringify(data), event.ReceivedTime*1000)
+		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime,
+		stringifyArr(event.Tags), stringify(data), event.ReceivedTime)
 }
 
 type TopicData struct {
@@ -426,10 +426,10 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	if q.StartEventTime != 0 || q.EndEventTime != 0 {
 		rq := elastic.NewRangeQuery("event_time")
 		if q.StartEventTime != 0 {
-			rq.Gte(q.StartEventTime)
+			rq.Gte(q.StartEventTime * 1000)
 		}
 		if q.EndEventTime != 0 {
-			rq.Lte(q.EndEventTime)
+			rq.Lte(q.EndEventTime * 1000)
 		}
 		query = query.Must(rq)
 	}
@@ -437,10 +437,10 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	if q.StartReceivedTime != 0 || q.EndReceivedTime != 0 {
 		rq := elastic.NewRangeQuery("received_time")
 		if q.StartReceivedTime != 0 {
-			rq.Gte(q.StartReceivedTime)
+			rq.Gte(q.StartReceivedTime * 1000)
 		}
 		if q.EndReceivedTime != 0 {
-			rq.Lte(q.EndReceivedTime)
+			rq.Lte(q.EndReceivedTime * 1000)
 		}
 		query = query.Must(rq)
 	}
@@ -506,7 +506,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, string, error) 
 	return &Event{
 		EventID:       uuid.NewV4().String(),
 		ParentEventID: event.ParentEventID,
-		EventTime:     event.EventTime,
+		EventTime:     event.EventTime * 1000,
 		DcID:          dcID,
 		TopicID:       topicID,
 		Tags:          event.Tags,
@@ -514,7 +514,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, string, error) 
 		TargetHosts:   event.TargetHosts,
 		User:          event.User,
 		Data:          event.Data,
-		ReceivedTime:  time.Now().Unix(),
+		ReceivedTime:  time.Now().Unix() * 1000,
 	}, data, nil
 }
 
@@ -624,6 +624,7 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 			e.TopicID = strings.Replace(e.TopicID, "_", "-", -1)
 			e.DcID = strings.Replace(e.DcID, "_", "-", -1)
 			e.ParentEventID = strings.Replace(e.ParentEventID, "_", "-", -1)
+			e.EventTime /= 1000
 			topicID := e.TopicID
 			propertiesSchema := schemas[topicID]
 			if propertiesSchema != nil {
@@ -1059,7 +1060,7 @@ func (es *EventStore) FlushToES() error {
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID.String(),
 				ParentEventID: strings.Replace(parentEventIDStr, "-", "_", -1),
-				EventTime:     eventTime / 1000,
+				EventTime:     eventTime,
 				DcID:          strings.Replace(dcID.String(), "-", "_", -1),
 				TopicID:       strings.Replace(topicID.String(), "-", "_", -1),
 				Tags:          tagSet,
@@ -1067,7 +1068,7 @@ func (es *EventStore) FlushToES() error {
 				TargetHosts:   targetHostSet,
 				User:          user,
 				Data:          d,
-				ReceivedTime:  receivedTime / 1000,
+				ReceivedTime:  receivedTime,
 			})
 		} else {
 			break
