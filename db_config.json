@@ -1,8 +1,8 @@
 {
-  "cassandra_addr": "127.0.0.1:9042",
+  "cassandra_addr": ["127.0.0.1:9042"],
   "cassandra_keyspace": "event_master",
   "consistency": "quorum",
-  "es_addr": "http://127.0.0.1:9200",
+  "es_addr": ["http://127.0.0.1:9200"],
   "es_username": "",
   "es_password": "",
   "flush_interval": 5,
@@ -11,4 +11,3 @@
   "key_file": "",
   "ca_file": ""
 }
-

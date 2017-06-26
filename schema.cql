@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS event (
 	data_json text,
 	received_time timestamp,
 	PRIMARY KEY ((event_id,topic_id),event_time)
-);
+)
+WITH CLUSTERING ORDER BY (event_time DESC);
 
 // Create table to store events to flush to ES
 CREATE TABLE IF NOT EXISTS temp_event (
@@ -38,7 +39,8 @@ CREATE TABLE IF NOT EXISTS temp_event (
 	data_json text,
 	received_time timestamp,
 	PRIMARY KEY ((event_id,topic_id),event_time)
-);
+)
+WITH CLUSTERING ORDER BY (event_time DESC);
 
 // Create table to store distinct topics
 CREATE TABLE IF NOT EXISTS event_topic (

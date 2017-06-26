@@ -220,65 +220,6 @@ type EventStore struct {
 	registry                 metrics.Registry
 }
 
-func createTables(session *gocql.Session) error {
-	// setup up event, topic, and dc tables in Cassandra if they don't exist
-	if err := session.Query(`
-		CREATE TABLE IF NOT EXISTS event (
-			event_id UUID,
-			parent_event_id UUID,
-			dc_id UUID,
-			topic_id UUID,
-			host text,
-			target_host_set set<text>,
-			user text,
-			event_time timestamp,
-			tag_set set<text>,
-			data_json text,
-			received_time timestamp,
-			PRIMARY KEY ((event_id,topic_id),event_time)
-		);`).Exec(); err != nil {
-		return errors.Wrap(err, "Error creating event table in cassandra")
-	}
-
-	if err := session.Query(`
-		CREATE TABLE IF NOT EXISTS temp_event (
-			event_id UUID,
-			parent_event_id UUID,
-			dc_id UUID,
-			topic_id UUID,
-			host text,
-			target_host_set set<text>,
-			user text,
-			event_time timestamp,
-			tag_set set<text>,
-			data_json text,
-			received_time timestamp,
-			PRIMARY KEY ((event_id,topic_id),event_time)
-		);`).Exec(); err != nil {
-		return errors.Wrap(err, "Error creating temp_event table in cassandra")
-	}
-
-	if err := session.Query(`
-		CREATE TABLE IF NOT EXISTS event_topic (
-			topic_id UUID,
-			topic_name text,
-			data_schema text,
-			PRIMARY KEY (topic_id)
-		);`).Exec(); err != nil {
-		return errors.Wrap(err, "Error creating event_topic table in cassandra")
-	}
-
-	if err := session.Query(`
-		CREATE TABLE IF NOT EXISTS event_dc (
-			dc_id UUID,
-			dc text,
-			PRIMARY KEY (dc_id)
-		);`).Exec(); err != nil {
-		return errors.Wrap(err, "Error creating dc table in cassandra")
-	}
-	return nil
-}
-
 func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*EventStore, error) {
 	var cassandraIps, esIps []string
 
@@ -294,16 +235,8 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 			esIps[i] = fmt.Sprintf("%s:%s", esIps[i], config.CassandraPort)
 		}
 	} else {
-		cassandraAddr := "127.0.0.1:9042"
-		esAddr := "http://127.0.0.1:9200"
-		if dbConf.CassandraAddr != "" {
-			cassandraAddr = dbConf.CassandraAddr
-		}
-		if dbConf.ESAddr != "" {
-			esAddr = dbConf.ESAddr
-		}
-		cassandraIps = append(cassandraIps, cassandraAddr)
-		esIps = append(esIps, esAddr)
+		cassandraIps = dbConf.CassandraAddr
+		esIps = dbConf.ESAddr
 	}
 
 	fmt.Println("Connecting to Cassandra:", cassandraIps)
@@ -311,23 +244,11 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 	// Establish connection to Cassandra
 	cluster := gocql.NewCluster(cassandraIps...)
 	cluster.Keyspace = dbConf.Keyspace
-	if dbConf.Consistency == "one" {
-		cluster.Consistency = gocql.One
-	} else if dbConf.Consistency == "two" {
-		cluster.Consistency = gocql.Two
-	} else if dbConf.Consistency == "quorum" {
-		cluster.Consistency = gocql.Quorum
-	} else {
-		cluster.Consistency = gocql.LocalQuorum
-	}
+	cluster.Consistency = gocql.ParseConsistency(dbConf.Consistency)
 
 	session, err := cluster.CreateSession()
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating cassandra session")
-	}
-
-	if err := createTables(session); err != nil {
-		return nil, errors.Wrap(err, "Error creating tables in cassandra")
 	}
 
 	fmt.Println("Connecting to ES:", esIps)

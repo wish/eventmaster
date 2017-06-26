@@ -21,17 +21,17 @@ import (
 )
 
 type dbConfig struct {
-	CassandraAddr  string `json:"cassandra_addr"`
-	Keyspace       string `json:"cassandra_keyspace"`
-	Consistency    string `json:"consistency"`
-	ESAddr         string `json:"es_addr"`
-	ESUsername     string `json:"es_username"`
-	ESPassword     string `json:"es_password"`
-	FlushInterval  int    `json:"flush_interval"`
-	UpdateInterval int    `json:"update_interval"`
-	CertFile       string `json:"cert_file"`
-	KeyFile        string `json:"key_file"`
-	CAFile         string `json:"ca_file"`
+	CassandraAddr  []string `json:"cassandra_addr"`
+	Keyspace       string   `json:"cassandra_keyspace"`
+	Consistency    string   `json:"consistency"`
+	ESAddr         []string `json:"es_addr"`
+	ESUsername     string   `json:"es_username"`
+	ESPassword     string   `json:"es_password"`
+	FlushInterval  int      `json:"flush_interval"`
+	UpdateInterval int      `json:"update_interval"`
+	CertFile       string   `json:"cert_file"`
+	KeyFile        string   `json:"key_file"`
+	CAFile         string   `json:"ca_file"`
 }
 
 func getConfig() dbConfig {
@@ -49,13 +49,19 @@ func getConfig() dbConfig {
 		dbConf.Keyspace = "event_master"
 	}
 	if dbConf.Consistency == "" {
-		dbConf.Consistency = "quorum"
+		dbConf.Consistency = "local_quorum"
 	}
 	if dbConf.FlushInterval == 0 {
 		dbConf.FlushInterval = 5
 	}
 	if dbConf.UpdateInterval == 0 {
 		dbConf.UpdateInterval = 5
+	}
+	if dbConf.CassandraAddr == nil || len(dbConf.CassandraAddr) == 0 {
+		dbConf.CassandraAddr = append(dbConf.CassandraAddr, "127.0.0.1:9042")
+	}
+	if dbConf.ESAddr == nil || len(dbConf.ESAddr) == 0 {
+		dbConf.ESAddr = append(dbConf.ESAddr, "http://127.0.0.1:9200")
 	}
 	return dbConf
 }
