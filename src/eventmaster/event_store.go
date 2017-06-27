@@ -576,7 +576,7 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 
 	limit := q.Limit
 	if limit == 0 {
-		limit = 50
+		limit = 100
 	}
 
 	sq := es.esClient.Search().

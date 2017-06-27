@@ -25,10 +25,13 @@ function updateResults() {
 						<td>`,event['host'],`</td>
 						<td>`,event['target_host_set'],`</td>
 						<td>`,event['user'],`</td>
-						<td>`,JSON.stringify(event['data']),`</td>
 						<td>`,event['parent_event_id'],`</td>
-					</tr>`)
+					</tr>
+                    <tr>
+                        <td colspan="9"><pre>Data: `,JSON.stringify(event['data'],null,4),`</pre></td>
+                    </tr>`)
 					elem.innerHTML += item;
+                    $("td[colspan=9]").find("pre").hide();
 				}
 			}
 		},
@@ -56,6 +59,19 @@ $(document).ready(function() {
 $("#menu-toggle").click(function(e) {
 	e.preventDefault();
 	$("#wrapper").toggleClass("toggled");
+});
+
+$(function() {
+    $("tbody").click(function(event) {
+        event.stopPropagation();
+        document.getElementById("refreshCheckbox").checked = false;
+        var $target = $(event.target);
+        if ( $target.closest("td").attr("colspan") > 1 ) {
+            $target.slideUp();
+        } else {
+            $target.closest("tr").next().find("pre").slideToggle();
+        }
+    });
 });
 
 function submitQuery(form) {
