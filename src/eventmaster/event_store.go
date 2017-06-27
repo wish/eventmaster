@@ -196,12 +196,14 @@ func (event *Event) toCassandra(data string) string {
 }
 
 type TopicData struct {
+	Id     string                 `json:"topic_id"`
 	Name   string                 `json:"topic_name"`
 	Schema map[string]interface{} `json:"data_schema"`
 }
 
 type DcData struct {
-	Name string `json:"dc"`
+	Id   string `json:"dc_id"`
+	Name string `json:"dc_name"`
 }
 
 type EventStore struct {
@@ -664,17 +666,19 @@ func (es *EventStore) GetTopics() ([]TopicData, error) {
 	timer := metrics.GetOrRegisterTimer("GetTopics", es.registry)
 	defer timer.UpdateSince(start)
 
-	iter := es.cqlSession.Query("SELECT topic_name, data_schema FROM event_topic;").Iter()
+	iter := es.cqlSession.Query("SELECT topic_id, topic_name, data_schema FROM event_topic;").Iter()
+	var topicId gocql.UUID
 	var name, schema string
 	var topics []TopicData
 	for {
-		if iter.Scan(&name, &schema) {
+		if iter.Scan(&topicId, &name, &schema) {
 			var s map[string]interface{}
 			err := json.Unmarshal([]byte(schema), &s)
 			if err != nil {
 				return nil, errors.Wrap(err, "Error unmarshalling schema")
 			}
 			topics = append(topics, TopicData{
+				Id:     topicId.String(),
 				Name:   name,
 				Schema: s,
 			})
@@ -690,17 +694,21 @@ func (es *EventStore) GetTopics() ([]TopicData, error) {
 	return topics, nil
 }
 
-func (es *EventStore) GetDcs() ([]string, error) {
+func (es *EventStore) GetDcs() ([]DcData, error) {
 	start := time.Now()
 	timer := metrics.GetOrRegisterTimer("GetDcs", es.registry)
 	defer timer.UpdateSince(start)
 
-	iter := es.cqlSession.Query("SELECT dc FROM event_dc;").Iter()
+	iter := es.cqlSession.Query("SELECT dc_id, dc FROM event_dc;").Iter()
+	var id gocql.UUID
 	var dc string
-	var dcs []string
+	var dcs []DcData
 	for true {
-		if iter.Scan(&dc) {
-			dcs = append(dcs, dc)
+		if iter.Scan(&id, &dc) {
+			dcs = append(dcs, DcData{
+				Id:   id.String(),
+				Name: dc,
+			})
 		} else {
 			break
 		}
@@ -858,7 +866,7 @@ func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
 	timer := metrics.GetOrRegisterTimer("AddDc", es.registry)
 	defer timer.UpdateSince(start)
 
-	name := strings.ToLower(dc.Dc)
+	name := strings.ToLower(dc.DcName)
 	if name == "" {
 		return "", errors.New("Error adding dc - dc name is empty")
 	}

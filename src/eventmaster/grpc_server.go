@@ -213,6 +213,7 @@ func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 			}
 		}
 		topicResults = append(topicResults, &eventmaster.Topic{
+			Id:         topic.Id,
 			TopicName:  topic.Name,
 			DataSchema: schemaBytes,
 		})
@@ -257,7 +258,8 @@ func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 
 	for _, dc := range dcs {
 		dcResults = append(dcResults, &eventmaster.Dc{
-			Dc: dc,
+			Id:     dc.Id,
+			DcName: dc.Name,
 		})
 	}
 	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)

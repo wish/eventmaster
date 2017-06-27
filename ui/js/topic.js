@@ -102,6 +102,7 @@ $(document).ready(function() {
                         `<div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" href="#updateForm`, i, `">`,
                             topicName, '</a></h4></div>',
                         `<div id="updateForm`, i, `" class="collapse">
+                            <label>ID: `, results[i]['topic_id'],`</label>
                             <form onsubmit="return updateTopic(this,'`, topicName, `')">
                                 <div class="form-group">
                                     <label for="topic_name">New Topic Name</label>

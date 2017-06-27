@@ -47,8 +47,9 @@ message Query {
 }
  
 message Topic {
-    string topic_name = 1;
-    bytes data_schema = 2;
+    string id = 1;
+    string topic_name = 2;
+    bytes data_schema = 3;
 }
 
 message TopicResult {
@@ -66,7 +67,8 @@ message DeleteTopicRequest {
 }
  
 message Dc {
-    string dc = 1;
+    string id = 1;
+    string dc_name = 2;
 }
 
 message DcResult {

@@ -57,11 +57,14 @@ $(document).ready(function() {
 			elem.innerHTML = "";
 			if (dcs) {
 				for (var i = 0; i < dcs.length; i++) {
+                    var name = dcs[i]['dc_name'];
+                    var dcId = dcs[i]['dc_id'];
 					var item = `<div class="panel panel-default">`.concat(
                         `<div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" href="#updateForm`, i, `">`,
-                        dcs[i], '</a></h4></div>',
+                        name, '</a></h4></div>',
                     `<div id="updateForm`, i, `" class="collapse">
-                        <form onsubmit="return updateDc(this,'`, dcs[i], `')">
+                        <label>ID:`, dcId, `</label>
+                        <form onsubmit="return updateDc(this,'`, name, `')">
                             <div class="form-group">
                                 <label for="dc">New DC name</label>
                                 <input type="text" class="form-control" name="dc">

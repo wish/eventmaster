@@ -272,7 +272,7 @@ func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ http
 		return
 	}
 	id, err := h.store.AddDc(&eventmaster.Dc{
-		Dc: dd.Name,
+		DcName: dd.Name,
 	})
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error adding dc", "AddDcError")
@@ -310,7 +310,7 @@ func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps 
 }
 
 func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	dcSet := make(map[string][]string)
+	dcSet := make(map[string][]DcData)
 	dcs, err := h.store.GetDcs()
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store", "GetDcError")
