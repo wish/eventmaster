@@ -359,13 +359,13 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	var queries []elastic.Query
 
 	if len(q.Dc) != 0 {
-		dcs := make([]interface{}, 0)
+		var ids []string
 		for _, dc := range q.Dc {
 			if id := es.getDcId(strings.ToLower(dc)); id != "" {
-				dcs = append(dcs, strings.Replace(id, "-", "_", -1))
+				ids = append(ids, id)
 			}
 		}
-		queries = append(queries, elastic.NewTermsQuery("dc_id", dcs...))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "dc_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.Host) != 0 {
 		hosts := make([]interface{}, 0)
@@ -382,13 +382,13 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		queries = append(queries, elastic.NewTermsQuery("target_host_set", thosts...))
 	}
 	if len(q.TopicName) != 0 {
-		topics := make([]interface{}, 0)
+		var ids []string
 		for _, topic := range q.TopicName {
 			if id := es.getTopicId(strings.ToLower(topic)); id != "" {
-				topics = append(topics, strings.Replace(id, "-", "_", -1))
+				ids = append(ids, id)
 			}
 		}
-		queries = append(queries, elastic.NewTermsQuery("topic_id", topics...))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "topic_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.TagSet) != 0 {
 		tags := make([]interface{}, 0)
@@ -398,11 +398,11 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		queries = append(queries, elastic.NewTermsQuery("tag_set", tags...))
 	}
 	if len(q.ParentEventId) != 0 {
-		parentEventIds := make([]interface{}, 0)
+		var ids []string
 		for _, id := range q.ParentEventId {
-			parentEventIds = append(parentEventIds, strings.Replace(id, "-", "_", -1))
+			ids = append(ids, id)
 		}
-		queries = append(queries, elastic.NewTermsQuery("parent_event_id", parentEventIds...))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "parent_event_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.User) != 0 {
 		users := make([]interface{}, 0)
@@ -623,9 +623,6 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	var evt Event
 	for _, item := range sr.Each(reflect.TypeOf(evt)) {
 		if e, ok := item.(Event); ok {
-			e.TopicID = strings.Replace(e.TopicID, "_", "-", -1)
-			e.DcID = strings.Replace(e.DcID, "_", "-", -1)
-			e.ParentEventID = strings.Replace(e.ParentEventID, "_", "-", -1)
 			e.EventTime /= 1000
 			topicID := e.TopicID
 			propertiesSchema := schemas[topicID]
@@ -840,7 +837,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 		return errors.New("Couldn't find topic id for topic:" + topicName)
 	}
 	if _, err := es.esClient.DeleteByQuery(es.getESIndices()...).
-		Query(elastic.NewTermQuery("topic_id", strings.Replace(id, "-", "_", -1))).
+		Query(elastic.NewMatchQuery("topic_id", id)).
 		Do(context.Background()); err != nil {
 		return errors.Wrap(err, "Error deleting events under topic from ES")
 	}
@@ -1067,10 +1064,10 @@ func (es *EventStore) FlushToES() error {
 			index := getIndexFromTime(eventTime / 1000)
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID.String(),
-				ParentEventID: strings.Replace(parentEventIDStr, "-", "_", -1),
+				ParentEventID: parentEventIDStr,
 				EventTime:     eventTime,
-				DcID:          strings.Replace(dcID.String(), "-", "_", -1),
-				TopicID:       strings.Replace(topicID.String(), "-", "_", -1),
+				DcID:          dcID.String(),
+				TopicID:       topicID.String(),
 				Tags:          tagSet,
 				Host:          host,
 				TargetHosts:   targetHostSet,
