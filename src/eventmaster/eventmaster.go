@@ -16,6 +16,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics/exp"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 )
@@ -120,6 +121,16 @@ func main() {
 	if err := store.Update(); err != nil {
 		fmt.Println("Error loading dcs and topics from Cassandra", err)
 	}
+
+	exp.Exp(metrics.DefaultRegistry)
+	sock, err := net.Listen("tcp", "0.0.0.0:12345")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	go func() {
+		fmt.Println("go-metrics server listening at port 12345")
+		http.Serve(sock, nil)
+	}()
 
 	// Create listening socket for grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port))
