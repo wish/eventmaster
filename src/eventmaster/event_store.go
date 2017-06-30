@@ -370,14 +370,14 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	if len(q.Host) != 0 {
 		hosts := make([]interface{}, 0)
 		for _, host := range q.Host {
-			hosts = append(hosts, host)
+			hosts = append(hosts, strings.ToLower(host))
 		}
 		queries = append(queries, elastic.NewTermsQuery("host", hosts...))
 	}
 	if len(q.TargetHostSet) != 0 {
 		thosts := make([]interface{}, 0)
 		for _, host := range q.TargetHostSet {
-			thosts = append(thosts, host)
+			thosts = append(thosts, strings.ToLower(host))
 		}
 		queries = append(queries, elastic.NewTermsQuery("target_host_set", thosts...))
 	}
@@ -393,21 +393,21 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	if len(q.TagSet) != 0 {
 		tags := make([]interface{}, 0)
 		for _, tag := range q.TagSet {
-			tags = append(tags, tag)
+			tags = append(tags, strings.ToLower(tag))
 		}
 		queries = append(queries, elastic.NewTermsQuery("tag_set", tags...))
 	}
 	if len(q.ParentEventId) != 0 {
 		var ids []string
 		for _, id := range q.ParentEventId {
-			ids = append(ids, id)
+			ids = append(ids, strings.ToLower(id))
 		}
 		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "parent_event_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.User) != 0 {
 		users := make([]interface{}, 0)
 		for _, user := range q.User {
-			users = append(users, user)
+			users = append(users, strings.ToLower(user))
 		}
 		queries = append(queries, elastic.NewTermsQuery("user", users...))
 	}
@@ -610,7 +610,6 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 		esMeter := metrics.GetOrRegisterMeter("esSearchError", es.registry)
 		esMeter.Mark(1)
 		return nil, errors.Wrap(err, "Error executing ES search query")
-
 	}
 
 	schemas := make(map[string](map[string]interface{}))

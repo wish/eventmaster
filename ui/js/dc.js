@@ -17,7 +17,7 @@ function submitDc(form) {
 		data: JSON.stringify(formData),
 		dataType: "json",
 		success: function(data) {
-			alert("Topic added: " + data["dc_id"]);
+			alert("Dc added: " + data["dc_id"]);
 			window.location.reload();
 		},
 		error: function(data) {
