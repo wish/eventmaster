@@ -338,14 +338,15 @@ func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	if _, err := h.store.AddEvent(&UnaddedEvent{
+	id, err := h.store.AddEvent(&UnaddedEvent{
 		Dc:        "github",
 		Host:      "github",
 		TopicName: "github",
 		Data:      info,
-	}); err != nil {
+	})
+	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", "GitHubEventError")
 		return
 	}
-	h.sendResp(w, "", "", "GitHubEvent")
+	h.sendResp(w, "event_id", id, "GitHubEvent")
 }

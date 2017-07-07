@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -65,6 +66,68 @@ func getConfig() dbConfig {
 		dbConf.ESAddr = append(dbConf.ESAddr, "http://127.0.0.1:9200")
 	}
 	return dbConf
+}
+
+func parseKeyValuePair(content string) map[string]interface{} {
+	data := make(map[string]interface{})
+	pairs := strings.Split(content, " ")
+	for _, pair := range pairs {
+		parts := strings.Split(pair, "=")
+		data[parts[0]] = parts[1]
+	}
+	return data
+}
+
+func handleLogRequest(conn net.Conn, store *EventStore) {
+	buf := make([]byte, 1024)
+	_, err := conn.Read(buf)
+	if err != nil {
+		fmt.Println("Error reading log:", err.Error())
+	}
+	fmt.Println(string(buf))
+	parts := strings.Split(string(buf), "|")
+	if len(parts) < 5 {
+		fmt.Println("Log message is not in correct format")
+		return
+	}
+
+	var timestamp int64
+	timeObj, err := time.Parse(time.RFC3339, parts[0])
+	if err != nil {
+		fmt.Println("Error parsing timestamp", err)
+		timestamp = time.Now().Unix()
+	} else {
+		timestamp = timeObj.Unix()
+	}
+	dc := parts[1]
+	host := parts[2]
+	topic := parts[3]
+	message := parts[4]
+	data := parseKeyValuePair(message)
+	user := ""
+	if val, ok := data["uid"]; ok {
+		user = val.(string)
+	} else if val, ok := data["ouid"]; ok {
+		user = val.(string)
+	}
+
+	var tags []string
+	if val, ok := data["type"]; ok {
+		tags = append(tags, val.(string))
+	}
+
+	_, err = store.AddEvent(&UnaddedEvent{
+		EventTime: timestamp,
+		TopicName: topic,
+		Dc:        dc,
+		Tags:      tags,
+		Host:      host,
+		User:      user,
+		Data:      data,
+	})
+	if err != nil {
+		fmt.Println("Error adding log event", err)
+	}
 }
 
 func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
@@ -183,6 +246,23 @@ func main() {
 		}
 	}()
 
+	logLis, err := net.Listen("tcp", "0.0.0.0:8044")
+	if err != nil {
+		log.Fatalf("Error starting tcp server: %v", err)
+	}
+	fmt.Println("Starting TCP server for logs on port 8044")
+
+	go func() {
+		for {
+			conn, err := logLis.Accept()
+			if err != nil {
+				fmt.Println("Error accepting logs:", err.Error())
+			}
+
+			go handleLogRequest(conn, store)
+		}
+	}()
+
 	stopChan := make(chan os.Signal)
 	signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
 
@@ -193,4 +273,5 @@ func main() {
 	store.CloseSession()
 	grpcS.GracefulStop()
 	lis.Close()
+	logLis.Close()
 }
