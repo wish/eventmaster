@@ -4,7 +4,8 @@ package main
 // TODO: we want to also allow for a config file, so the "required" check will need to be moved
 // out into a method that can do that-- since we'll be loading yaml and CLI args together
 type Config struct {
-	Port int `long:"port" default:"50052" description:"Port for EventMaster gRPC"` // What port for the API to listen on
+	Port    int `long:"port" default:"50052" description:"Port for EventMaster gRPC + HTTP API"` // What port for the API to listen on
+	TCPPort int `long:"tcp_port" default:"50053" description:"Port for rsyslog clients to send logs to"`
 
 	StatsdServer string `long:"statsdserver" description:"server to send statsd stats to"`
 

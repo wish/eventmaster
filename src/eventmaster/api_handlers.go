@@ -350,3 +350,8 @@ func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, 
 	}
 	h.sendResp(w, "event_id", id, "GitHubEvent")
 }
+
+func (h *httpHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// TODO: make this more useful
+	h.sendResp(w, "", "", "HealthCheck")
+}

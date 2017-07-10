@@ -84,49 +84,51 @@ func handleLogRequest(conn net.Conn, store *EventStore) {
 	if err != nil {
 		fmt.Println("Error reading log:", err.Error())
 	}
-	fmt.Println(string(buf))
-	parts := strings.Split(string(buf), "|")
-	if len(parts) < 5 {
-		fmt.Println("Log message is not in correct format")
-		return
-	}
+	logs := strings.Split(string(buf), "\n")
+	for _, log := range logs {
+		parts := strings.Split(string(buf), "^0")
+		if len(parts) < 5 {
+			fmt.Println("Log message is not in correct format, won't be added:", log)
+			return
+		}
 
-	var timestamp int64
-	timeObj, err := time.Parse(time.RFC3339, parts[0])
-	if err != nil {
-		fmt.Println("Error parsing timestamp", err)
-		timestamp = time.Now().Unix()
-	} else {
-		timestamp = timeObj.Unix()
-	}
-	dc := parts[1]
-	host := parts[2]
-	topic := parts[3]
-	message := parts[4]
-	data := parseKeyValuePair(message)
-	user := ""
-	if val, ok := data["uid"]; ok {
-		user = val.(string)
-	} else if val, ok := data["ouid"]; ok {
-		user = val.(string)
-	}
+		var timestamp int64
+		timeObj, err := time.Parse(time.RFC3339, parts[0])
+		if err != nil {
+			fmt.Println("Error parsing timestamp", err)
+			timestamp = time.Now().Unix()
+		} else {
+			timestamp = timeObj.Unix()
+		}
+		dc := parts[1]
+		host := parts[2]
+		topic := parts[3]
+		message := parts[4]
+		data := parseKeyValuePair(message)
+		user := ""
+		if val, ok := data["uid"]; ok {
+			user = val.(string)
+		} else if val, ok := data["ouid"]; ok {
+			user = val.(string)
+		}
 
-	var tags []string
-	if val, ok := data["type"]; ok {
-		tags = append(tags, val.(string))
-	}
+		var tags []string
+		if val, ok := data["type"]; ok {
+			tags = append(tags, val.(string))
+		}
 
-	_, err = store.AddEvent(&UnaddedEvent{
-		EventTime: timestamp,
-		TopicName: topic,
-		Dc:        dc,
-		Tags:      tags,
-		Host:      host,
-		User:      user,
-		Data:      data,
-	})
-	if err != nil {
-		fmt.Println("Error adding log event", err)
+		_, err = store.AddEvent(&UnaddedEvent{
+			EventTime: timestamp,
+			TopicName: topic,
+			Dc:        dc,
+			Tags:      tags,
+			Host:      host,
+			User:      user,
+			Data:      data,
+		})
+		if err != nil {
+			fmt.Println("Error adding log event", err)
+		}
 	}
 }
 
@@ -145,7 +147,9 @@ func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 	r.DELETE("/v1/topic/:name", wrapHandler(h.handleDeleteTopic, registry))
 	r.POST("/v1/dc", wrapHandler(h.handleAddDc, registry))
 	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
-	r.GET("/v1/dc/", wrapHandler(h.handleGetDc, registry))
+	r.GET("/v1/dc", wrapHandler(h.handleGetDc, registry))
+
+	r.GET("/v1/health", wrapHandler(h.handleHealthCheck, registry))
 
 	// GitHub webhook endpoint
 	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent, registry))
@@ -246,11 +250,11 @@ func main() {
 		}
 	}()
 
-	logLis, err := net.Listen("tcp", "0.0.0.0:8044")
+	logLis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.TCPPort))
 	if err != nil {
 		log.Fatalf("Error starting tcp server: %v", err)
 	}
-	fmt.Println("Starting TCP server for logs on port 8044")
+	fmt.Println("Starting TCP server for logs on port", config.TCPPort)
 
 	go func() {
 		for {
