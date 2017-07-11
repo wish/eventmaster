@@ -414,7 +414,7 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	if q.Data != "" {
 		var d map[string]interface{}
 		if err := json.Unmarshal([]byte(q.Data), &d); err != nil {
-			fmt.Println("Ignoring data filters - not in valid JSON format")
+			queries = append(queries, elastic.NewQueryStringQuery(q.Data))
 		} else {
 			dataQueries := getDataQueries(d)
 			for _, pair := range dataQueries {

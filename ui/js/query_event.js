@@ -16,7 +16,7 @@ function updateResults() {
 				for (var i = 0; i < results.length; i++) {
 					var event = results[i];
 					var item =
-					`<tr>
+					`<tr onclick=hideData(this)>
 						<td>`.concat(event['event_id'],`</td>
 						<th scope="row">`,event['topic_name'],`</th>
 						<td>`,event['dc'],`</td>
@@ -61,18 +61,10 @@ $("#menu-toggle").click(function(e) {
 	$("#wrapper").toggleClass("toggled");
 });
 
-$(function() {
-    $("tbody").click(function(event) {
-        event.stopPropagation();
-        document.getElementById("refreshCheckbox").checked = false;
-        var $target = $(event.target);
-        if ( $target.closest("td").attr("colspan") > 1 ) {
-            $target.slideUp();
-        } else {
-            $target.closest("tr").next().find("pre").slideToggle();
-        }
-    });
-});
+function hideData(row) {
+    document.getElementById("refreshCheckbox").checked = false;
+    $(row).next().find("pre").slideToggle();
+}
 
 function submitQuery(form) {
 	var data = $(form).serializeArray();
