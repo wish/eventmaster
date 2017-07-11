@@ -1,0 +1,26 @@
+{
+    "title": "Security data",
+    "description": "Additional data for security events",
+    "type": "object",
+    "required": ["user_id"],
+    "properties": {
+        "first_name": {
+            "type": "string"
+        },
+        "last_name": {
+            "type": "string"
+        },
+        "user_id": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "other": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"}
+            },
+            "required": ["id"]
+        }
+    }
+}

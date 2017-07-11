@@ -368,11 +368,11 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "dc_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.Host) != 0 {
-		hosts := make([]interface{}, 0)
+		var hosts []string
 		for _, host := range q.Host {
 			hosts = append(hosts, strings.ToLower(host))
 		}
-		queries = append(queries, elastic.NewTermsQuery("host", hosts...))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "host", "("+strings.Join(hosts, " OR ")+")")))
 	}
 	if len(q.TargetHostSet) != 0 {
 		thosts := make([]interface{}, 0)
@@ -593,10 +593,10 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 			sq.Sort("dc_id.keyword", q.SortAscending[i])
 		} else if field == "topic" {
 			sq.Sort("topic_id.keyword", q.SortAscending[i])
+		} else if field == "event_time" {
+			sortByTime = true
+			sq.Sort("event_time", true)
 		} else {
-			if field == "event_time" {
-				sortByTime = true
-			}
 			sq.Sort(fmt.Sprintf("%s.%s", field, "keyword"), q.SortAscending[i])
 		}
 	}
