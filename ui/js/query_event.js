@@ -131,7 +131,9 @@ function submitQuery(form) {
 
 function addSortField() {
     var newSortField = document.createElement('div');
-    var html = `<div class="col-sm-6"><select name="sort_field` + sortFields + `" class="form-control" style="display: inline-block;">
+    newSortField.id = "divSortField"+sortFields;
+    var html = `<div class="form-group">
+        <select name="sort_field`+sortFields+`" class="form-control" style="display: inline-block;">
             <option value=""></option>
             <option value="topic">topic</option>
             <option value="dc">dc</option>
@@ -141,11 +143,14 @@ function addSortField() {
             <option value="tag_set">tag</option>
             <option value="parent_event_id">parent event id</option>
             <option value="event_time">event time</option>
-        </select></div>
-        <div class="col-sm-6"><select name="sort_ascending` + sortFields + `" class="form-control" style="display: inline-block;">
+        </select>
+        <select name="sort_ascending` + sortFields + `" class="form-control" style="display: inline-block;">
             <option value="true">ascending</option>
             <option value="false">descending</option>
-        </select></div>`;
+        </select>
+        <button onclick='$("#divSortField`+sortFields+`").remove();' class="btn btn-secondary btn-sm">Remove</label>
+    </div>`;
+
     newSortField.innerHTML = html;
     sortFields++;
     document.getElementById("sortFields").appendChild(newSortField);
