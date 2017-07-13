@@ -15,18 +15,42 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
-type EventResult struct {
-	EventID       string                 `json:"event_id"`
-	ParentEventID string                 `json:"parent_event_id"`
-	EventTime     int64                  `json:"event_time"`
-	Dc            string                 `json:"dc"`
-	TopicName     string                 `json:"topic_name"`
-	Tags          []string               `json:"tag_set"`
-	Host          string                 `json:"host"`
-	TargetHosts   []string               `json:"target_host_set"`
-	User          string                 `json:"user"`
-	Data          map[string]interface{} `json:"data"`
-	ReceivedTime  int64                  `json:"received_time"`
+func NewHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
+	r := httprouter.New()
+	h := httpHandler{
+		store: store,
+	}
+
+	// API endpoints
+	r.POST("/v1/event", wrapHandler(h.handleAddEvent, registry))
+	r.GET("/v1/event", wrapHandler(h.handleGetEvent, registry))
+	r.POST("/v1/topic", wrapHandler(h.handleAddTopic, registry))
+	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic, registry))
+	r.GET("/v1/topic", wrapHandler(h.handleGetTopic, registry))
+	r.DELETE("/v1/topic/:name", wrapHandler(h.handleDeleteTopic, registry))
+	r.POST("/v1/dc", wrapHandler(h.handleAddDc, registry))
+	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
+	r.GET("/v1/dc", wrapHandler(h.handleGetDc, registry))
+
+	r.GET("/v1/health", wrapHandler(h.handleHealthCheck, registry))
+
+	// GitHub webhook endpoint
+	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent, registry))
+
+	// UI endpoints
+	r.GET("/", HandleMainPage)
+	r.GET("/add_event", HandleCreatePage)
+	r.GET("/topic", HandleTopicPage)
+	r.GET("/dc", HandleDcPage)
+
+	// JS file endpoints
+	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
+	r.ServeFiles("/bootstrap/*filepath", http.Dir("ui/bootstrap"))
+	r.ServeFiles("/css/*filepath", http.Dir("ui/css"))
+
+	return &http.Server{
+		Handler: r,
+	}
 }
 
 func wrapHandler(h httprouter.Handle, registry metrics.Registry) httprouter.Handle {
@@ -90,6 +114,20 @@ func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ h
 		return
 	}
 	h.sendResp(w, "event_id", id, "AddEvent")
+}
+
+type EventResult struct {
+	EventID       string                 `json:"event_id"`
+	ParentEventID string                 `json:"parent_event_id"`
+	EventTime     int64                  `json:"event_time"`
+	Dc            string                 `json:"dc"`
+	TopicName     string                 `json:"topic_name"`
+	Tags          []string               `json:"tag_set"`
+	Host          string                 `json:"host"`
+	TargetHosts   []string               `json:"target_host_set"`
+	User          string                 `json:"user"`
+	Data          map[string]interface{} `json:"data"`
+	ReceivedTime  int64                  `json:"received_time"`
 }
 
 type SearchResult struct {

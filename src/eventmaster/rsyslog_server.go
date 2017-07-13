@@ -14,9 +14,9 @@ import (
 )
 
 type rsyslogServer struct {
-	lis      net.Listener
-	store    *EventStore
-	registry metrics.Registry
+	lis   net.Listener
+	store *EventStore
+	timer metrics.Timer
 }
 
 func NewRsyslogServer(config *Config, s *EventStore, r metrics.Registry) (*rsyslogServer, error) {
@@ -53,14 +53,17 @@ func NewRsyslogServer(config *Config, s *EventStore, r metrics.Registry) (*rsysl
 	fmt.Println("Starting rsyslog server on port", config.RsyslogPort)
 
 	return &rsyslogServer{
-		lis:      lis,
-		store:    s,
-		registry: r,
+		lis:   lis,
+		store: s,
+		timer: metrics.GetOrRegisterTimer("rsyslog:Timer", r),
 	}, nil
 }
 
 func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
-	buf := make([]byte, 1024)
+	start := time.Now()
+	defer s.timer.UpdateSince(start)
+
+	buf := make([]byte, 20000)
 	_, err := conn.Read(buf)
 	if err != nil {
 		// TODO: keep metric on this
@@ -72,8 +75,6 @@ func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
 	for _, log := range logs {
 		parts := strings.Split(log, "^0")
 		if len(parts) < 5 {
-			// TODO: keep metric on this
-			fmt.Println("Log message is not in correct format, won't be added:", log)
 			continue
 		}
 
@@ -109,7 +110,7 @@ func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
 			Data:      data,
 		})
 		if err != nil {
-			// TODO: keep metric on this
+			// TODO: keep metric on this, add to queue of events to retry?
 			fmt.Println("Error adding log event", err)
 		}
 	}

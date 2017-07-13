@@ -14,7 +14,6 @@ import (
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
-	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/exp"
 	"github.com/soheilhy/cmux"
@@ -30,12 +29,9 @@ type dbConfig struct {
 	ESPassword     string   `json:"es_password"`
 	FlushInterval  int      `json:"flush_interval"`
 	UpdateInterval int      `json:"update_interval"`
-	CertFile       string   `json:"cert_file"`
-	KeyFile        string   `json:"key_file"`
-	CAFile         string   `json:"ca_file"`
 }
 
-func getConfig() dbConfig {
+func getDbConfig() dbConfig {
 	dbConf := dbConfig{}
 	confFile, err := ioutil.ReadFile("db_config.json")
 	if err != nil {
@@ -67,44 +63,6 @@ func getConfig() dbConfig {
 	return dbConf
 }
 
-func getHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
-	r := httprouter.New()
-	h := httpHandler{
-		store: store,
-	}
-
-	// API endpoints
-	r.POST("/v1/event", wrapHandler(h.handleAddEvent, registry))
-	r.GET("/v1/event", wrapHandler(h.handleGetEvent, registry))
-	r.POST("/v1/topic", wrapHandler(h.handleAddTopic, registry))
-	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic, registry))
-	r.GET("/v1/topic", wrapHandler(h.handleGetTopic, registry))
-	r.DELETE("/v1/topic/:name", wrapHandler(h.handleDeleteTopic, registry))
-	r.POST("/v1/dc", wrapHandler(h.handleAddDc, registry))
-	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
-	r.GET("/v1/dc", wrapHandler(h.handleGetDc, registry))
-
-	r.GET("/v1/health", wrapHandler(h.handleHealthCheck, registry))
-
-	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent, registry))
-
-	// UI endpoints
-	r.GET("/", HandleMainPage)
-	r.GET("/add_event", HandleCreatePage)
-	r.GET("/topic", HandleTopicPage)
-	r.GET("/dc", HandleDcPage)
-
-	// JS file endpoints
-	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
-	r.ServeFiles("/bootstrap/*filepath", http.Dir("ui/bootstrap"))
-	r.ServeFiles("/css/*filepath", http.Dir("ui/css"))
-
-	return &http.Server{
-		Handler: r,
-	}
-}
-
 func main() {
 	var config Config
 	parser := flags.NewParser(&config, flags.Default)
@@ -115,7 +73,7 @@ func main() {
 	r := metrics.NewRegistry()
 
 	// Set up event store
-	dbConf := getConfig()
+	dbConf := getDbConfig()
 	store, err := NewEventStore(dbConf, config, r)
 	if err != nil {
 		log.Fatalf("Unable to create event store: %v", err)
@@ -144,7 +102,7 @@ func main() {
 	httpL := mux.Match(cmux.HTTP1Fast())
 	grpcL := mux.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 
-	httpS := getHTTPServer(store, r)
+	httpS := NewHTTPServer(store, r)
 
 	// Create the EventMaster server
 	grpcServer, err := NewGRPCServer(&config, store, r)

@@ -2,12 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"reflect"
 	"strings"
 	"sync"
@@ -93,11 +89,15 @@ type EventStore struct {
 func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*EventStore, error) {
 	var cassandraIps, esIps []string
 
+	slClient := servicelookup.NewClient(false)
 	if config.CassandraServiceName != "" {
-		slClient := servicelookup.NewClient(false)
 		cassandraIps = slClient.GetServiceIps(config.CassandraServiceName, "")
-		esIps = slClient.GetServiceIps(config.ESServiceName, "")
+	} else {
+		cassandraIps = dbConf.CassandraAddr
+	}
 
+	if config.ESServiceName != "" {
+		esIps = slClient.GetServiceIps(config.ESServiceName, "")
 		for i, ip := range esIps {
 			if !strings.HasPrefix(ip, "http://") {
 				esIps[i] = "http://" + ip
@@ -105,7 +105,6 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 			esIps[i] = fmt.Sprintf("%s:%s", esIps[i], config.CassandraPort)
 		}
 	} else {
-		cassandraIps = dbConf.CassandraAddr
 		esIps = dbConf.ESAddr
 	}
 
@@ -124,31 +123,7 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 	fmt.Println("Connecting to ES:", esIps)
 
 	esOpts := []elastic.ClientOptionFunc{elastic.SetURL(esIps...)}
-	if dbConf.CertFile != "" {
-		cert, err := tls.LoadX509KeyPair(dbConf.CertFile, dbConf.KeyFile)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error loading x509 key pair")
-		}
-		caCert, err := ioutil.ReadFile(dbConf.CAFile)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error loading CA file")
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-
-		// Setup HTTPS client
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs:      caCertPool,
-		}
-		tlsConfig.BuildNameToCertificate()
-		transport := &http.Transport{TLSClientConfig: tlsConfig}
-		httpClient := &http.Client{Transport: transport}
-
-		esOpts = append(esOpts, elastic.SetHttpClient(httpClient))
-	} else {
-		esOpts = append(esOpts, elastic.SetBasicAuth(dbConf.ESUsername, dbConf.ESPassword))
-	}
+	esOpts = append(esOpts, elastic.SetBasicAuth(dbConf.ESUsername, dbConf.ESPassword))
 
 	client, err := elastic.NewClient(esOpts...)
 	if err != nil {
