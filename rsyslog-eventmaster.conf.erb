@@ -1,0 +1,16 @@
+$template LogMsg,"%timegenerated:::date-rfc3340%^0<%= @dc_name %>^0%hostname%^0<%= @topic_name %>^0%msg%\n"
+
+$ModLoad imfile
+$InputFileName <%= @log_path %>
+$InputFileSeverity info
+$InputFileFacility local1
+$InputFilePollInterval 1
+$InputRunFileMonitor
+
+$DefaultNetstreamDriverCAFile <%- @ca_file_path %>
+$DefaultNetstreamDriver gtls
+$ActionSendStreamDriverMode 1
+$ActionSendStreamDriverAuthMode anon
+
+$ModLoad omfwd
+local1.* @@localhost:50053;LogMsg
