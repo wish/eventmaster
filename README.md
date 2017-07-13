@@ -348,5 +348,6 @@ To run Eventmaster's Rsyslog server, include the `-r` option:
 ```
 $ go run src/eventmaster/*.go -r --rsyslog_port=50053 <other_options>
 ```
+
 Rsyslog clients can be configured to send logs to Eventmaster's Rsyslog server over TCP by formatting logs according to the template found in the [sample Rsyslog configuration template file](https://github.com/ContextLogic/eventmaster/blob/master/rsyslog-eventmaster.conf.erb).
 If logs are encrypted with TLS, the `--ca_file`, `--cert_file`, and `--key_file` options must be specified to decrypt incoming messages.
