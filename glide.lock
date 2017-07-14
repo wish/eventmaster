@@ -1,5 +1,5 @@
-hash: cc7bcca9140a790e4de7ea86bb99763c7c2ecb00f545948f9969c9052163ec41
-updated: 2017-07-10T10:59:00.458530596-07:00
+hash: 88c50e1daa5a20b6c39d06f0cd418ff4f3cf58f2b55949390a75e3664c2de105
+updated: 2017-07-14T12:14:55.578869632-07:00
 imports:
 - name: github.com/ContextLogic/gobrubeckclient
   version: d4f432c8594db6b27d0282033dc5429b714ca9d5
@@ -40,6 +40,10 @@ imports:
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/soheilhy/cmux
   version: bf4a8ede9e87c006fe1d4278c6c7f2b8be1fa84c
+- name: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  subpackages:
+  - assert
 - name: github.com/xeipuuv/gojsonpointer
   version: 6fe8760cad3569743d51ddbb243b26f8456742dc
 - name: github.com/xeipuuv/gojsonreference
@@ -94,4 +98,12 @@ imports:
   version: 3113f9b9ad37509fe5f8a0e5e91c96fdc4435e26
   subpackages:
   - uritemplates
-testImports: []
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib

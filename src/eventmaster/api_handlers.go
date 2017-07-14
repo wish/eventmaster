@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,7 +16,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
-func NewHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
+func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, registry metrics.Registry) *http.Server {
 	r := httprouter.New()
 	h := httpHandler{
 		store: store,
@@ -49,7 +50,8 @@ func NewHTTPServer(store *EventStore, registry metrics.Registry) *http.Server {
 	r.ServeFiles("/css/*filepath", http.Dir("ui/css"))
 
 	return &http.Server{
-		Handler: r,
+		Handler:   r,
+		TLSConfig: tlsConfig,
 	}
 }
 

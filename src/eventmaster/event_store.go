@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
+	cass "github.com/ContextLogic/eventmaster/src/cassandra_client"
 	"github.com/ContextLogic/goServiceLookup/servicelookup"
 	"github.com/gocql/gocql"
 	"github.com/pkg/errors"
@@ -71,7 +72,7 @@ type DcData struct {
 }
 
 type EventStore struct {
-	cqlSession               *gocql.Session
+	cqlSession               cass.Session
 	esClient                 *elastic.Client
 	topicNameToId            map[string]string                   // map of name to id
 	topicIdToName            map[string]string                   // map of id to name
@@ -111,11 +112,7 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 	fmt.Println("Connecting to Cassandra:", cassandraIps)
 
 	// Establish connection to Cassandra
-	cluster := gocql.NewCluster(cassandraIps...)
-	cluster.Keyspace = dbConf.Keyspace
-	cluster.Consistency = gocql.ParseConsistency(dbConf.Consistency)
-
-	session, err := cluster.CreateSession()
+	session, err := cass.NewCqlSession(cassandraIps, dbConf.Keyspace, dbConf.Consistency)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating cassandra session")
 	}
@@ -131,12 +128,18 @@ func NewEventStore(dbConf dbConfig, config Config, registry metrics.Registry) (*
 	}
 
 	return &EventStore{
-		cqlSession: session,
-		esClient:   client,
-		topicMutex: &sync.RWMutex{},
-		dcMutex:    &sync.RWMutex{},
-		indexMutex: &sync.RWMutex{},
-		registry:   registry,
+		cqlSession:               session,
+		esClient:                 client,
+		topicMutex:               &sync.RWMutex{},
+		dcMutex:                  &sync.RWMutex{},
+		indexMutex:               &sync.RWMutex{},
+		topicNameToId:            make(map[string]string),
+		topicIdToName:            make(map[string]string),
+		topicSchemaMap:           make(map[string]*gojsonschema.Schema),
+		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
+		dcNameToId:               make(map[string]string),
+		dcIdToName:               make(map[string]string),
+		registry:                 registry,
 	}, nil
 }
 
@@ -198,7 +201,7 @@ func (es *EventStore) validateSchema(schema string) (*gojsonschema.Schema, bool)
 	return jsonSchema, true
 }
 
-func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
+func (es *EventStore) buildESQuery(q *eventmaster.Query) *elastic.BoolQuery {
 	var queries []elastic.Query
 
 	if len(q.Dc) != 0 {
@@ -291,6 +294,61 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 	}
 
 	return query
+}
+
+func (es *EventStore) getSearchService(q *eventmaster.Query) *elastic.SearchService {
+	query := es.buildESQuery(q)
+	indexNames := es.getESIndices()
+
+	if q.StartEventTime != 0 {
+		startIndex := getIndexFromTime(q.StartEventTime)
+		for i := len(indexNames) - 1; i >= 0; i-- {
+			if strings.Compare(indexNames[i], startIndex) == -1 {
+				indexNames[i] = indexNames[len(indexNames)-1]
+				indexNames = indexNames[:len(indexNames)-1]
+			}
+		}
+	}
+	if q.EndEventTime != 0 {
+		endIndex := getIndexFromTime(q.EndEventTime)
+		for i := len(indexNames) - 1; i >= 0; i-- {
+			if strings.Compare(indexNames[i], endIndex) == 1 {
+				indexNames[i] = indexNames[len(indexNames)-1]
+				indexNames = indexNames[:len(indexNames)-1]
+			}
+		}
+	}
+
+	limit := q.Limit
+	if limit == 0 {
+		limit = 100
+	}
+
+	sq := es.esClient.Search().
+		Index(indexNames...).
+		Query(query).
+		From(int(q.Start)).Size(int(limit)).
+		Pretty(true)
+
+	sortByTime := false
+	for i, field := range q.SortField {
+		if field == "dc" {
+			sq.Sort("dc_id.keyword", q.SortAscending[i])
+		} else if field == "topic" {
+			sq.Sort("topic_id.keyword", q.SortAscending[i])
+		} else if field == "event_time" {
+			sortByTime = true
+			sq.Sort("event_time", true)
+		} else {
+			sq.Sort(fmt.Sprintf("%s.%s", field, "keyword"), q.SortAscending[i])
+		}
+	}
+
+	if !sortByTime {
+		sq.Sort("event_time", false)
+	}
+
+	return sq
 }
 
 func (es *EventStore) insertDefaults(s map[string]interface{}, m map[string]interface{}) {
@@ -390,63 +448,8 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	timer := metrics.GetOrRegisterTimer("Find", es.registry)
 	defer timer.UpdateSince(start)
 
-	bq := es.buildESQuery(q)
+	sq := es.getSearchService(q)
 	ctx := context.Background()
-
-	indexNames := es.getESIndices()
-
-	if q.StartEventTime != 0 {
-		startIndex := getIndexFromTime(q.StartEventTime)
-		for i := len(indexNames) - 1; i >= 0; i-- {
-			if strings.Compare(indexNames[i], startIndex) == -1 {
-				indexNames[i] = indexNames[len(indexNames)-1]
-				indexNames = indexNames[:len(indexNames)-1]
-			}
-		}
-	}
-	if q.EndEventTime != 0 {
-		endIndex := getIndexFromTime(q.EndEventTime)
-		for i := len(indexNames) - 1; i >= 0; i-- {
-			if strings.Compare(indexNames[i], endIndex) == 1 {
-				indexNames[i] = indexNames[len(indexNames)-1]
-				indexNames = indexNames[:len(indexNames)-1]
-			}
-		}
-	}
-
-	var evts []*Event
-	if len(indexNames) == 0 {
-		return evts, nil
-	}
-
-	limit := q.Limit
-	if limit == 0 {
-		limit = 100
-	}
-
-	sq := es.esClient.Search().
-		Index(indexNames...).
-		Query(bq).
-		From(int(q.Start)).Size(int(limit)).
-		Pretty(true)
-
-	sortByTime := false
-	for i, field := range q.SortField {
-		if field == "dc" {
-			sq.Sort("dc_id.keyword", q.SortAscending[i])
-		} else if field == "topic" {
-			sq.Sort("topic_id.keyword", q.SortAscending[i])
-		} else if field == "event_time" {
-			sortByTime = true
-			sq.Sort("event_time", true)
-		} else {
-			sq.Sort(fmt.Sprintf("%s.%s", field, "keyword"), q.SortAscending[i])
-		}
-	}
-
-	if !sortByTime {
-		sq.Sort("event_time", false)
-	}
 
 	sr, err := sq.Do(ctx)
 	if err != nil {
@@ -462,6 +465,7 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	}
 	es.topicMutex.Unlock()
 
+	var evts []*Event
 	var evt Event
 	for _, item := range sr.Each(reflect.TypeOf(evt)) {
 		if e, ok := item.(Event); ok {
@@ -490,8 +494,7 @@ func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 
 	// write event to Cassandra
 	queryStr := evt.toCassandra(data)
-	query := es.cqlSession.Query(queryStr)
-	if err := query.Exec(); err != nil {
+	if err := es.cqlSession.ExecQuery(queryStr); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
@@ -505,12 +508,12 @@ func (es *EventStore) GetTopics() ([]TopicData, error) {
 	timer := metrics.GetOrRegisterTimer("GetTopics", es.registry)
 	defer timer.UpdateSince(start)
 
-	iter := es.cqlSession.Query("SELECT topic_id, topic_name, data_schema FROM event_topic;").Iter()
+	scanIter, closeIter := es.cqlSession.ExecIterQuery("SELECT topic_id, topic_name, data_schema FROM event_topic;")
 	var topicId gocql.UUID
 	var name, schema string
 	var topics []TopicData
 	for {
-		if iter.Scan(&topicId, &name, &schema) {
+		if scanIter(&topicId, &name, &schema) {
 			var s map[string]interface{}
 			err := json.Unmarshal([]byte(schema), &s)
 			if err != nil {
@@ -525,7 +528,7 @@ func (es *EventStore) GetTopics() ([]TopicData, error) {
 			break
 		}
 	}
-	if err := iter.Close(); err != nil {
+	if err := closeIter(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraReadError", es.registry)
 		cassMeter.Mark(1)
 		return nil, errors.Wrap(err, "Error closing iter")
@@ -538,12 +541,12 @@ func (es *EventStore) GetDcs() ([]DcData, error) {
 	timer := metrics.GetOrRegisterTimer("GetDcs", es.registry)
 	defer timer.UpdateSince(start)
 
-	iter := es.cqlSession.Query("SELECT dc_id, dc FROM event_dc;").Iter()
+	scanIter, closeIter := es.cqlSession.ExecIterQuery("SELECT dc_id, dc FROM event_dc;")
 	var id gocql.UUID
 	var dc string
 	var dcs []DcData
 	for true {
-		if iter.Scan(&id, &dc) {
+		if scanIter(&id, &dc) {
 			dcs = append(dcs, DcData{
 				Id:   id.String(),
 				Name: dc,
@@ -552,7 +555,7 @@ func (es *EventStore) GetDcs() ([]DcData, error) {
 			break
 		}
 	}
-	if err := iter.Close(); err != nil {
+	if err := closeIter(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraReadError", es.registry)
 		cassMeter.Mark(1)
 		return nil, errors.Wrap(err, "Error closing iter")
@@ -567,6 +570,12 @@ func (es *EventStore) AddTopic(topic TopicData) (string, error) {
 
 	name := topic.Name
 	schema := topic.Schema
+
+	if name == "" {
+		return "", errors.New("Topic name cannot be empty")
+	} else if es.getTopicId(name) != "" {
+		return "", errors.New("Topic with name already exists")
+	}
 
 	schemaStr := "{}"
 	if schema != nil {
@@ -583,13 +592,11 @@ func (es *EventStore) AddTopic(topic TopicData) (string, error) {
 	}
 
 	id := uuid.NewV4().String()
-	queryStr := fmt.Sprintf(`
-    INSERT INTO event_topic (topic_id, topic_name, data_schema)
-    VALUES (%[1]s, %[2]s, %[3]s);`,
+	queryStr := fmt.Sprintf(`INSERT INTO event_topic (topic_id, topic_name, data_schema)
+		VALUES (%[1]s, %[2]s, %[3]s);`,
 		id, stringify(name), stringify(schemaStr))
-	query := es.cqlSession.Query(queryStr)
 
-	if err := query.Exec(); err != nil {
+	if err := es.cqlSession.ExecQuery(queryStr); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
@@ -626,18 +633,16 @@ func (es *EventStore) UpdateTopic(oldName string, td TopicData) (string, error) 
 	if id == "" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
 	}
-	queryStr := fmt.Sprintf(`UPDATE event_topic 
-		SET topic_name = %s`, stringify(newName))
+	queryStr := fmt.Sprintf(`UPDATE event_topic SET topic_name=%s`, stringify(newName))
 
 	var jsonSchema *gojsonschema.Schema
 	var ok bool
-	schemaStr := "{}"
 	if schema != nil {
 		schemaBytes, err := json.Marshal(schema)
 		if err != nil {
 			return "", errors.Wrap(err, "Error marshalling schema into json")
 		}
-		schemaStr = string(schemaBytes)
+		schemaStr := string(schemaBytes)
 		jsonSchema, ok = es.validateSchema(schemaStr)
 		if !ok {
 			return "", errors.New("Error adding topic - schema is not in valid JSON schema format")
@@ -651,8 +656,8 @@ func (es *EventStore) UpdateTopic(oldName string, td TopicData) (string, error) 
 		queryStr = fmt.Sprintf("%s, data_schema = %s", queryStr, stringify(schemaStr))
 	}
 
-	queryStr = fmt.Sprintf("%s WHERE topic_id = %s;", queryStr, id)
-	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
+	queryStr = fmt.Sprintf("%s WHERE topic_id=%s;", queryStr, id)
+	if err := es.cqlSession.ExecQuery(queryStr); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
@@ -678,15 +683,19 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	if id == "" {
 		return errors.New("Couldn't find topic id for topic:" + topicName)
 	}
-	if _, err := es.esClient.DeleteByQuery(es.getESIndices()...).
-		Query(elastic.NewMatchQuery("topic_id", id)).
-		Do(context.Background()); err != nil {
-		return errors.Wrap(err, "Error deleting events under topic from ES")
+
+	indices := es.getESIndices()
+	if len(indices) != 0 {
+		if _, err := es.esClient.DeleteByQuery(es.getESIndices()...).
+			Query(elastic.NewMatchQuery("topic_id", id)).
+			Do(context.Background()); err != nil {
+			fmt.Println(err)
+			return errors.Wrap(err, "Error deleting events under topic from ES")
+		}
 	}
 
-	if err := es.cqlSession.Query(fmt.Sprintf(`
-		DELETE FROM event_topic WHERE topic_id=%[1]s;`,
-		id)).Exec(); err != nil {
+	if err := es.cqlSession.ExecQuery(fmt.Sprintf(`DELETE FROM event_topic WHERE topic_id=%[1]s;`,
+		id)); err != nil {
 		return errors.Wrap(err, "Error deleting topic and its events from cassandra")
 	}
 	es.topicMutex.Lock()
@@ -719,9 +728,8 @@ func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
     INSERT INTO event_dc (dc_id, dc)
     VALUES (%[1]s, %[2]s);`,
 		id, stringify(name))
-	query := es.cqlSession.Query(queryStr)
 
-	if err := query.Exec(); err != nil {
+	if err := es.cqlSession.ExecQuery(queryStr); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
@@ -761,7 +769,7 @@ func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, 
 		WHERE dc_id = %s;`,
 		stringify(newName), id)
 
-	if err := es.cqlSession.Query(queryStr).Exec(); err != nil {
+	if err := es.cqlSession.ExecQuery(queryStr); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
 		cassMeter.Mark(1)
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
@@ -785,11 +793,11 @@ func (es *EventStore) Update() error {
 
 	newDcNameToId := make(map[string]string)
 	newDcIdToName := make(map[string]string)
-	iter := es.cqlSession.Query("SELECT dc_id, dc FROM event_dc;").Iter()
+	scanIter, closeIter := es.cqlSession.ExecIterQuery("SELECT dc_id, dc FROM event_dc;")
 	var dcId gocql.UUID
 	var dcName string
 	for true {
-		if iter.Scan(&dcId, &dcName) {
+		if scanIter(&dcId, &dcName) {
 			id := dcId.String()
 			newDcNameToId[dcName] = id
 			newDcIdToName[id] = dcName
@@ -797,7 +805,7 @@ func (es *EventStore) Update() error {
 			break
 		}
 	}
-	if err := iter.Close(); err != nil {
+	if err := closeIter(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraReadError", es.registry)
 		cassMeter.Mark(1)
 		return errors.Wrap(err, "Error closing dc iter")
@@ -814,11 +822,12 @@ func (es *EventStore) Update() error {
 	schemaMap := make(map[string]string)
 	newTopicSchemaMap := make(map[string]*gojsonschema.Schema)
 	newTopicSchemaPropertiesMap := make(map[string](map[string]interface{}))
-	iter = es.cqlSession.Query("SELECT topic_id, topic_name, data_schema FROM event_topic;").Iter()
+
+	scanIter, closeIter = es.cqlSession.ExecIterQuery("SELECT topic_id, topic_name, data_schema FROM event_topic;")
 	var topicId gocql.UUID
 	var topicName, dataSchema string
 	for true {
-		if iter.Scan(&topicId, &topicName, &dataSchema) {
+		if scanIter(&topicId, &topicName, &dataSchema) {
 			id := topicId.String()
 			newTopicNameToId[topicName] = id
 			newTopicIdToName[id] = topicName
@@ -827,7 +836,7 @@ func (es *EventStore) Update() error {
 			break
 		}
 	}
-	if err := iter.Close(); err != nil {
+	if err := closeIter(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraReadError", es.registry)
 		cassMeter.Mark(1)
 		return errors.Wrap(err, "Error closing topic iter")
@@ -874,9 +883,9 @@ func (es *EventStore) FlushToES() error {
 	timer := metrics.GetOrRegisterTimer("FlushToES", es.registry)
 	defer timer.UpdateSince(start)
 
-	iter := es.cqlSession.Query(`SELECT event_id, parent_event_id, dc_id, topic_id,
+	scanIter, closeIter := es.cqlSession.ExecIterQuery(`SELECT event_id, parent_event_id, dc_id, topic_id,
 		host, target_host_set, user, event_time, tag_set, data_json, received_time
-		FROM temp_event LIMIT 1000;`).Iter()
+		FROM temp_event LIMIT 1000;`)
 	var eventID, parentEventID, topicID, dcID gocql.UUID
 	var eventTime, receivedTime int64
 	var host, user, data string
@@ -889,7 +898,7 @@ func (es *EventStore) FlushToES() error {
 	var v struct{}
 
 	for true {
-		if iter.Scan(&eventID, &parentEventID, &dcID, &topicID, &host,
+		if scanIter(&eventID, &parentEventID, &dcID, &topicID, &host,
 			&targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
 			var d map[string]interface{}
 			if data != "" {
@@ -921,7 +930,7 @@ func (es *EventStore) FlushToES() error {
 			break
 		}
 	}
-	if err := iter.Close(); err != nil {
+	if err := closeIter(); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraReadError", es.registry)
 		cassMeter.Mark(1)
 		return errors.Wrap(err, "Error closing iter")
@@ -967,8 +976,8 @@ func (es *EventStore) FlushToES() error {
 		topicArr = append(topicArr, tId)
 	}
 
-	if err := es.cqlSession.Query(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s) AND topic_id in (%s)",
-		strings.Join(idArr, ","), strings.Join(topicArr, ","))).Exec(); err != nil {
+	if err := es.cqlSession.ExecQuery(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s) AND topic_id in (%s)",
+		strings.Join(idArr, ","), strings.Join(topicArr, ","))); err != nil {
 		cassMeter := metrics.GetOrRegisterMeter("cassandraWriteError", es.registry)
 		cassMeter.Mark(1)
 		return errors.Wrap(err, "Error performing delete from temp_event in cassandra")

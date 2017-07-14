@@ -2,9 +2,7 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -19,38 +17,18 @@ type rsyslogServer struct {
 	timer metrics.Timer
 }
 
-func NewRsyslogServer(config *Config, s *EventStore, r metrics.Registry) (*rsyslogServer, error) {
+func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int, r metrics.Registry) (*rsyslogServer, error) {
 	var lis net.Listener
-	if config.CAFile != "" {
-		cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error loading X509 Key pair from files")
-		}
-
-		caCert, err := ioutil.ReadFile(config.CAFile)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error loading ca cert from file")
-		}
-
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs:      caCertPool,
-		}
-
-		lis, err = tls.Listen("tcp", fmt.Sprintf(":%d", config.RsyslogPort), tlsConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error creating tls listener")
-		}
+	var err error
+	if tlsConfig != nil {
+		lis, err = tls.Listen("tcp", fmt.Sprintf(":%d", port), tlsConfig)
 	} else {
-		var err error
-		lis, err = net.Listen("tcp", fmt.Sprintf(":%d", config.RsyslogPort))
-		if err != nil {
-			return nil, errors.Wrap(err, "Error creating net listener")
-		}
+		lis, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
 	}
-	fmt.Println("Starting rsyslog server on port", config.RsyslogPort)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error creating net listener")
+	}
+	fmt.Println("Starting rsyslog server on port", port)
 
 	return &rsyslogServer{
 		lis:   lis,

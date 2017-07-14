@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -102,9 +104,29 @@ func main() {
 	httpL := mux.Match(cmux.HTTP1Fast())
 	grpcL := mux.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 
-	httpS := NewHTTPServer(store, r)
+	var tlsConfig *tls.Config
+	if config.CAFile != "" {
+		cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+		if err != nil {
+			log.Fatalf("Failed to load X509 key pair %v", err)
+		}
 
-	// Create the EventMaster server
+		caCert, err := ioutil.ReadFile(config.CAFile)
+		if err != nil {
+			log.Fatalf("Failed to load CA cert file %v", err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+		}
+	}
+
+	httpS := NewHTTPServer(tlsConfig, store, r)
+
+	// Create the EventMaster grpc server
 	grpcServer, err := NewGRPCServer(&config, store, r)
 	if err != nil {
 		log.Fatalf("Unable to start server: %v", err)
@@ -146,7 +168,7 @@ func main() {
 	rsyslogServer := &rsyslogServer{}
 
 	if config.RsyslogServer {
-		rsyslogServer, err = NewRsyslogServer(&config, store, r)
+		rsyslogServer, err = NewRsyslogServer(store, tlsConfig, config.RsyslogPort, r)
 		if err != nil {
 			log.Fatalf("Unable to start server: %v", err)
 		}
