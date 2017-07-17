@@ -51,6 +51,12 @@ The port of the eventmaster server can be configured using the `--port` option.
 
 Open the eventmaster UI in your browser (default: `http://localhost:50052`). Through the UI, events, topics and data centers can be added and events can be queried.
 
+### Tests
+Tests can be run using
+```
+$ make run
+```
+
 ## REST API
 ### Add Events
 ```

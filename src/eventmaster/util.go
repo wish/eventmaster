@@ -23,10 +23,11 @@ func stringifyArr(arr []string) string {
 	if len(arr) == 0 {
 		return "null"
 	}
-	for i, str := range arr {
-		arr[i] = stringify(str)
+	var newArr []string
+	for _, str := range arr {
+		newArr = append(newArr, stringify(str))
 	}
-	return fmt.Sprintf("{%s}", strings.Join(arr, ","))
+	return fmt.Sprintf("{%s}", strings.Join(newArr, ","))
 }
 
 func stringifyUUID(str string) string {

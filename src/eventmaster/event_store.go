@@ -724,9 +724,7 @@ func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
 	}
 
 	id = uuid.NewV4().String()
-	queryStr := fmt.Sprintf(`
-    INSERT INTO event_dc (dc_id, dc)
-    VALUES (%[1]s, %[2]s);`,
+	queryStr := fmt.Sprintf(`INSERT INTO event_dc (dc_id, dc) VALUES (%[1]s, %[2]s);`,
 		id, stringify(name))
 
 	if err := es.cqlSession.ExecQuery(queryStr); err != nil {
@@ -753,7 +751,7 @@ func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, 
 	newName := updateReq.NewName
 
 	if newName == "" {
-		newName = oldName
+		return "", errors.New("Dc name cannot be empty")
 	}
 
 	id := es.getDcId(newName)
@@ -764,9 +762,7 @@ func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, 
 	if id == "" {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s doesn't exist", oldName))
 	}
-	queryStr := fmt.Sprintf(`UPDATE event_dc 
-		SET dc = %s 
-		WHERE dc_id = %s;`,
+	queryStr := fmt.Sprintf(`UPDATE event_dc SET dc=%s WHERE dc_id=%s;`,
 		stringify(newName), id)
 
 	if err := es.cqlSession.ExecQuery(queryStr); err != nil {
