@@ -185,10 +185,33 @@ func (es *EventStore) getDcName(id string) string {
 	return name
 }
 
-func (es *EventStore) getESIndices() []string {
+func (es *EventStore) getESIndices(startEventTime int64, endEventTime int64) []string {
 	es.indexMutex.RLock()
 	names := es.indexNames
 	es.indexMutex.RUnlock()
+
+	if startEventTime == -1 && endEventTime == -1 {
+		return names
+	}
+
+	if startEventTime != 0 {
+		startIndex := getIndexFromTime(startEventTime)
+		for i := len(names) - 1; i >= 0; i-- {
+			if strings.Compare(names[i], startIndex) == -1 {
+				names[i] = names[len(names)-1]
+				names = names[:len(names)-1]
+			}
+		}
+	}
+	if endEventTime != 0 {
+		endIndex := getIndexFromTime(endEventTime)
+		for i := len(names) - 1; i >= 0; i-- {
+			if strings.Compare(names[i], endIndex) == 1 {
+				names[i] = names[len(names)-1]
+				names = names[:len(names)-1]
+			}
+		}
+	}
 	return names
 }
 
@@ -251,11 +274,11 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) *elastic.BoolQuery {
 		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "parent_event_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.User) != 0 {
-		users := make([]interface{}, 0)
+		var users []string
 		for _, user := range q.User {
 			users = append(users, strings.ToLower(user))
 		}
-		queries = append(queries, elastic.NewTermsQuery("user", users...))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "user", "("+strings.Join(users, " OR ")+")")))
 	}
 	if q.Data != "" {
 		var d map[string]interface{}
@@ -298,26 +321,7 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) *elastic.BoolQuery {
 
 func (es *EventStore) getSearchService(q *eventmaster.Query) *elastic.SearchService {
 	query := es.buildESQuery(q)
-	indexNames := es.getESIndices()
-
-	if q.StartEventTime != 0 {
-		startIndex := getIndexFromTime(q.StartEventTime)
-		for i := len(indexNames) - 1; i >= 0; i-- {
-			if strings.Compare(indexNames[i], startIndex) == -1 {
-				indexNames[i] = indexNames[len(indexNames)-1]
-				indexNames = indexNames[:len(indexNames)-1]
-			}
-		}
-	}
-	if q.EndEventTime != 0 {
-		endIndex := getIndexFromTime(q.EndEventTime)
-		for i := len(indexNames) - 1; i >= 0; i-- {
-			if strings.Compare(indexNames[i], endIndex) == 1 {
-				indexNames[i] = indexNames[len(indexNames)-1]
-				indexNames = indexNames[:len(indexNames)-1]
-			}
-		}
-	}
+	indexNames := es.getESIndices(q.StartEventTime, q.EndEventTime)
 
 	limit := q.Limit
 	if limit == 0 {
@@ -684,9 +688,9 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 		return errors.New("Couldn't find topic id for topic:" + topicName)
 	}
 
-	indices := es.getESIndices()
+	indices := es.getESIndices(-1, -1)
 	if len(indices) != 0 {
-		if _, err := es.esClient.DeleteByQuery(es.getESIndices()...).
+		if _, err := es.esClient.DeleteByQuery(es.getESIndices(-1, -1)...).
 			Query(elastic.NewMatchQuery("topic_id", id)).
 			Do(context.Background()); err != nil {
 			fmt.Println(err)

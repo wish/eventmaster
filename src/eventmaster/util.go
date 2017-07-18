@@ -38,7 +38,7 @@ func stringifyUUID(str string) string {
 }
 
 func getIndexFromTime(evtTime int64) string {
-	eventTime := time.Unix(evtTime, 0)
+	eventTime := time.Unix(evtTime, 0).UTC()
 	return fmt.Sprintf("eventmaster_%04d_%02d_%02d", eventTime.Year(), eventTime.Month(), eventTime.Day())
 }
 
@@ -66,7 +66,9 @@ func insertDefaults(schema map[string]interface{}, m map[string]interface{}) {
 		}
 
 		if d, ok := s["default"]; ok {
-			m[k] = d
+			if _, ok = m[k]; !ok {
+				m[k] = d
+			}
 		} else if property, ok := m[k]; ok {
 			// property exists, check inner objects
 			if innerM, ok := property.(map[string]interface{}); ok {

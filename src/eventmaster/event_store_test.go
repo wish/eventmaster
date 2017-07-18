@@ -462,3 +462,76 @@ func TestAddEvent(t *testing.T) {
 		}
 	}
 }
+
+var buildESQueryTests = []struct {
+	Query           *eventmaster.Query
+	ExpectedSource  string
+	NeedsFormatting bool
+}{
+	{&eventmaster.Query{}, "{\"bool\":{}}", false},
+	{&eventmaster.Query{
+		Dc:             []string{"dc1", "dc2"},
+		Host:           []string{"hostname"},
+		TopicName:      []string{"test1"},
+		User:           []string{"user1", "user2"},
+		StartEventTime: 1500328222,
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:(%s OR %s)\"}},{\"query_string\":{\"query\":\"host:(hostname)\"}},{\"query_string\":{\"query\":\"topic_id:(%s)\"}},{\"query_string\":{\"query\":\"user:(user1 OR user2)\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":null}}}]}}", true},
+	{&eventmaster.Query{
+		TargetHostSet: []string{"host1", "host2"},
+		ParentEventId: []string{"d6f377e0-eeed-4cdc-8ba3-ae47018bb80d", "a0d18d31-a5e5-436f-be64-9990e3fc4850"},
+		TagSet:        []string{"tag1", "tag2"},
+		User:          []string{"user2"},
+		EndEventTime:  1500328222,
+	}, "{\"bool\":{\"must\":[{\"terms\":{\"target_host_set\":[\"host1\",\"host2\"]}},{\"terms\":{\"tag_set\":[\"tag1\",\"tag2\"]}},{\"query_string\":{\"query\":\"parent_event_id:(d6f377e0-eeed-4cdc-8ba3-ae47018bb80d OR a0d18d31-a5e5-436f-be64-9990e3fc4850)\"}},{\"query_string\":{\"query\":\"user:(user2)\"}},{\"range\":{\"event_time\":{\"from\":null,\"include_lower\":true,\"include_upper\":true,\"to\":1500328222000}}}]}}", false},
+	{&eventmaster.Query{
+		Dc:        []string{"dc100"},
+		Host:      []string{"host1"},
+		TopicName: []string{"test100"},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:()\"}},{\"query_string\":{\"query\":\"host:(host1)\"}},{\"query_string\":{\"query\":\"topic_id:()\"}}]}}", false},
+	{&eventmaster.Query{
+		Dc:             []string{"dc1"},
+		Data:           "fulltextsearch",
+		StartEventTime: 1500328222,
+		EndEventTime:   1500329000,
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:(%s)\"}},{\"query_string\":{\"query\":\"fulltextsearch\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":1500329000000}}}]}}", true},
+	{&eventmaster.Query{
+		Data: "{\"key1\": {\"value1\": \"morevalue\"}, \"key2\": \"value2\"}",
+	}, "{\"bool\":{\"must\":[{\"term\":{\"data.key1.value1\":\"morevalue\"}},{\"term\":{\"data.key2\":\"value2\"}}]}}", false},
+}
+
+func TestBuildESQuery(t *testing.T) {
+	testESServer := NewMockESServer()
+	defer testESServer.Close()
+
+	s, err := GetTestEventStore(testESServer)
+	assert.Nil(t, err)
+
+	err = populateTopics(s)
+	assert.Nil(t, err)
+
+	err = populateDcs(s)
+	assert.Nil(t, err)
+
+	for _, test := range buildESQueryTests {
+		bq := s.buildESQuery(test.Query)
+		source, err := bq.Source()
+		assert.Nil(t, err)
+		b, err := json.Marshal(source)
+		assert.Nil(t, err)
+
+		expected := strings.Replace(test.ExpectedSource, "(", "\\(", -1)
+		expected = strings.Replace(expected, ")", "\\)", -1)
+		expected = strings.Replace(expected, "[", "\\[", -1)
+		expected = strings.Replace(expected, "]", "\\]", -1)
+		expected = strings.Replace(expected, "%s", "%[1]s", -1)
+
+		matchStr := expected
+		actual := string(b)
+		if test.NeedsFormatting {
+			matchStr = fmt.Sprintf(expected, uuidMatchStr)
+		}
+
+		r := regexp.MustCompile(matchStr)
+		assert.True(t, r.MatchString(actual))
+	}
+}
