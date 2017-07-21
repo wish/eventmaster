@@ -224,7 +224,11 @@ func (es *EventStore) validateSchema(schema string) (*gojsonschema.Schema, bool)
 	return jsonSchema, true
 }
 
-func (es *EventStore) buildESQuery(q *eventmaster.Query) *elastic.BoolQuery {
+func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
+	if q.EventId != "" {
+		return elastic.NewIdsQuery().Ids(q.EventId)
+	}
+
 	var queries []elastic.Query
 
 	if len(q.Dc) != 0 {

@@ -143,6 +143,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
+		q.EventId = query["event_id"][0]
 		q.ParentEventId = query["parent_event_id"]
 		q.Dc = query["dc"]
 		q.Host = query["host"]
@@ -215,7 +216,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", "GetEventError")
 		return
 	}
-	h.sendResp(w, "", string(jsonSr), "Find")
+	h.sendResp(w, "", string(jsonSr), "GetEvent")
 }
 
 func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -223,7 +224,7 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&td); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", "AddEventError")
+		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", "AddTopicError")
 		return
 	}
 
