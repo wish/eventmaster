@@ -475,7 +475,7 @@ var buildESQueryTests = []struct {
 		TopicName:      []string{"test1"},
 		User:           []string{"user1", "user2"},
 		StartEventTime: 1500328222,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:(%s OR %s)\"}},{\"query_string\":{\"query\":\"host:(hostname)\"}},{\"query_string\":{\"query\":\"topic_id:(%s)\"}},{\"query_string\":{\"query\":\"user:(user1 OR user2)\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":null}}}]}}", true},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:(%s OR %s)\"}},{\"query_string\":{\"query\":\"host:(hostname)\"}},{\"query_string\":{\"query\":\"user:(user1 OR user2)\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":null}}}]}}", true},
 	{&eventmaster.Query{
 		TargetHostSet: []string{"host1", "host2"},
 		ParentEventId: []string{"d6f377e0-eeed-4cdc-8ba3-ae47018bb80d", "a0d18d31-a5e5-436f-be64-9990e3fc4850"},
@@ -487,7 +487,7 @@ var buildESQueryTests = []struct {
 		Dc:        []string{"dc100"},
 		Host:      []string{"host1"},
 		TopicName: []string{"test100"},
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:()\"}},{\"query_string\":{\"query\":\"host:(host1)\"}},{\"query_string\":{\"query\":\"topic_id:()\"}}]}}", false},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:()\"}},{\"query_string\":{\"query\":\"host:(host1)\"}}]}}", false},
 	{&eventmaster.Query{
 		Dc:             []string{"dc1"},
 		Data:           "fulltextsearch",

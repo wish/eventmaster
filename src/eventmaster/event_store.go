@@ -185,34 +185,50 @@ func (es *EventStore) getDcName(id string) string {
 	return name
 }
 
-func (es *EventStore) getESIndices(startEventTime int64, endEventTime int64) []string {
+func (es *EventStore) getESIndices(startEventTime int64, endEventTime int64, topicIds ...string) []string {
 	es.indexMutex.RLock()
 	names := es.indexNames
 	es.indexMutex.RUnlock()
 
-	if startEventTime == -1 && endEventTime == -1 {
+	if startEventTime == -1 && endEventTime == -1 && len(topicIds) == 0 {
 		return names
 	}
 
-	if startEventTime != 0 {
-		startIndex := getIndexFromTime(startEventTime)
-		for i := len(names) - 1; i >= 0; i-- {
-			if strings.Compare(names[i], startIndex) == -1 {
-				names[i] = names[len(names)-1]
-				names = names[:len(names)-1]
+	var filteredIndices []string
+	if len(topicIds) > 0 {
+		// TODO: make more efficient
+		for _, id := range topicIds {
+			for _, index := range names {
+				if strings.HasPrefix(index, id) {
+					filteredIndices = append(filteredIndices, index)
+				}
+			}
+		}
+	} else {
+		filteredIndices = names
+	}
+
+	if startEventTime != -1 {
+		startIndex := getIndex("", startEventTime)
+		for i := len(filteredIndices) - 1; i >= 0; i-- {
+			curIndex := filteredIndices[i]
+			if strings.Compare(string(curIndex[len(curIndex)-11:]), startIndex) <= 0 {
+				filteredIndices[i] = filteredIndices[len(filteredIndices)-1]
+				filteredIndices = filteredIndices[:len(filteredIndices)-1]
 			}
 		}
 	}
-	if endEventTime != 0 {
-		endIndex := getIndexFromTime(endEventTime)
-		for i := len(names) - 1; i >= 0; i-- {
-			if strings.Compare(names[i], endIndex) == 1 {
-				names[i] = names[len(names)-1]
-				names = names[:len(names)-1]
+	if endEventTime != -1 {
+		endIndex := getIndex("", endEventTime)
+		for i := len(filteredIndices) - 1; i >= 0; i-- {
+			curIndex := filteredIndices[i]
+			if strings.Compare(string(curIndex[len(curIndex)-11:]), endIndex) >= 0 {
+				filteredIndices[i] = filteredIndices[len(filteredIndices)-1]
+				filteredIndices = filteredIndices[:len(filteredIndices)-1]
 			}
 		}
 	}
-	return names
+	return filteredIndices
 }
 
 func (es *EventStore) validateSchema(schema string) (*gojsonschema.Schema, bool) {
@@ -253,15 +269,6 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 			thosts = append(thosts, strings.ToLower(host))
 		}
 		queries = append(queries, elastic.NewTermsQuery("target_host_set", thosts...))
-	}
-	if len(q.TopicName) != 0 {
-		var ids []string
-		for _, topic := range q.TopicName {
-			if id := es.getTopicId(strings.ToLower(topic)); id != "" {
-				ids = append(ids, id)
-			}
-		}
-		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "topic_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.TagSet) != 0 {
 		tags := make([]interface{}, 0)
@@ -325,7 +332,18 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 
 func (es *EventStore) getSearchService(q *eventmaster.Query) *elastic.SearchService {
 	query := es.buildESQuery(q)
-	indexNames := es.getESIndices(q.StartEventTime, q.EndEventTime)
+	var ids []string
+	for _, name := range q.TopicName {
+		ids = append(ids, es.getTopicId(name))
+	}
+
+	if q.StartEventTime == 0 {
+		q.StartEventTime = -1
+	}
+	if q.EndEventTime == 0 {
+		q.EndEventTime = -1
+	}
+	indexNames := es.getESIndices(q.StartEventTime, q.EndEventTime, ids...)
 
 	limit := q.Limit
 	if limit == 0 {
@@ -692,12 +710,10 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 		return errors.New("Couldn't find topic id for topic:" + topicName)
 	}
 
-	indices := es.getESIndices(-1, -1)
-	if len(indices) != 0 {
-		if _, err := es.esClient.DeleteByQuery(es.getESIndices(-1, -1)...).
-			Query(elastic.NewMatchQuery("topic_id", id)).
-			Do(context.Background()); err != nil {
-			fmt.Println(err)
+	indices := es.getESIndices(-1, -1, id)
+	if len(indices) > 0 {
+		_, err := es.esClient.DeleteIndex(indices...).Do(context.Background())
+		if err != nil {
 			return errors.Wrap(err, "Error deleting events under topic from ES")
 		}
 	}
@@ -706,6 +722,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 		id)); err != nil {
 		return errors.Wrap(err, "Error deleting topic and its events from cassandra")
 	}
+
 	es.topicMutex.Lock()
 	delete(es.topicNameToId, topicName)
 	delete(es.topicIdToName, id)
@@ -916,7 +933,7 @@ func (es *EventStore) FlushToES() error {
 			if parentEventIDStr == "00000000-0000-0000-0000-000000000000" {
 				parentEventIDStr = ""
 			}
-			index := getIndexFromTime(eventTime / 1000)
+			index := getIndex(topicID.String(), eventTime/1000)
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID.String(),
 				ParentEventID: parentEventIDStr,

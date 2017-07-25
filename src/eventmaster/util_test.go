@@ -7,17 +7,18 @@ import (
 )
 
 var getIndexTests = []struct {
+	TopicId        string
 	Time           int64
 	ExpectedResult string
 }{
-	{1500333894, "eventmaster_2017_07_17"},
-	{1000, "eventmaster_1970_01_01"},
-	{1500333936000, "eventmaster_49513_09_10"},
+	{"0fb22da2-a2c6-4d2e-a966-cae5eceff5cf", 1500333894, "0fb22da2-a2c6-4d2e-a966-cae5eceff5cf_2017_07_17"},
+	{"fdedfdd5-67d8-4569-bc0e-21d7aef02f3e", 1000, "fdedfdd5-67d8-4569-bc0e-21d7aef02f3e_1970_01_01"},
+	{"fdedfdd5-67d8-4569-bc0e-21d7aef02f3e", 1500333936000, "fdedfdd5-67d8-4569-bc0e-21d7aef02f3e_49513_09_10"},
 }
 
-func TestGetIndexFromTime(t *testing.T) {
+func TestGetIndex(t *testing.T) {
 	for _, test := range getIndexTests {
-		assert.Equal(t, test.ExpectedResult, getIndexFromTime(test.Time))
+		assert.Equal(t, test.ExpectedResult, getIndex(test.TopicId, test.Time))
 	}
 }
 

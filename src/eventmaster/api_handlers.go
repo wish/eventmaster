@@ -143,7 +143,11 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
-		q.EventId = query["event_id"][0]
+		if val, ok := query["event_id"]; ok {
+			if len(val) > 0 {
+				q.EventId = val[0]
+			}
+		}
 		q.ParentEventId = query["parent_event_id"]
 		q.Dc = query["dc"]
 		q.Host = query["host"]
