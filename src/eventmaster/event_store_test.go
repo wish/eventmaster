@@ -535,3 +535,50 @@ func TestBuildESQuery(t *testing.T) {
 		assert.True(t, r.MatchString(actual))
 	}
 }
+
+var getESIndicesTests = []struct {
+	StartEventTime int64
+	EndEventTime   int64
+	TopicIds       []string
+	ExpectedResult []string
+}{
+	{-1, -1, []string{"aaf7cc73-0431-444e-9b9f-83bfba4acb45"}, []string{
+		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2018_02_28",
+		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2016_05_17",
+	}},
+	{-1, 1483228800, []string{}, []string{
+		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2016_03_21",
+		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2016_05_17",
+	}},
+	{1498780800, 1519776000, []string{}, []string{
+		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
+		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2018_02_28",
+	}},
+	{1458552480, 1498867200, []string{"17e71f4f-06c8-4c47-b9c8-920ac0b71067"}, []string{
+		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
+		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2016_03_21",
+	}},
+	{1498780800, 1498780800, []string{"17e71f4f-06c8-4c47-b9c8-920ac0b71067"}, []string{
+		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
+	}},
+}
+
+func TestGetIndices(t *testing.T) {
+	testESServer := NewMockESServer()
+	defer testESServer.Close()
+
+	s, err := GetTestEventStore(testESServer)
+	assert.Nil(t, err)
+
+	for _, test := range getESIndicesTests {
+		s.indexNames = []string{
+			"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
+			"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2018_02_28",
+			"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2016_03_21",
+			"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2018_12_03",
+			"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2016_05_17",
+		}
+		indices := s.getESIndices(test.StartEventTime, test.EndEventTime, test.TopicIds...)
+		assert.Equal(t, test.ExpectedResult, indices)
+	}
+}

@@ -197,10 +197,11 @@ func (es *EventStore) getESIndices(startEventTime int64, endEventTime int64, top
 	var filteredIndices []string
 	if len(topicIds) > 0 {
 		// TODO: make more efficient
-		for _, id := range topicIds {
-			for _, index := range names {
+		for _, index := range names {
+			for _, id := range topicIds {
 				if strings.HasPrefix(index, id) {
 					filteredIndices = append(filteredIndices, index)
+					break
 				}
 			}
 		}
@@ -212,7 +213,7 @@ func (es *EventStore) getESIndices(startEventTime int64, endEventTime int64, top
 		startIndex := getIndex("", startEventTime)
 		for i := len(filteredIndices) - 1; i >= 0; i-- {
 			curIndex := filteredIndices[i]
-			if strings.Compare(string(curIndex[len(curIndex)-11:]), startIndex) <= 0 {
+			if strings.Compare(string(curIndex[len(curIndex)-11:]), startIndex) < 0 {
 				filteredIndices[i] = filteredIndices[len(filteredIndices)-1]
 				filteredIndices = filteredIndices[:len(filteredIndices)-1]
 			}
@@ -222,7 +223,7 @@ func (es *EventStore) getESIndices(startEventTime int64, endEventTime int64, top
 		endIndex := getIndex("", endEventTime)
 		for i := len(filteredIndices) - 1; i >= 0; i-- {
 			curIndex := filteredIndices[i]
-			if strings.Compare(string(curIndex[len(curIndex)-11:]), endIndex) >= 0 {
+			if strings.Compare(string(curIndex[len(curIndex)-11:]), endIndex) > 0 {
 				filteredIndices[i] = filteredIndices[len(filteredIndices)-1]
 				filteredIndices = filteredIndices[:len(filteredIndices)-1]
 			}
