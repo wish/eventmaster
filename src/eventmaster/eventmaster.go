@@ -16,8 +16,6 @@ import (
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
-	metrics "github.com/rcrowley/go-metrics"
-	"github.com/rcrowley/go-metrics/exp"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 )
@@ -72,27 +70,29 @@ func main() {
 		log.Fatalf("Error parsing flags: %v", err)
 	}
 
-	r := metrics.NewRegistry()
+	if config.PromExporter {
+		err := registerPromMetrics()
+		if err != nil {
+			log.Fatalf("Unable to register prometheus metrics: %v", err)
+		}
+
+		promL, err := net.Listen("tcp", fmt.Sprintf(":%d", config.PromPort))
+		if err != nil {
+			log.Fatalf("failed to start prom client: %v", err)
+		}
+		fmt.Println("starting prometheus exporter on port", config.PromPort)
+		go http.Serve(promL, GetPromHandler())
+	}
 
 	// Set up event store
 	dbConf := getDbConfig()
-	store, err := NewEventStore(dbConf, config, r)
+	store, err := NewEventStore(dbConf, config)
 	if err != nil {
 		log.Fatalf("Unable to create event store: %v", err)
 	}
 	if err := store.Update(); err != nil {
 		fmt.Println("Error loading dcs and topics from Cassandra", err)
 	}
-
-	exp.Exp(metrics.DefaultRegistry)
-	sock, err := net.Listen("tcp", "0.0.0.0:12345")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	go func() {
-		fmt.Println("go-metrics server listening at port 12345")
-		http.Serve(sock, nil)
-	}()
 
 	// Create listening socket for grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port))
@@ -124,10 +124,10 @@ func main() {
 		}
 	}
 
-	httpS := NewHTTPServer(tlsConfig, store, r)
+	httpS := NewHTTPServer(tlsConfig, store)
 
 	// Create the EventMaster grpc server
-	grpcServer, err := NewGRPCServer(&config, store, r)
+	grpcServer, err := NewGRPCServer(&config, store)
 	if err != nil {
 		log.Fatalf("Unable to start server: %v", err)
 	}
@@ -168,7 +168,7 @@ func main() {
 	rsyslogServer := &rsyslogServer{}
 
 	if config.RsyslogServer {
-		rsyslogServer, err = NewRsyslogServer(store, tlsConfig, config.RsyslogPort, r)
+		rsyslogServer, err = NewRsyslogServer(store, tlsConfig, config.RsyslogPort)
 		if err != nil {
 			log.Fatalf("Unable to start server: %v", err)
 		}

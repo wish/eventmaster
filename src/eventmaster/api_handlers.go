@@ -13,30 +13,29 @@ import (
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
-	metrics "github.com/rcrowley/go-metrics"
 )
 
-func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, registry metrics.Registry) *http.Server {
+func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	r := httprouter.New()
 	h := httpHandler{
 		store: store,
 	}
 
 	// API endpoints
-	r.POST("/v1/event", wrapHandler(h.handleAddEvent, registry))
-	r.GET("/v1/event", wrapHandler(h.handleGetEvent, registry))
-	r.POST("/v1/topic", wrapHandler(h.handleAddTopic, registry))
-	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic, registry))
-	r.GET("/v1/topic", wrapHandler(h.handleGetTopic, registry))
-	r.DELETE("/v1/topic/:name", wrapHandler(h.handleDeleteTopic, registry))
-	r.POST("/v1/dc", wrapHandler(h.handleAddDc, registry))
-	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc, registry))
-	r.GET("/v1/dc", wrapHandler(h.handleGetDc, registry))
+	r.POST("/v1/event", wrapHandler(h.handleAddEvent))
+	r.GET("/v1/event", wrapHandler(h.handleGetEvent))
+	r.POST("/v1/topic", wrapHandler(h.handleAddTopic))
+	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic))
+	r.GET("/v1/topic", wrapHandler(h.handleGetTopic))
+	r.DELETE("/v1/topic/:name", wrapHandler(h.handleDeleteTopic))
+	r.POST("/v1/dc", wrapHandler(h.handleAddDc))
+	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc))
+	r.GET("/v1/dc", wrapHandler(h.handleGetDc))
 
-	r.GET("/v1/health", wrapHandler(h.handleHealthCheck, registry))
+	r.GET("/v1/health", wrapHandler(h.handleHealthCheck))
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent, registry))
+	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent))
 
 	// UI endpoints
 	r.GET("/", HandleMainPage)
@@ -55,32 +54,30 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, registry metrics.Re
 	}
 }
 
-func wrapHandler(h httprouter.Handle, registry metrics.Registry) httprouter.Handle {
+func wrapHandler(h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", r.URL.Path, "Meter"), registry)
-		meter.Mark(1)
 		start := time.Now()
-		timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", r.URL.Path, "Timer"), registry)
-		defer timer.UpdateSince(start)
+		defer func() {
+			httpReqLatencies.WithLabelValues(r.URL.Path).Observe(trackTime(start))
+		}()
+		httpReqCounter.WithLabelValues(r.URL.Path).Inc()
 		h(w, r, ps)
 	}
 }
 
 type httpHandler struct {
-	store    *EventStore
-	registry metrics.Registry
+	store *EventStore
 }
 
-func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, message string, errName string) {
-	meter := metrics.GetOrRegisterMeter(errName, h.registry)
-	meter.Mark(1)
+func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, message string, path string) {
+	httpRespCounter.WithLabelValues(path, fmt.Sprintf("%d", code)).Inc()
 	errMsg := fmt.Sprintf("%s: %s", message, err.Error())
 	fmt.Println(errMsg)
 	w.WriteHeader(code)
 	w.Write([]byte(errMsg))
 }
 
-func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, name string) {
+func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, path string) {
 	var response []byte
 	if key == "" {
 		response = []byte(val)
@@ -90,12 +87,11 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, na
 		var err error
 		response, err = json.Marshal(resp)
 		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", name+"Error")
+			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", path)
 			return
 		}
 	}
-	meter := metrics.GetOrRegisterMeter(name+"Success", h.registry)
-	meter.Mark(1)
+	httpRespCounter.WithLabelValues(path, "200").Inc()
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
@@ -106,16 +102,16 @@ func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ h
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err := json.Unmarshal(body, &evt); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", "AddEventError")
+		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
 		return
 	}
 
 	id, err := h.store.AddEvent(&evt)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error writing event", "AddEventError")
+		h.sendError(w, http.StatusBadRequest, err, "Error writing event", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "event_id", id, "AddEvent")
+	h.sendResp(w, "event_id", id, r.URL.Path)
 }
 
 type EventResult struct {
@@ -164,7 +160,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 			}
 		}
 		if len(q.SortField) != len(q.SortAscending) {
-			h.sendError(w, http.StatusBadRequest, errors.New("sort_field and sort_ascending don't match"), "Error", "GetEventError")
+			h.sendError(w, http.StatusBadRequest, errors.New("sort_field and sort_ascending don't match"), "Error", r.URL.Path)
 			return
 		}
 		if len(query["data"]) > 0 {
@@ -194,7 +190,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 
 	events, err := h.store.Find(&q)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error executing query", "GetEventError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error executing query", r.URL.Path)
 		return
 	}
 	var results []*EventResult
@@ -217,10 +213,10 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 	}
 	jsonSr, err := json.Marshal(sr)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", "GetEventError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(jsonSr), "GetEvent")
+	h.sendResp(w, "", string(jsonSr), r.URL.Path)
 }
 
 func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -228,53 +224,53 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&td); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", "AddTopicError")
+		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
 		return
 	}
 
 	if td.Name == "" {
-		h.sendError(w, http.StatusBadRequest, errors.New("Must include topic_name in request"), "Error adding topic", "AddTopicError")
+		h.sendError(w, http.StatusBadRequest, errors.New("Must include topic_name in request"), "Error adding topic", r.URL.Path)
 		return
 	}
 
 	id, err := h.store.AddTopic(td)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error adding topic", "AddTopicError")
+		h.sendError(w, http.StatusBadRequest, err, "Error adding topic", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "topic_id", id, "AddTopic")
+	h.sendResp(w, "topic_id", id, r.URL.Path)
 }
 
 func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var td TopicData
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", "UpdateTopicError")
+		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	err = json.Unmarshal(reqBody, &td)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", "UpdateTopicError")
+		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 
 	topicName := ps.ByName("name")
 	if topicName == "" {
-		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error updating topic, no topic name provided", "UpdateTopicError")
+		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error updating topic, no topic name provided", r.URL.Path)
 		return
 	}
 	id, err := h.store.UpdateTopic(topicName, td)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error updating topic", "UpdateTopicError")
+		h.sendError(w, http.StatusBadRequest, err, "Error updating topic", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "topic_id", id, "UpdateTopic")
+	h.sendResp(w, "topic_id", id, r.URL.Path)
 }
 
 func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	topics, err := h.store.GetTopics()
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store", "GetTopicError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store", r.URL.Path)
 		return
 	}
 
@@ -282,65 +278,65 @@ func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ h
 	topicSet["results"] = topics
 	str, err := json.Marshal(topicSet)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetTopicError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(str), "GetTopic")
+	h.sendResp(w, "", string(str), r.URL.Path)
 }
 
 func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	topicName := ps.ByName("name")
 	if topicName == "" {
-		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error deleting topic, no topic name provided", "DeleteTopicError")
+		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error deleting topic, no topic name provided", r.URL.Path)
 		return
 	}
 	err := h.store.DeleteTopic(&eventmaster.DeleteTopicRequest{
 		TopicName: topicName,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", "DeleteTopicError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", "", "DeleteTopic")
+	h.sendResp(w, "", "", r.URL.Path)
 }
 
 func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dd DcData
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", "AddDcError")
+		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	err = json.Unmarshal(reqBody, &dd)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", "AddDcError")
+		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 	id, err := h.store.AddDc(&eventmaster.Dc{
 		DcName: dd.Name,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error adding dc", "AddDcError")
+		h.sendError(w, http.StatusBadRequest, err, "Error adding dc", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "dc_id", id, "AddDc")
+	h.sendResp(w, "dc_id", id, r.URL.Path)
 }
 
 func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var dd DcData
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", "UpdateDcError")
+		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	err = json.Unmarshal(reqBody, &dd)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", "UpdateDcError")
+		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 	dcName := ps.ByName("name")
 	if dcName == "" {
-		h.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", "UpdateDcError")
+		h.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", r.URL.Path)
 		return
 	}
 	id, err := h.store.UpdateDc(&eventmaster.UpdateDcRequest{
@@ -348,26 +344,26 @@ func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps 
 		NewName: dd.Name,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error updating dc", "UpdateDcError")
+		h.sendError(w, http.StatusBadRequest, err, "Error updating dc", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "dc_id", id, "UpdateDc")
+	h.sendResp(w, "dc_id", id, r.URL.Path)
 }
 
 func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	dcSet := make(map[string][]DcData)
 	dcs, err := h.store.GetDcs()
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store", "GetDcError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store", r.URL.Path)
 		return
 	}
 	dcSet["results"] = dcs
 	str, err := json.Marshal(dcSet)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", "GetDcError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(str), "GetDc")
+	h.sendResp(w, "", string(str), r.URL.Path)
 }
 
 func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -375,11 +371,11 @@ func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, 
 
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", "GitHubEventError")
+		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	if err := json.Unmarshal(reqBody, &info); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", "GitHubEventError")
+		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 
@@ -390,13 +386,13 @@ func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, 
 		Data:      info,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", "GitHubEventError")
+		h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "event_id", id, "GitHubEvent")
+	h.sendResp(w, "event_id", id, r.URL.Path)
 }
 
 func (h *httpHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// TODO: make this more useful
-	h.sendResp(w, "", "", "HealthCheck")
+	h.sendResp(w, "", "", r.URL.Path)
 }

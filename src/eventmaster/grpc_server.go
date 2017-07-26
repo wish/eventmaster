@@ -6,52 +6,36 @@ import (
 	"time"
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
-	statsd "github.com/ContextLogic/gobrubeckclient/brubeck"
-	metrics "github.com/rcrowley/go-metrics"
 	context "golang.org/x/net/context"
 )
 
-func NewGRPCServer(config *Config, s *EventStore, r metrics.Registry) (*grpcServer, error) {
-	statsClient := statsd.NewClient(
-		"eventmaster",
-		config.StatsdServer,
-		false, // TODO disable this outside of prod
-	)
-
+func NewGRPCServer(config *Config, s *EventStore) (*grpcServer, error) {
 	return &grpcServer{
-		config:   config,
-		statsd:   statsClient,
-		store:    s,
-		registry: r,
+		config: config,
+		store:  s,
 	}, nil
 }
 
 type grpcServer struct {
-	config   *Config
-	statsd   *statsd.Client
-	store    *EventStore
-	registry metrics.Registry
+	config *Config
+	store  *EventStore
 }
 
 func (s *grpcServer) performOperation(method string, op func() (string, error)) (*eventmaster.WriteResponse, error) {
-	name := "grpc" + method
-
 	start := time.Now()
-	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
-	defer timer.UpdateSince(start)
-	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
-	meter.Mark(1)
+	defer func() {
+		grpcReqLatencies.WithLabelValues(method).Observe(trackTime(start))
+	}()
+	grpcReqCounter.WithLabelValues(method).Inc()
 
 	id, err := op()
 	if err != nil {
-		meter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-		meter.Mark(1)
+		grpcRespCounter.WithLabelValues(method, "1").Inc()
 		fmt.Println("Error performing operation", method, err)
 		return nil, err
 	}
 
-	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
-	successMeter.Mark(1)
+	grpcRespCounter.WithLabelValues(method, "0").Inc()
 	return &eventmaster.WriteResponse{
 		Id: id,
 	}, nil
@@ -82,26 +66,23 @@ func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 }
 
 func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
-	name := "grpcGetEvents"
-
+	name := "GetEvents"
 	start := time.Now()
-	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
-	defer timer.UpdateSince(start)
-	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
-	meter.Mark(1)
+	defer func() {
+		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+	}()
+	grpcReqCounter.WithLabelValues(name).Inc()
 
 	events, err := s.store.Find(q)
 	if err != nil {
-		errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-		errMeter.Mark(1)
+		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error performing event store find", err)
 		return err
 	}
 	for _, ev := range events {
 		d, err := json.Marshal(ev.Data)
 		if err != nil {
-			errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-			errMeter.Mark(1)
+			grpcRespCounter.WithLabelValues(name, "1").Inc()
 			fmt.Println("Error marshalling event data into JSON", err)
 			return err
 		}
@@ -117,14 +98,12 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 			User:          ev.User,
 			Data:          d,
 		}); err != nil {
-			errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-			errMeter.Mark(1)
+			grpcRespCounter.WithLabelValues(name, "1").Inc()
 			fmt.Println("Error streaming event to grpc client", err)
 			return err
 		}
 	}
-	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
-	successMeter.Mark(1)
+	grpcRespCounter.WithLabelValues(name, "0").Inc()
 	return nil
 }
 
@@ -160,39 +139,34 @@ func (s *grpcServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopic
 }
 
 func (s *grpcServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopicRequest) (*eventmaster.WriteResponse, error) {
-	name := "grpcDeleteTopic"
-
+	name := "DeleteTopic"
 	start := time.Now()
-	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
-	defer timer.UpdateSince(start)
-	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
-	meter.Mark(1)
+	defer func() {
+		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+	}()
+	grpcReqCounter.WithLabelValues(name).Inc()
 
 	err := s.store.DeleteTopic(t)
 	if err != nil {
-		errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-		errMeter.Mark(1)
+		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error deleting topic: ", err)
 		return nil, err
 	}
-	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
-	successMeter.Mark(1)
+	grpcRespCounter.WithLabelValues(name, "0").Inc()
 	return &eventmaster.WriteResponse{}, nil
 }
 
 func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.TopicResult, error) {
-	name := "grpcGetTopics"
-
+	name := "GetTopics"
 	start := time.Now()
-	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
-	defer timer.UpdateSince(start)
-	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
-	meter.Mark(1)
+	defer func() {
+		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+	}()
+	grpcReqCounter.WithLabelValues(name).Inc()
 
 	topics, err := s.store.GetTopics()
 	if err != nil {
-		errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-		errMeter.Mark(1)
+		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error getting topics: ", err)
 		return nil, err
 	}
@@ -206,8 +180,7 @@ func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 		} else {
 			schemaBytes, err = json.Marshal(topic.Schema)
 			if err != nil {
-				errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-				errMeter.Mark(1)
+				grpcRespCounter.WithLabelValues(name, "1").Inc()
 				fmt.Println("Error marshalling topic schema: ", err)
 				return nil, err
 			}
@@ -218,8 +191,7 @@ func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 			DataSchema: schemaBytes,
 		})
 	}
-	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
-	successMeter.Mark(1)
+	grpcRespCounter.WithLabelValues(name, "0").Inc()
 	return &eventmaster.TopicResult{
 		Results: topicResults,
 	}, nil
@@ -238,18 +210,16 @@ func (s *grpcServer) UpdateDc(ctx context.Context, t *eventmaster.UpdateDcReques
 }
 
 func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.DcResult, error) {
-	name := "grpcGetDcs"
-
+	name := "GetDcs"
 	start := time.Now()
-	timer := metrics.GetOrRegisterTimer(fmt.Sprintf("%s:%s", name, "Timer"), s.registry)
-	defer timer.UpdateSince(start)
-	meter := metrics.GetOrRegisterMeter(fmt.Sprintf("%s:%s", name, "Meter"), s.registry)
-	meter.Mark(1)
+	defer func() {
+		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+	}()
+	grpcReqCounter.WithLabelValues(name).Inc()
 
 	dcs, err := s.store.GetDcs()
 	if err != nil {
-		errMeter := metrics.GetOrRegisterMeter(name+"Error", s.registry)
-		errMeter.Mark(1)
+		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error getting topics: ", err)
 		return nil, err
 	}
@@ -262,8 +232,7 @@ func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 			DcName: dc.Name,
 		})
 	}
-	successMeter := metrics.GetOrRegisterMeter(name+"Success", s.registry)
-	successMeter.Mark(1)
+	grpcRespCounter.WithLabelValues(name, "0").Inc()
 	return &eventmaster.DcResult{
 		Results: dcResults,
 	}, nil

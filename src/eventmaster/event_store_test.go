@@ -12,7 +12,6 @@ import (
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	cass "github.com/ContextLogic/eventmaster/src/cassandra_client"
-	metrics "github.com/rcrowley/go-metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/xeipuuv/gojsonschema"
 	elastic "gopkg.in/olivere/elastic.v5"
@@ -107,7 +106,6 @@ func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
 		dcNameToId:               make(map[string]string),
 		dcIdToName:               make(map[string]string),
-		registry:                 metrics.NewRegistry(),
 	}, nil
 }
 

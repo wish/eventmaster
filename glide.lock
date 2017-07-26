@@ -1,6 +1,10 @@
-hash: 88c50e1daa5a20b6c39d06f0cd418ff4f3cf58f2b55949390a75e3664c2de105
-updated: 2017-07-14T12:14:55.578869632-07:00
+hash: e19807b1a45ead54feb9d1d09da234d06831ed3334109e60e4a482dd3476157f
+updated: 2017-07-26T12:31:43.471739755-07:00
 imports:
+- name: github.com/beorn7/perks
+  version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
+  subpackages:
+  - quantile
 - name: github.com/ContextLogic/gobrubeckclient
   version: d4f432c8594db6b27d0282033dc5429b714ca9d5
   subpackages:
@@ -28,12 +32,31 @@ imports:
   version: 48cf8722c3375517aba351d1f7577c40663a4407
 - name: github.com/julienschmidt/httprouter
   version: 8c199fb6259ffc1af525cc3ad52ee60ba8359669
+- name: github.com/matttproud/golang_protobuf_extensions
+  version: c12348ce28de40eed0136aa2b644d0ee0650e56c
+  subpackages:
+  - pbutil
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
-- name: github.com/rcrowley/go-metrics
-  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+- name: github.com/prometheus/client_golang
+  version: c5b7fccd204277076155f10851dad72b76a49317
   subpackages:
-  - exp
+  - prometheus
+  - prometheus/promhttp
+- name: github.com/prometheus/client_model
+  version: 6f3806018612930941127f2a7c6c453ba2c527d2
+  subpackages:
+  - go
+- name: github.com/prometheus/common
+  version: 3e6a7635bac6573d43f49f97b47eb9bda195dba8
+  subpackages:
+  - expfmt
+  - internal/bitbucket.org/ww/goautoneg
+  - model
+- name: github.com/prometheus/procfs
+  version: e645f4e5aaa8506fc71d6edbc5c4ff02c04c46f2
+  subpackages:
+  - xfs
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
@@ -95,12 +118,13 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/olivere/elastic.v5
-  version: 3113f9b9ad37509fe5f8a0e5e91c96fdc4435e26
+  version: f5030c016b49a6fb0e1958bc765562246c0a912c
   subpackages:
+  - config
   - uritemplates
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib

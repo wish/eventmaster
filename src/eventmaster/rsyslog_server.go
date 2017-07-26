@@ -8,16 +8,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	metrics "github.com/rcrowley/go-metrics"
 )
 
 type rsyslogServer struct {
 	lis   net.Listener
 	store *EventStore
-	timer metrics.Timer
 }
 
-func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int, r metrics.Registry) (*rsyslogServer, error) {
+func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*rsyslogServer, error) {
 	var lis net.Listener
 	var err error
 	if tlsConfig != nil {
@@ -33,13 +31,15 @@ func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int, r metrics.
 	return &rsyslogServer{
 		lis:   lis,
 		store: s,
-		timer: metrics.GetOrRegisterTimer("rsyslog:Timer", r),
 	}, nil
 }
 
 func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
 	start := time.Now()
-	defer s.timer.UpdateSince(start)
+	defer func() {
+		rsyslogReqLatencies.WithLabelValues().Observe(trackTime(start))
+	}()
+	rsyslogReqCounter.WithLabelValues().Inc()
 
 	buf := make([]byte, 20000)
 	_, err := conn.Read(buf)
