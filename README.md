@@ -37,6 +37,9 @@ Modify `db_config.json` to specify the address of Cassandra and ES along with ot
 
 ### Database Setup
 Execute `schema.cql` on your Cassandra cluster. This will set up the `event_master` keyspace and `event`, `temp_event`, `event_topic`, and `event_dc` tables. Note that the `class` and `replication_factor` can be modified as long as the `consistency` attribute is configured accordingly in the `db_config.json`.
+```
+$ cqlsh -f schema.cql
+```
 
 ### Running
 To use options set in `db_config.json` or defaults, run
