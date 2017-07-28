@@ -1,6 +1,8 @@
 {{ define "form" }}
 <script type="text/javascript" src="/bootstrap/js/bootstrap-datetimepicker.min.js"></script>
 <link rel="stylesheet" href="/bootstrap/css/bootstrap-datetimepicker.min.css"/>
+<script type="text/javascript" src="js/bootstrap-multiselect.js"></script>
+<link rel="stylesheet" href="css/bootstrap-multiselect.css" type="text/css"/>
 
 <div id="wrapper">
 	<div id="sidebar-wrapper">
@@ -23,9 +25,13 @@
 			    <label for="dc">DC *</label>
 			    <input type="text" class="form-control" placeholder="Data center" name="dc">
 	  	    </div>
-	  	    <div class="form-group">
-	  		    <label for="topicName">Topic *</label>
-				<input type="text" class="form-control" placeholder="Topic" name="topic_name" id="topicName">
+	  	    <div class="form-group btn-group open">
+	  		    <label for="topicName">Topics</label><br>
+				<select id="topic-select-box" name="selected_topics[]" multiple="multiple">
+					{{range .}}<option value="{{ .Name }}">{{.Name}}</option>
+					{{end}}
+				</select><br>
+
 	  	    </div>
 	  	    <div class="form-group">
 	  	    	<label for="tag_set">Tags *</label>

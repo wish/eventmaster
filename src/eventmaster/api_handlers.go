@@ -38,10 +38,10 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent))
 
 	// UI endpoints
-	r.GET("/", HandleMainPage)
-	r.GET("/add_event", HandleCreatePage)
-	r.GET("/topic", HandleTopicPage)
-	r.GET("/dc", HandleDcPage)
+	r.GET("/", h.HandleMainPage)
+	r.GET("/add_event", h.HandleCreatePage)
+	r.GET("/topic", h.HandleTopicPage)
+	r.GET("/dc", h.HandleDcPage)
 
 	// JS file endpoints
 	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
