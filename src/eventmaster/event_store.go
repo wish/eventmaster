@@ -50,13 +50,13 @@ func (event *Event) toCassandra(data string) string {
 	return fmt.Sprintf(`
 	BEGIN BATCH
     INSERT INTO event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, $$%[10]s$$, %[11]d);
     INSERT INTO temp_event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
-    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, %[10]s, %[11]d);
+    VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, $$%[10]s$$, %[11]d);
     APPLY BATCH;`,
 		event.EventID, stringifyUUID(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
 		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime,
-		stringifyArr(event.Tags), stringify(data), event.ReceivedTime)
+		stringifyArr(event.Tags), data, event.ReceivedTime)
 }
 
 type TopicData struct {
