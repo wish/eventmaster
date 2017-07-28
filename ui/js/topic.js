@@ -91,7 +91,7 @@ $(document).ready(function() {
 		dataType: "json",
 		success: function(data) {
 			var results = data['results'];
-			var elem = document.getElementById("topic_list")
+			var elem = document.getElementById("topic_list");
 			elem.innerHTML = "";
 			if (results) {
 				for (var i = 0; i < results.length; i++) {

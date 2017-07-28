@@ -179,7 +179,7 @@ func main() {
 	signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
 
 	<-stopChan
-	fmt.Println("Got shutdown signal, gracefully shutting down")
+	fmt.Println("Got shutdown signal, gracefully shutting down...")
 	flushTicker.Stop()
 	updateTicker.Stop()
 	store.CloseSession()

@@ -53,7 +53,15 @@ function backgroundUpdate() {
 $(document).ready(function() {
     $('#starttimepicker').datetimepicker();
     $('#endtimepicker').datetimepicker();
-	backgroundUpdate()
+    $('#topic-select-box').multiselect({
+        enableFiltering: true,
+        includeSelectAllOption: true,
+        numberDisplayed: 1,
+        selectAllNumber: false,
+        enableCaseInsensitiveFiltering: true,
+        buttonWidth: '100%'
+    });
+	backgroundUpdate();
 });
 
 $("#menu-toggle").click(function(e) {
@@ -72,6 +80,7 @@ function submitQuery(form) {
     var sortFields = [];
     var sortAscending = [];
 	var startEventTime, endEventTime;
+	var topics = [];
 	for (var i = 0; i < data.length; i++) {
 		var key = data[i]["name"];
 		var value = data[i]["value"];
@@ -86,8 +95,11 @@ function submitQuery(form) {
                 }
             } else {
                 switch(key) {
+                    case "selected_topics[]":
+                        topics.push(value);
+                        break;
 				    case "data":
-					    formData[key] = value
+					    formData[key] = value;
 					    break;
 				    case "startEventTime":
 					    startEventTime = value;
@@ -101,6 +113,9 @@ function submitQuery(form) {
 			}
 		}
 	}
+    if (topics.length > 0) {
+        formData["topic_name"] = topics;
+    }
 
     if (sortFields.length > 0) {
         formData["sort_field"] = sortFields;
