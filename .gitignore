@@ -1,2 +1,6 @@
 *.sh
 vendor/
+
+# Ignore IDE specific files
+.idea/
+*.iml
