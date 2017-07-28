@@ -119,6 +119,8 @@ func main() {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 		tlsConfig = &tls.Config{
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientCAs:    caCertPool,
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      caCertPool,
 		}

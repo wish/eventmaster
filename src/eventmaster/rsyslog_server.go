@@ -15,6 +15,37 @@ type rsyslogServer struct {
 	store *EventStore
 }
 
+type LogParser func(int64, string, string, string, string) *UnaddedEvent
+
+var logParserMap = map[string]LogParser{
+	"auditd": parseAuditd,
+}
+
+func parseAuditd(timestamp int64, dc string, host string, topic string, msg string) *UnaddedEvent {
+	data := parseKeyValuePair(msg)
+	user := ""
+	if val, ok := data["uid"]; ok {
+		user = val.(string)
+	} else if val, ok := data["ouid"]; ok {
+		user = val.(string)
+	}
+
+	var tags []string
+	if val, ok := data["type"]; ok {
+		tags = append(tags, val.(string))
+	}
+
+	return &UnaddedEvent{
+		EventTime: timestamp,
+		TopicName: topic,
+		Dc:        dc,
+		Tags:      tags,
+		Host:      host,
+		User:      user,
+		Data:      data,
+	}
+}
+
 func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*rsyslogServer, error) {
 	var lis net.Listener
 	var err error
@@ -44,10 +75,9 @@ func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
 	buf := make([]byte, 20000)
 	_, err := conn.Read(buf)
 	if err != nil {
-		// TODO: keep metric on this
 		fmt.Println("Error reading log:", err.Error())
-		return
 	}
+	defer conn.Close()
 
 	logs := strings.Split(string(buf), "\n")
 	for _, log := range logs {
@@ -65,31 +95,15 @@ func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
 			timestamp = timeObj.Unix()
 		}
 		dc, host, topic, message := parts[1], parts[2], parts[3], parts[4]
-		data := parseKeyValuePair(message)
-		user := ""
-		if val, ok := data["uid"]; ok {
-			user = val.(string)
-		} else if val, ok := data["ouid"]; ok {
-			user = val.(string)
-		}
-
-		var tags []string
-		if val, ok := data["type"]; ok {
-			tags = append(tags, val.(string))
-		}
-
-		_, err = s.store.AddEvent(&UnaddedEvent{
-			EventTime: timestamp,
-			TopicName: topic,
-			Dc:        dc,
-			Tags:      tags,
-			Host:      host,
-			User:      user,
-			Data:      data,
-		})
-		if err != nil {
-			// TODO: keep metric on this, add to queue of events to retry?
-			fmt.Println("Error adding log event", err)
+		if parser, ok := logParserMap[topic]; ok {
+			evt := parser(timestamp, dc, host, topic, message)
+			_, err = s.store.AddEvent(evt)
+			if err != nil {
+				// TODO: keep metric on this, add to queue of events to retry?
+				fmt.Println("Error adding log event", err)
+			}
+		} else {
+			fmt.Println("unrecognized log type, won't be added:", topic)
 		}
 	}
 }

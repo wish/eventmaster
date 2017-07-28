@@ -1,16 +1,21 @@
-$template LogMsg,"%timegenerated:::date-rfc3340%^0<%= @dc_name %>^0%hostname%^0<%= @topic_name %>^0%msg%\n"
+$template LogMsg,"%timegenerated:::date-rfc3339%^0<%= @dc_name %>^0%hostname%^0<%= @topic_name %>^0%msg%\n"
 
 $ModLoad imfile
 $InputFileName <%= @log_path %>
+$InputFileTag <%= @file_tag %>
+$InputFileStateFile <%= @file_state_file %>
 $InputFileSeverity info
 $InputFileFacility local1
 $InputFilePollInterval 1
 $InputRunFileMonitor
 
-$DefaultNetstreamDriverCAFile <%- @ca_file_path %>
 $DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile <%= @ca_file_path %>
+$DefaultNetstreamDriverCertFile <%= @cert_file_path %>
+$DefaultNetstreamDriverKeyFile <%= @key_file_path %>
+$ActionSendStreamDriverAuthMode x509/name
+$ActionSendStreamDriverPermittedPeer *
 $ActionSendStreamDriverMode 1
-$ActionSendStreamDriverAuthMode anon
 
 $ModLoad omfwd
-local1.* @@localhost:50053;LogMsg
+local1.* @@<%= @target_host %>;LogMsg
