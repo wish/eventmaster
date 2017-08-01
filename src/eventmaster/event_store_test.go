@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -102,8 +101,6 @@ func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
 		topicMutex:               &sync.RWMutex{},
 		dcMutex:                  &sync.RWMutex{},
 		indexMutex:               &sync.RWMutex{},
-		randMutex:                &sync.Mutex{},
-		rander:                   rand.Reader,
 		topicNameToId:            make(map[string]string),
 		topicIdToName:            make(map[string]string),
 		topicSchemaMap:           make(map[string]*gojsonschema.Schema),

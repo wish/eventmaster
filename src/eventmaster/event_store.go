@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
 	"strings"
 	"sync"
@@ -86,8 +84,6 @@ type EventStore struct {
 	topicMutex               *sync.RWMutex
 	dcMutex                  *sync.RWMutex
 	indexMutex               *sync.RWMutex
-	rander                   io.Reader // used to generate KSUID for event ID
-	randMutex                *sync.Mutex
 }
 
 func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
@@ -142,8 +138,6 @@ func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
 		dcNameToId:               make(map[string]string),
 		dcIdToName:               make(map[string]string),
-		rander:                   rand.Reader,
-		randMutex:                &sync.Mutex{},
 	}, nil
 }
 
@@ -388,22 +382,6 @@ func (es *EventStore) insertDefaults(s map[string]interface{}, m map[string]inte
 	insertDefaults(p, m)
 }
 
-func (es *EventStore) buildEventID(t int64) (string, error) {
-	randBuffer := [16]byte{}
-	es.randMutex.Lock()
-	_, err := io.ReadAtLeast(es.rander, randBuffer[:], len(randBuffer))
-	es.randMutex.Unlock()
-	if err != nil {
-		return "", errors.Wrap(err, "Error reading from rand.Reader")
-	}
-
-	id, err := ksuid.FromParts(time.Unix(t, 0).UTC(), randBuffer[:])
-	if err != nil {
-		return "", errors.Wrap(err, "Error creating ksuid")
-	}
-	return id.String(), nil
-}
-
 func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, string, error) {
 	// validate Event
 	if event.Dc == "" {
@@ -453,13 +431,13 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, string, error) 
 		}
 	}
 
-	eventID, err := es.buildEventID(event.EventTime)
+	eventID, err := ksuid.NewRandomWithTime(time.Unix(event.EventTime, 0).UTC())
 	if err != nil {
 		return nil, "", errors.Wrap(err, "Error creating event ID:")
 	}
 
 	return &Event{
-		EventID:       eventID,
+		EventID:       eventID.String(),
 		ParentEventID: event.ParentEventID,
 		EventTime:     event.EventTime * 1000,
 		DcID:          dcID,
