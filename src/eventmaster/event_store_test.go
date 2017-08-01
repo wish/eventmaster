@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ContextLogic/eventmaster/eventmaster"
 	cass "github.com/ContextLogic/eventmaster/src/cassandra_client"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/xeipuuv/gojsonschema"
 	elastic "gopkg.in/olivere/elastic.v5"
@@ -100,6 +102,8 @@ func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
 		topicMutex:               &sync.RWMutex{},
 		dcMutex:                  &sync.RWMutex{},
 		indexMutex:               &sync.RWMutex{},
+		randMutex:                &sync.Mutex{},
+		rander:                   rand.Reader,
 		topicNameToId:            make(map[string]string),
 		topicIdToName:            make(map[string]string),
 		topicSchemaMap:           make(map[string]*gojsonschema.Schema),
@@ -346,7 +350,7 @@ var addEventTests = []struct {
 	ErrExpected bool
 }{
 	{&UnaddedEvent{
-		ParentEventID: "4e54cfd7-e49c-41ea-820b-62c1b241a80a",
+		ParentEventID: "0ra0GxvIDmaFkVr0pqx6EVYcuzD",
 		Dc:            "dc1",
 		TopicName:     "test1",
 		Tags:          []string{"tag1", "tag2"},
@@ -430,10 +434,10 @@ func checkAddEventQuery(query string, id string, evt *UnaddedEvent) bool {
 		return false
 	}
 
-	matchStr := fmt.Sprintf(`[\s\S]*BEGIN BATCH[\s\S]*INSERT INTO event \(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time\)[\s\S]*VALUES \(%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]s, %[9]s, %[10]s, %[11]s\);[\s\S]*INSERT INTO temp_event \(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time\)[\s\S]*VALUES \(%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]s, %[9]s, %[10]s, %[11]s\);[\s\S]*APPLY BATCH;`,
-		id, stringifyUUID(evt.ParentEventID), uuidMatchStr, uuidMatchStr,
+	matchStr := fmt.Sprintf(`[\s\S]*BEGIN BATCH[\s\S]*INSERT INTO event \(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time\)[\s\S]*VALUES \(%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]s, %[9]s, \$\$%[10]s\$\$, %[11]s\);[\s\S]*INSERT INTO temp_event \(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time\)[\s\S]*VALUES \(%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]s, %[9]s, \$\$%[10]s\$\$, %[11]s\);[\s\S]*APPLY BATCH;`,
+		stringify(id), stringify(evt.ParentEventID), uuidMatchStr, uuidMatchStr,
 		stringify(evt.Host), stringifyArr(evt.TargetHosts), stringify(evt.User), "\\d{10}000",
-		stringifyArr(evt.Tags), stringify(string(data)), "\\d{10}000")
+		stringifyArr(evt.Tags), string(data), "\\d{10}000")
 
 	return regexp.MustCompile(matchStr).MatchString(query)
 }
@@ -455,7 +459,8 @@ func TestAddEvent(t *testing.T) {
 		id, err := s.AddEvent(test.Event)
 		assert.Equal(t, test.ErrExpected, err != nil)
 		if !test.ErrExpected {
-			assert.True(t, isUUID(id))
+			_, err := ksuid.Parse(id)
+			assert.Nil(t, err)
 			assert.True(t, checkAddEventQuery(s.cqlSession.(*cass.MockCassSession).LastQuery(), id, test.Event))
 		}
 	}

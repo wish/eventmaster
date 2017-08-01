@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"sync"
@@ -15,6 +17,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
+	"github.com/segmentio/ksuid"
 	"github.com/xeipuuv/gojsonschema"
 	elastic "gopkg.in/olivere/elastic.v5"
 )
@@ -54,7 +57,7 @@ func (event *Event) toCassandra(data string) string {
     INSERT INTO temp_event (event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time)
     VALUES (%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]d, %[9]s, $$%[10]s$$, %[11]d);
     APPLY BATCH;`,
-		event.EventID, stringifyUUID(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
+		stringify(event.EventID), stringify(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
 		stringify(event.Host), stringifyArr(event.TargetHosts), stringify(event.User), event.EventTime,
 		stringifyArr(event.Tags), data, event.ReceivedTime)
 }
@@ -83,6 +86,8 @@ type EventStore struct {
 	topicMutex               *sync.RWMutex
 	dcMutex                  *sync.RWMutex
 	indexMutex               *sync.RWMutex
+	rander                   io.Reader // used to generate KSUID for event ID
+	randMutex                *sync.Mutex
 }
 
 func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
@@ -137,6 +142,8 @@ func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
 		dcNameToId:               make(map[string]string),
 		dcIdToName:               make(map[string]string),
+		rander:                   rand.Reader,
+		randMutex:                &sync.Mutex{},
 	}, nil
 }
 
@@ -381,6 +388,22 @@ func (es *EventStore) insertDefaults(s map[string]interface{}, m map[string]inte
 	insertDefaults(p, m)
 }
 
+func (es *EventStore) buildEventID(t int64) (string, error) {
+	randBuffer := [16]byte{}
+	es.randMutex.Lock()
+	_, err := io.ReadAtLeast(es.rander, randBuffer[:], len(randBuffer))
+	es.randMutex.Unlock()
+	if err != nil {
+		return "", errors.Wrap(err, "Error reading from rand.Reader")
+	}
+
+	id, err := ksuid.FromParts(time.Unix(t, 0).UTC(), randBuffer[:])
+	if err != nil {
+		return "", errors.Wrap(err, "Error creating ksuid")
+	}
+	return id.String(), nil
+}
+
 func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, string, error) {
 	// validate Event
 	if event.Dc == "" {
@@ -430,8 +453,13 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, string, error) 
 		}
 	}
 
+	eventID, err := es.buildEventID(event.EventTime)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "Error creating event ID:")
+	}
+
 	return &Event{
-		EventID:       uuid.NewV4().String(),
+		EventID:       eventID,
 		ParentEventID: event.ParentEventID,
 		EventTime:     event.EventTime * 1000,
 		DcID:          dcID,
@@ -909,14 +937,15 @@ func (es *EventStore) FlushToES() error {
 	scanIter, closeIter := es.cqlSession.ExecIterQuery(`SELECT event_id, parent_event_id, dc_id, topic_id,
 		host, target_host_set, user, event_time, tag_set, data_json, received_time
 		FROM temp_event LIMIT 1000;`)
-	var eventID, parentEventID, topicID, dcID gocql.UUID
+	var topicID, dcID gocql.UUID
 	var eventTime, receivedTime int64
-	var host, user, data string
+	var eventID, parentEventID, host, user, data string
 	var targetHostSet, tagSet []string
 
 	// keep track of event and topic IDs to generate delete query from cassandra
 	eventIDs := make(map[string]struct{}) // make eventIDs a set to facilitate deletion in event of bulk error
 	topicIDs := make(map[string]struct{})
+	dcIDs := make(map[string]struct{})
 	esIndices := make(map[string]([]*Event))
 	var v struct{}
 
@@ -929,16 +958,13 @@ func (es *EventStore) FlushToES() error {
 					return errors.Wrap(err, "Error unmarshalling JSON in event data")
 				}
 			}
-			eventIDs[eventID.String()] = v
+			eventIDs[eventID] = v
 			topicIDs[topicID.String()] = v
-			parentEventIDStr := parentEventID.String()
-			if parentEventIDStr == "00000000-0000-0000-0000-000000000000" {
-				parentEventIDStr = ""
-			}
+			dcIDs[dcID.String()] = v
 			index := getIndex(topicID.String(), eventTime/1000)
 			esIndices[index] = append(esIndices[index], &Event{
-				EventID:       eventID.String(),
-				ParentEventID: parentEventIDStr,
+				EventID:       eventID,
+				ParentEventID: parentEventID,
 				EventTime:     eventTime,
 				DcID:          dcID.String(),
 				TopicID:       topicID.String(),
@@ -989,7 +1015,7 @@ func (es *EventStore) FlushToES() error {
 
 	var idArr []string
 	for eventId, _ := range eventIDs {
-		idArr = append(idArr, eventId)
+		idArr = append(idArr, fmt.Sprintf("'%s'", eventId))
 	}
 
 	var topicArr []string
@@ -997,8 +1023,13 @@ func (es *EventStore) FlushToES() error {
 		topicArr = append(topicArr, tId)
 	}
 
-	if err := es.cqlSession.ExecQuery(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s) AND topic_id in (%s)",
-		strings.Join(idArr, ","), strings.Join(topicArr, ","))); err != nil {
+	var dcArr []string
+	for dcId, _ := range dcIDs {
+		dcArr = append(dcArr, dcId)
+	}
+
+	if err := es.cqlSession.ExecQuery(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s) AND topic_id in (%s) AND dc_id in (%s)",
+		strings.Join(idArr, ","), strings.Join(topicArr, ","), strings.Join(dcArr, ","))); err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
 		return errors.Wrap(err, "Error performing delete from temp_event in cassandra")
 	}

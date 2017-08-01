@@ -1,5 +1,5 @@
-hash: e19807b1a45ead54feb9d1d09da234d06831ed3334109e60e4a482dd3476157f
-updated: 2017-07-26T12:31:43.471739755-07:00
+hash: 349bd47f888bf6908c68070a40eafd9672b3fa9519619746b6bef2825ee02044
+updated: 2017-08-01T12:57:02.521471142-07:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -48,7 +48,7 @@ imports:
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: 3e6a7635bac6573d43f49f97b47eb9bda195dba8
+  version: 61f87aac8082fa8c3c5655c7608d7478d46ac2ad
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
@@ -59,6 +59,8 @@ imports:
   - xfs
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
+- name: github.com/segmentio/ksuid
+  version: e3c9952840557adbb3538b1039e783d44c21ae4a
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/soheilhy/cmux
@@ -118,7 +120,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/olivere/elastic.v5
-  version: f5030c016b49a6fb0e1958bc765562246c0a912c
+  version: edbef41beaacc2ee95e61af8faff04e67c01e268
   subpackages:
   - config
   - uritemplates
