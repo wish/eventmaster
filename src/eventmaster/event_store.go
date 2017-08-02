@@ -985,8 +985,14 @@ func (es *EventStore) FlushToES() error {
 		if bulkResp.Errors {
 			failedItems := bulkResp.Failed()
 			for _, item := range failedItems {
-				fmt.Println("failed to index event with id", item.Id)
-				delete(eventIDs, item.Id) // don't include event in list of events to de
+				fmt.Println("failed to index event with id", item.Id, item.Error.Type, item.Error)
+				if item.Error.Type == "mapper_parsing_exception" {
+					// never going to succeed, no point in retrying
+					fmt.Println("Permanently removing event", item.Id)
+				} else {
+					fmt.Println(item.Error.Type)
+					delete(eventIDs, item.Id) // don't include event in list of events to de
+				}
 			}
 		}
 	}
