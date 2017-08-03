@@ -473,11 +473,82 @@ func (es *EventStore) checkIndex(index string) error {
 	return nil
 }
 
+func canUseCassandra(q *eventmaster.Query) bool {
+	return len(q.Dc) == 0 && len(q.Host) == 0 && len(q.TargetHostSet) == 0 && len(q.User) == 0 && len(q.TagSet) == 0 && len(q.ParentEventId) == 0 && q.Data == "" && (q.EventId != "" || len(q.TopicName) == 1 && (q.StartEventTime > 0 || q.EndEventTime > 0))
+}
+
+func (es *EventStore) buildCassandraQuery(q *eventmaster.Query) string {
+	fields := `event_id, parent_event_id, dc_id, topic_id,
+		host, target_host_set, user, event_time, tag_set, data_json, received_time`
+	if q.EventId != "" {
+		return fmt.Sprintf(`SELECT %s
+		FROM event WHERE event_id=%s LIMIT 100;`, fields, stringify(q.EventId))
+	}
+
+	topicId := es.getTopicId(q.TopicName[0])
+	fmt.Println(q.StartEventTime / 1000)
+	fmt.Println(q.EndEventTime / 1000)
+	startKsuid, _ := ksuid.FromParts(time.Unix(q.StartEventTime, 0).UTC(), []byte("0000000000000000"))
+	endKsuid, _ := ksuid.FromParts(time.Unix(q.EndEventTime, 0).UTC(), []byte("0000000000000000"))
+	return fmt.Sprintf(`SELECT %s
+		FROM event_by_topic WHERE topic_id=%s
+		AND event_id > %s AND event_id < %s
+		LIMIT 100;`,
+		fields, topicId, stringify(startKsuid.String()), stringify(endKsuid.String()))
+}
+
+func (es *EventStore) findWithCassandra(q *eventmaster.Query) ([]*Event, error) {
+	query := es.buildCassandraQuery(q)
+	scanIter, closeIter := es.cqlSession.ExecIterQuery(query)
+	var topicID, dcID gocql.UUID
+	var eventTime, receivedTime int64
+	var eventID, parentEventID, host, user, data string
+	var targetHostSet, tagSet []string
+
+	var evts []*Event
+
+	for true {
+		if scanIter(&eventID, &parentEventID, &dcID, &topicID, &host,
+			&targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
+			var d map[string]interface{}
+			if data != "" {
+				if err := json.Unmarshal([]byte(data), &d); err != nil {
+					return nil, errors.Wrap(err, "Error unmarshalling JSON in event data")
+				}
+			}
+			evts = append(evts, &Event{
+				EventID:       eventID,
+				ParentEventID: parentEventID,
+				EventTime:     eventTime / 1000,
+				DcID:          dcID.String(),
+				TopicID:       topicID.String(),
+				Tags:          tagSet,
+				Host:          host,
+				TargetHosts:   targetHostSet,
+				User:          user,
+				Data:          d,
+				ReceivedTime:  receivedTime,
+			})
+		} else {
+			break
+		}
+	}
+	if err := closeIter(); err != nil {
+		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+		return nil, errors.Wrap(err, "Error closing iter")
+	}
+	return evts, nil
+}
+
 func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	start := time.Now()
 	defer func() {
 		eventStoreTimer.WithLabelValues("Find").Observe(trackTime(start))
 	}()
+
+	if canUseCassandra(q) {
+		return es.findWithCassandra(q)
+	}
 
 	sq := es.getSearchService(q)
 	ctx := context.Background()
@@ -922,8 +993,6 @@ func (es *EventStore) FlushToES() error {
 
 	// keep track of event and topic IDs to generate delete query from cassandra
 	eventIDs := make(map[string]struct{}) // make eventIDs a set to facilitate deletion in event of bulk error
-	topicIDs := make(map[string]struct{})
-	dcIDs := make(map[string]struct{})
 	esIndices := make(map[string]([]*Event))
 	var v struct{}
 
@@ -937,8 +1006,6 @@ func (es *EventStore) FlushToES() error {
 				}
 			}
 			eventIDs[eventID] = v
-			topicIDs[topicID.String()] = v
-			dcIDs[dcID.String()] = v
 			index := getIndex(topicID.String(), eventTime/1000)
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID,
@@ -1002,18 +1069,8 @@ func (es *EventStore) FlushToES() error {
 		idArr = append(idArr, fmt.Sprintf("'%s'", eventId))
 	}
 
-	var topicArr []string
-	for tId, _ := range topicIDs {
-		topicArr = append(topicArr, tId)
-	}
-
-	var dcArr []string
-	for dcId, _ := range dcIDs {
-		dcArr = append(dcArr, dcId)
-	}
-
-	if err := es.cqlSession.ExecQuery(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s) AND topic_id in (%s) AND dc_id in (%s)",
-		strings.Join(idArr, ","), strings.Join(topicArr, ","), strings.Join(dcArr, ","))); err != nil {
+	if err := es.cqlSession.ExecQuery(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s)",
+		strings.Join(idArr, ","))); err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
 		return errors.Wrap(err, "Error performing delete from temp_event in cassandra")
 	}
