@@ -17,18 +17,18 @@ function updateResults() {
 					var event = results[i];
 					var item =
 					`<tr onclick=hideData(this)>
-						<td>`.concat(event['event_id'],`</td>
-						<th scope="row">`,event['topic_name'],`</th>
-						<td>`,event['dc'],`</td>
-						<td>`,event['tag_set'],`</td>
-						<td>`,new Date(event['event_time']*1000).toString(),`</td>
-						<td>`,event['host'],`</td>
-						<td>`,event['target_host_set'],`</td>
-						<td>`,event['user'],`</td>
-						<td>`,event['parent_event_id'],`</td>
+						<td style="word-wrap:break-word;overflow:hidden;">`.concat(event['event_id'],`</td>
+						<th style="word-wrap:break-word;overflow:hidden;" scope="row">`,event['topic_name'],`</th>
+						<td style="word-wrap:break-word;overflow:hidden;">`,event['dc'],`</td>
+						<td style="word-wrap:break-word;overflow:hidden;">`,(event['tag_set'] || []).join(", "),`</td>
+						<td style="word-wrap:break-word;overflow:hidden;">`,new Date(event['event_time']*1000).toString(),`</td>
+						<td style="word-wrap:break-word;overflow:hidden;">`,event['host'],`</td>
+						<td style="word-wrap:break-word;overflow:hidden;">`,(event['target_host_set'] || []).join(", "),`</td>
+						<td style="word-wrap:break-word;overflow:hidden;">`,event['user'],`</td>
+						<td style="word-wrap:break-word;overflow:hidden;">`,event['parent_event_id'],`</td>
 					</tr>
                     <tr>
-                        <td colspan="9"><pre>Data: `,JSON.stringify(event['data'],null,4),`</pre></td>
+                        <td colspan="9" style="word-wrap:break-word;overflow:hidden;"><pre>Data: `,JSON.stringify(event['data'],null,4),`</pre></td>
                     </tr>`)
 					elem.innerHTML += item;
                     $("td[colspan=9]").find("pre").hide();
@@ -61,6 +61,7 @@ $(document).ready(function() {
         enableCaseInsensitiveFiltering: true,
         buttonWidth: '100%'
     });
+    $('#query-form').submit();
 	backgroundUpdate();
 });
 
