@@ -186,6 +186,12 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 			resultSize, _ := strconv.ParseInt(limit, 10, 32)
 			q.Limit = int32(resultSize)
 		}
+		if tagAndOperator := query.Get("tag_and_operator"); tagAndOperator == "true" {
+			q.TagAndOperator = true
+		}
+		if targetHostAndOperator := query.Get("target_host_and_operator"); targetHostAndOperator == "true" {
+			q.TargetHostAndOperator = true
+		}
 	}
 
 	events, err := h.store.Find(&q)

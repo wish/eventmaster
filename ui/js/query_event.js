@@ -87,6 +87,8 @@ function submitQuery(form) {
 		if (value) {
             if (key.startsWith("sort_field")) {
                 sortFields.push(value);
+            } else if (key.endsWith("operator")) {
+            	formData[key] = "true"
             } else if (key.startsWith("sort_ascending")) {
                 if (value.toLowerCase() === "t" || value.toLowerCase() === "true") {
                     sortAscending.push("true")
@@ -130,7 +132,8 @@ function submitQuery(form) {
 	}
 	params = [];
 	for (var key in formData) {
-		if (key === "start_event_time" || key === "end_event_time" || key == "data") {
+		if (key === "start_event_time" || key === "end_event_time" || key == "data"
+			|| key === "tag_and_operator" || key === "target_host_and_operator") {
 			if (formData[key] != "") {
 				params.push(key + "=" + formData[key])
 			}

@@ -253,42 +253,56 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 				ids = append(ids, id)
 			}
 		}
-		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "dc_id", "("+strings.Join(ids, " OR ")+")")))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "dc_id.keyword", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.Host) != 0 {
 		var hosts []string
 		for _, host := range q.Host {
 			hosts = append(hosts, strings.ToLower(host))
 		}
-		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "host", "("+strings.Join(hosts, " OR ")+")")))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "host.keyword", "("+strings.Join(hosts, " OR ")+")")))
 	}
 	if len(q.TargetHostSet) != 0 {
-		thosts := make([]interface{}, 0)
+		var thosts []string
 		for _, host := range q.TargetHostSet {
 			thosts = append(thosts, strings.ToLower(host))
 		}
-		queries = append(queries, elastic.NewTermsQuery("target_host_set", thosts...))
+
+		var joiner string
+		if q.TargetHostAndOperator {
+			joiner = " AND "
+		} else {
+			joiner = " OR "
+		}
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "target_host_set.keyword", "("+strings.Join(thosts, joiner)+")")))
 	}
 	if len(q.TagSet) != 0 {
-		tags := make([]interface{}, 0)
+		var tags []string
 		for _, tag := range q.TagSet {
 			tags = append(tags, strings.ToLower(tag))
 		}
-		queries = append(queries, elastic.NewTermsQuery("tag_set", tags...))
+
+		var joiner string
+		if q.TagAndOperator {
+			joiner = " AND "
+		} else {
+			joiner = " OR "
+		}
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "tag_set.keyword", "("+strings.Join(tags, joiner)+")")))
 	}
 	if len(q.ParentEventId) != 0 {
 		var ids []string
 		for _, id := range q.ParentEventId {
 			ids = append(ids, strings.ToLower(id))
 		}
-		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "parent_event_id", "("+strings.Join(ids, " OR ")+")")))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "parent_event_id.keyword", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.User) != 0 {
 		var users []string
 		for _, user := range q.User {
 			users = append(users, strings.ToLower(user))
 		}
-		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "user", "("+strings.Join(users, " OR ")+")")))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "user.keyword", "("+strings.Join(users, " OR ")+")")))
 	}
 	if q.Data != "" {
 		var d map[string]interface{}

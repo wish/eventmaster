@@ -475,28 +475,33 @@ var buildESQueryTests = []struct {
 		TopicName:      []string{"test1"},
 		User:           []string{"user1", "user2"},
 		StartEventTime: 1500328222,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:(%s OR %s)\"}},{\"query_string\":{\"query\":\"host:(hostname)\"}},{\"query_string\":{\"query\":\"user:(user1 OR user2)\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":null}}}]}}", true},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s OR %s)\"}},{\"query_string\":{\"query\":\"host.keyword:(hostname)\"}},{\"query_string\":{\"query\":\"user.keyword:(user1 OR user2)\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":null}}}]}}", true},
 	{&eventmaster.Query{
 		TargetHostSet: []string{"host1", "host2"},
 		ParentEventId: []string{"d6f377e0-eeed-4cdc-8ba3-ae47018bb80d", "a0d18d31-a5e5-436f-be64-9990e3fc4850"},
 		TagSet:        []string{"tag1", "tag2"},
 		User:          []string{"user2"},
 		EndEventTime:  1500328222,
-	}, "{\"bool\":{\"must\":[{\"terms\":{\"target_host_set\":[\"host1\",\"host2\"]}},{\"terms\":{\"tag_set\":[\"tag1\",\"tag2\"]}},{\"query_string\":{\"query\":\"parent_event_id:(d6f377e0-eeed-4cdc-8ba3-ae47018bb80d OR a0d18d31-a5e5-436f-be64-9990e3fc4850)\"}},{\"query_string\":{\"query\":\"user:(user2)\"}},{\"range\":{\"event_time\":{\"from\":null,\"include_lower\":true,\"include_upper\":true,\"to\":1500328222000}}}]}}", false},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"target_host_set.keyword:(host1 OR host2)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 OR tag2)\"}},{\"query_string\":{\"query\":\"parent_event_id.keyword:(d6f377e0-eeed-4cdc-8ba3-ae47018bb80d OR a0d18d31-a5e5-436f-be64-9990e3fc4850)\"}},{\"query_string\":{\"query\":\"user.keyword:(user2)\"}},{\"range\":{\"event_time\":{\"from\":null,\"include_lower\":true,\"include_upper\":true,\"to\":1500328222000}}}]}}", false},
 	{&eventmaster.Query{
 		Dc:        []string{"dc100"},
 		Host:      []string{"host1"},
 		TopicName: []string{"test100"},
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:()\"}},{\"query_string\":{\"query\":\"host:(host1)\"}}]}}", false},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:()\"}},{\"query_string\":{\"query\":\"host.keyword:(host1)\"}}]}}", false},
 	{&eventmaster.Query{
 		Dc:             []string{"dc1"},
 		Data:           "fulltextsearch",
 		StartEventTime: 1500328222,
 		EndEventTime:   1500329000,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id:(%s)\"}},{\"query_string\":{\"query\":\"fulltextsearch\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":1500329000000}}}]}}", true},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s)\"}},{\"query_string\":{\"query\":\"fulltextsearch\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":1500329000000}}}]}}", true},
 	{&eventmaster.Query{
 		Data: "{\"key1\": {\"value1\": \"morevalue\"}, \"key2\": \"value2\"}",
 	}, "{\"bool\":{\"must\":[{\"term\":{\"data.key1.value1\":\"morevalue\"}},{\"term\":{\"data.key2\":\"value2\"}}]}}", false},
+	{&eventmaster.Query{
+		Dc:             []string{"dc1"},
+		TagSet:         []string{"tag1", "tag2", "tag3"},
+		TagAndOperator: true,
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 AND tag2 AND tag3)\"}}]}}", true},
 }
 
 func TestBuildESQuery(t *testing.T) {
