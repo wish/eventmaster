@@ -15,15 +15,15 @@
 		<form id="query-form" onsubmit='return submitQuery(this)' onKeyPress='return checkSubmit(event)'>
 			<div class="form-group">
 			    <label for="event_id">Event ID</label>
-                <input type="text" class="form-control" placeholder="Event ID" name="event_id" value="{{ .Query.EventId }}">
+                <input type="text" class="form-control" placeholder="Event ID" name="event_id" id="event_id" value="{{ .Query.EventId }}">
 		    </div>
 			<div class="form-group">
 			    <label for="parent_event_id">Parent Event ID *</label>
-                <input type="text" class="form-control" placeholder="Parent Event ID" name="parent_event_id" value="{{ getCommaSeparated .Query.ParentEventId }}">
+                <input type="text" class="form-control" placeholder="Parent Event ID" name="parent_event_id" id="parent_event_id" value="{{ getCommaSeparated .Query.ParentEventId }}">
 		    </div>
 		    <div class="form-group">
 			    <label for="dc">DC *</label>
-                <input type="text" class="form-control" placeholder="Data center" name="dc" value="{{ getCommaSeparated .Query.Dc }}">
+                <input type="text" class="form-control" placeholder="Data center" name="dc" id="dc" value="{{ getCommaSeparated .Query.Dc }}">
 	  	    </div>
 	  	    <div class="form-group btn-group open">
 	  		    <label for="topicName">Topics</label><br>
@@ -35,11 +35,11 @@
 	  	    </div>
 	  	    <div class="form-group">
 	  	    	<label for="tag_set">Tags *</label>
-                <input type="checkbox" name="tag_and_operator" {{ getChecked .Query.TagAndOperator }}>
+                <input type="checkbox" name="tag_and_operator" id="tag_and_operator" {{ getChecked .Query.TagAndOperator }}>
 		        <label for="tag_and_operator">
 		            AND results
 		        </label>
-                <input type="text" class="form-control" placeholder="Tag" name="tag_set" value="{{ getCommaSeparated .Query.TagSet }}">
+                <input type="text" class="form-control" placeholder="Tag" name="tag_set" id="tag_set" value="{{ getCommaSeparated .Query.TagSet }}">
 	  	    </div>
 	  	    <div class="form-group">
 	  	    	<label for="exclude_tag_set">Exclude Tags *</label>
@@ -48,23 +48,23 @@
 	  	    </div>
 	  	    <div class="form-group">
 			    <label for="host">Host *</label>
-                <input type="text" class="form-control" placeholder="Host" name="host" value="{{ getCommaSeparated .Query.Host }}">
+                <input type="text" class="form-control" placeholder="Host" name="host" id="host" value="{{ getCommaSeparated .Query.Host }}">
 	  	    </div>
 	    	<div class="form-group">
 	  		    <label for="target_host">Target Host *</label>
-                <input type="checkbox" name="target_host_and_operator" {{ getChecked .Query.TargetHostAndOperator }}>
+                <input type="checkbox" name="target_host_and_operator" id="tag_host_and_operator" {{ getChecked .Query.TargetHostAndOperator }}>
 		        <label for="target_host_and_operator">
 		            AND results
 		        </label>
-                <input type="text" class="form-control" placeholder="Target Host" name="target_host_set" value="{{ getCommaSeparated .Query.TargetHostSet }}">
+                <input type="text" class="form-control" placeholder="Target Host" name="target_host_set" id="target_host_set" value="{{ getCommaSeparated .Query.TargetHostSet }}">
 	  	    </div>
 	  	    <div class="form-group">
 	  		    <label for="user">User *</label>
-                <input type="text" class="form-control" placeholder="User" name="user" value="{{ getCommaSeparated .Query.User }}">
+                <input type="text" class="form-control" placeholder="User" name="user" id="user" value="{{ getCommaSeparated .Query.User }}">
 	  	    </div>
 	  	    <div class="form-group">
 	  	        <label for="data">Data</label>
-                <input type="text" class="form-control" placeholder="Data" name="data" value="{{ .Query.Data }}">
+                <input type="text" class="form-control" placeholder="Data" name="data" id="data" value="{{ .Query.Data }}">
 	  	    </div>
 	  	    <div class="form-group" id="sortFields">
 	  		    <label for="sort_field">Sort Fields *</label>
@@ -100,6 +100,7 @@
 	    <div class="container-fluid">
 	    	<a href="#menu-toggle" class="btn btn-default glyphicon glyphicon-search" id="menu-toggle"></a>
             <button class="btn btn-default" onclick="getShareableLink();">Get Shareable Link</button>
+            <button class="btn btn-default" onclick="clearQuery();">Clear Query</button>
 	        <table class="table table-striped" style="table-layout:fixed;">
 				<thead>
 					<tr>

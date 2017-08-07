@@ -1,5 +1,5 @@
 var params = [];
-var sortFields = 0;
+var numSortFields = 0;
 var querySuccess = true;
 
 function updateResults() {
@@ -53,6 +53,30 @@ function getShareableLink() {
     var parser = document.createElement('a');
     parser.href = document.URL;
     alert(parser.origin + "?" + params.join("&"))
+}
+
+function clearQuery() {
+    params = [];
+    document.getElementById("sortFields").innerHTML = "";
+    numSortFields = 0;
+    document.getElementById("event_id").value = "";
+    document.getElementById("parent_event_id").value = "";
+    document.getElementById("dc").value = "";
+    var topics = document.getElementById("topic-select-box").options;
+    for (var i = 0; i < topics.length; i++) {
+        $("#topic-select-box").multiselect('deselect', [topics[i].value]);
+    }
+    document.getElementById("tag_and_operator").checked = false;
+    document.getElementById("tag_set").value = "";
+    document.getElementById("exclude_tag_set").value = "";
+    document.getElementById("host").value = "";
+    document.getElementById("tag_host_and_operator").checked = false;
+    document.getElementById("target_host_set").value = "";
+    document.getElementById("user").value = "";
+    document.getElementById("data").value = "";
+    document.getElementById("start-event-time").value = "";
+    document.getElementById("end-event-time").value = "";
+    updateResults();
 }
 
 function getTimestampStr(unixTimestamp) {
@@ -174,9 +198,9 @@ function submitQuery(form) {
 
 function addSortField() {
     var newSortField = document.createElement('div');
-    newSortField.id = "divSortField"+sortFields;
+    newSortField.id = "divSortField"+numSortFields;
     var html = `<div class="form-group">
-        <select name="sort_field`+sortFields+`" class="form-control" style="display: inline-block;">
+        <select name="sort_field`+numSortFields+`" class="form-control" style="display: inline-block;">
             <option value=""></option>
             <option value="topic">topic</option>
             <option value="dc">dc</option>
@@ -187,15 +211,15 @@ function addSortField() {
             <option value="parent_event_id">parent event id</option>
             <option value="event_time">event time</option>
         </select>
-        <select name="sort_ascending` + sortFields + `" class="form-control" style="display: inline-block;">
+        <select name="sort_ascending` + numSortFields + `" class="form-control" style="display: inline-block;">
             <option value="true">ascending</option>
             <option value="false">descending</option>
         </select>
-        <button onclick='$("#divSortField`+sortFields+`").remove();' class="btn btn-secondary btn-sm">Remove</label>
+        <button onclick='$("#divSortField`+numSortFields+`").remove();' class="btn btn-secondary btn-sm">Remove</label>
     </div>`;
 
     newSortField.innerHTML = html;
-    sortFields++;
+    numSortFields++;
     document.getElementById("sortFields").appendChild(newSortField);
 }
 
