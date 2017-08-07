@@ -49,6 +49,30 @@ function backgroundUpdate() {
 	setTimeout(backgroundUpdate, 5000)
 }
 
+function getShareableLink() {
+    var parser = document.createElement('a');
+    parser.href = document.URL;
+    alert(parser.origin + "?" + params.join("&"))
+}
+
+function getTimestampStr(unixTimestamp) {
+    if (!unixTimestamp) {
+        return ""
+    }
+    var date = new Date(unixTimestamp * 1000);
+    diff = date.getTimezoneOffset() / 60 - offset
+    if (diff !== 0) {
+        newTime = unixTimestamp - diff*60*60
+        date = new Date(newTime * 1000);
+    }
+    var suffix = "AM";
+    var hours = date.getHours();
+    if (hours >= 12) {
+        suffix = "PM";
+        hours = hours - 12;
+    }
+    return (date.getMonth()+1).toString() + "/" + date.getDate().toString() + "/" + date.getFullYear().toString() + " " + hours.toString() + ":" + date.getMinutes().toString() + " " + suffix;
+}
 
 $(document).ready(function() {
     $('#starttimepicker').datetimepicker();
@@ -173,4 +197,13 @@ function addSortField() {
     newSortField.innerHTML = html;
     sortFields++;
     document.getElementById("sortFields").appendChild(newSortField);
+}
+
+function loadQueryTimes(start, end) {
+    if (start) {
+        document.getElementById('start-event-time').value = getTimestampStr(start);
+    }
+    if (end) {
+        document.getElementById('end-event-time').value = getTimestampStr(end);
+    }
 }

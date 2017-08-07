@@ -15,6 +15,69 @@ import (
 	"github.com/pkg/errors"
 )
 
+func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
+	var q eventmaster.Query
+
+	// read from request body first - if there's an error, read from query params
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&q); err != nil {
+		query := r.URL.Query()
+		if val, ok := query["event_id"]; ok {
+			if len(val) > 0 {
+				q.EventId = val[0]
+			}
+		}
+		q.ParentEventId = query["parent_event_id"]
+		q.Dc = query["dc"]
+		q.Host = query["host"]
+		q.TargetHostSet = query["target_host_set"]
+		q.User = query["user"]
+		q.TagSet = query["tag_set"]
+		q.TopicName = query["topic_name"]
+		q.SortField = query["sort_field"]
+		for _, elem := range query["sort_ascending"] {
+			if strings.ToLower(elem) == "true" {
+				q.SortAscending = append(q.SortAscending, true)
+			} else if strings.ToLower(elem) == "false" {
+				q.SortAscending = append(q.SortAscending, false)
+			}
+		}
+		if len(q.SortField) != len(q.SortAscending) {
+			return nil, errors.New("sort_field and sort_ascending don't match")
+		}
+		if len(query["data"]) > 0 {
+			q.Data = query["data"][0]
+		}
+		if startEventTime := query.Get("start_event_time"); startEventTime != "" {
+			q.StartEventTime, _ = strconv.ParseInt(startEventTime, 10, 64)
+		}
+		if endEventTime := query.Get("end_event_time"); endEventTime != "" {
+			q.EndEventTime, _ = strconv.ParseInt(endEventTime, 10, 64)
+		}
+		if startReceivedTime := query.Get("start_received_time"); startReceivedTime != "" {
+			q.StartReceivedTime, _ = strconv.ParseInt(startReceivedTime, 10, 64)
+		}
+		if endReceivedTime := query.Get("end_received_time"); endReceivedTime != "" {
+			q.EndReceivedTime, _ = strconv.ParseInt(endReceivedTime, 10, 64)
+		}
+		if start := query.Get("start"); start != "" {
+			startIndex, _ := strconv.ParseInt(start, 10, 32)
+			q.Start = int32(startIndex)
+		}
+		if limit := query.Get("limit"); limit != "" {
+			resultSize, _ := strconv.ParseInt(limit, 10, 32)
+			q.Limit = int32(resultSize)
+		}
+		if tagAndOperator := query.Get("tag_and_operator"); tagAndOperator == "true" {
+			q.TagAndOperator = true
+		}
+		if targetHostAndOperator := query.Get("target_host_and_operator"); targetHostAndOperator == "true" {
+			q.TargetHostAndOperator = true
+		}
+	}
+	return &q, nil
+}
+
 func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	r := httprouter.New()
 	h := httpHandler{
@@ -42,6 +105,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	r.GET("/add_event", h.HandleCreatePage)
 	r.GET("/topic", h.HandleTopicPage)
 	r.GET("/dc", h.HandleDcPage)
+	r.GET("/event", h.HandleGetEventPage)
 
 	// JS file endpoints
 	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
@@ -133,68 +197,13 @@ type SearchResult struct {
 }
 
 func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var q eventmaster.Query
-
-	// read from request body first - if there's an error, read from query params
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&q); err != nil {
-		query := r.URL.Query()
-		if val, ok := query["event_id"]; ok {
-			if len(val) > 0 {
-				q.EventId = val[0]
-			}
-		}
-		q.ParentEventId = query["parent_event_id"]
-		q.Dc = query["dc"]
-		q.Host = query["host"]
-		q.TargetHostSet = query["target_host_set"]
-		q.User = query["user"]
-		q.TagSet = query["tag_set"]
-		q.TopicName = query["topic_name"]
-		q.SortField = query["sort_field"]
-		for _, elem := range query["sort_ascending"] {
-			if strings.ToLower(elem) == "true" {
-				q.SortAscending = append(q.SortAscending, true)
-			} else if strings.ToLower(elem) == "false" {
-				q.SortAscending = append(q.SortAscending, false)
-			}
-		}
-		if len(q.SortField) != len(q.SortAscending) {
-			h.sendError(w, http.StatusBadRequest, errors.New("sort_field and sort_ascending don't match"), "Error", r.URL.Path)
-			return
-		}
-		if len(query["data"]) > 0 {
-			q.Data = query["data"][0]
-		}
-		if startEventTime := query.Get("start_event_time"); startEventTime != "" {
-			q.StartEventTime, _ = strconv.ParseInt(startEventTime, 10, 64)
-		}
-		if endEventTime := query.Get("end_event_time"); endEventTime != "" {
-			q.EndEventTime, _ = strconv.ParseInt(endEventTime, 10, 64)
-		}
-		if startReceivedTime := query.Get("start_received_time"); startReceivedTime != "" {
-			q.StartReceivedTime, _ = strconv.ParseInt(startReceivedTime, 10, 64)
-		}
-		if endReceivedTime := query.Get("end_received_time"); endReceivedTime != "" {
-			q.EndReceivedTime, _ = strconv.ParseInt(endReceivedTime, 10, 64)
-		}
-		if start := query.Get("start"); start != "" {
-			startIndex, _ := strconv.ParseInt(start, 10, 32)
-			q.Start = int32(startIndex)
-		}
-		if limit := query.Get("limit"); limit != "" {
-			resultSize, _ := strconv.ParseInt(limit, 10, 32)
-			q.Limit = int32(resultSize)
-		}
-		if tagAndOperator := query.Get("tag_and_operator"); tagAndOperator == "true" {
-			q.TagAndOperator = true
-		}
-		if targetHostAndOperator := query.Get("target_host_and_operator"); targetHostAndOperator == "true" {
-			q.TargetHostAndOperator = true
-		}
+	q, err := getQueryFromRequest(r)
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, err, "Error", r.URL.Path)
+		return
 	}
 
-	events, err := h.store.Find(&q)
+	events, err := h.store.Find(q)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error executing query", r.URL.Path)
 		return

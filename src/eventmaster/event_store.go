@@ -500,8 +500,6 @@ func (es *EventStore) buildCassandraQuery(q *eventmaster.Query) string {
 	}
 
 	topicId := es.getTopicId(q.TopicName[0])
-	fmt.Println(q.StartEventTime / 1000)
-	fmt.Println(q.EndEventTime / 1000)
 	startKsuid, _ := ksuid.FromParts(time.Unix(q.StartEventTime, 0).UTC(), []byte("0000000000000000"))
 	endKsuid, _ := ksuid.FromParts(time.Unix(q.EndEventTime, 0).UTC(), []byte("0000000000000000"))
 	return fmt.Sprintf(`SELECT %s
