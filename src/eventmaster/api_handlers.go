@@ -33,6 +33,7 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 		q.TargetHostSet = query["target_host_set"]
 		q.User = query["user"]
 		q.TagSet = query["tag_set"]
+		q.ExcludeTagSet = query["exclude_tag_set"]
 		q.TopicName = query["topic_name"]
 		q.SortField = query["sort_field"]
 		for _, elem := range query["sort_ascending"] {

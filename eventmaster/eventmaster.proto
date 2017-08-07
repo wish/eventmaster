@@ -47,6 +47,7 @@ message Query {
     string event_id = 17;
     bool tag_and_operator = 18;
     bool target_host_and_operator = 19;
+    repeated string exclude_tag_set = 20;
 }
  
 message Topic {

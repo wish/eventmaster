@@ -135,7 +135,7 @@ function submitQuery(form) {
 					    endEventTime = value;
 					    break;
 				    default:
-				    	formData[key] = value === "" ? [] : value.split(",");
+				    	formData[key] = value === "" ? [] : value.replace(/\s+/g, '').split(",");
                 }
 			}
 		}
