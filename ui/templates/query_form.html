@@ -43,8 +43,7 @@
 	  	    </div>
 	  	    <div class="form-group">
 	  	    	<label for="exclude_tag_set">Exclude Tags *</label>
-                <p class="form-text text-mutes">At least one tag must be specified for this field to be used</p>
-                <input type="text" class="form-control" placeholder="Exclude Tags" name="exclude_tag_set" value="{{ getCommaSeparated .Query.ExcludeTagSet }}">
+                <input type="text" class="form-control" placeholder="Exclude Tags" name="exclude_tag_set" id="exclude_tag_set" value="{{ getCommaSeparated .Query.ExcludeTagSet }}">
 	  	    </div>
 	  	    <div class="form-group">
 			    <label for="host">Host *</label>

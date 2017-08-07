@@ -52,12 +52,12 @@ function backgroundUpdate() {
 function getShareableLink() {
     var parser = document.createElement('a');
     parser.href = document.URL;
-    alert(parser.origin + "?" + params.join("&"))
+    var link = parser.origin + "?" + params.join("&");
+    prompt("Shareable Link:", link);
 }
 
 function clearQuery() {
     params = [];
-    document.getElementById("sortFields").innerHTML = "";
     numSortFields = 0;
     document.getElementById("event_id").value = "";
     document.getElementById("parent_event_id").value = "";
@@ -76,6 +76,12 @@ function clearQuery() {
     document.getElementById("data").value = "";
     document.getElementById("start-event-time").value = "";
     document.getElementById("end-event-time").value = "";
+    var currentSorts = $("div").filter(function() {
+        return /^divSortField\d$/.test(this.id);
+    });
+    for (var i = 0; i < currentSorts.length; i++) {
+        currentSorts[i].remove();
+    }
     updateResults();
 }
 
@@ -169,8 +175,18 @@ function submitQuery(form) {
     }
 
     if (sortFields.length > 0) {
-        formData["sort_field"] = sortFields;
-        formData["sort_ascending"] = sortAscending;
+        sortFieldsArr = [];
+        sortAscendingArr = [];
+        for (var i = 0; i < sortFields.length; i++) {
+            if (sortFields[i] !== "") {
+                sortFieldsArr.push(sortFields[i]);
+                sortAscendingArr.push(sortAscending[i]);
+            }
+        }
+        if (sortFieldsArr.length > 0) {
+            formData["sort_field"] = sortFieldsArr;
+            formData["sort_ascending"] = sortAscendingArr;
+        }
     }
 
 	if (startEventTime) {

@@ -500,8 +500,13 @@ var buildESQueryTests = []struct {
 	{&eventmaster.Query{
 		Dc:             []string{"dc1"},
 		TagSet:         []string{"tag1", "tag2", "tag3"},
+		ExcludeTagSet:  []string{"tag4", "tag5"},
 		TagAndOperator: true,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 AND tag2 AND tag3)\"}}]}}", true},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 AND tag2 AND tag3) AND NOT tag4 AND NOT tag5\"}}]}}", true},
+	{&eventmaster.Query{
+		Host:          []string{"host1"},
+		ExcludeTagSet: []string{"tag1"},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"host.keyword:(host1)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:\\* AND NOT tag1\"}}]}}", false},
 }
 
 func TestBuildESQuery(t *testing.T) {

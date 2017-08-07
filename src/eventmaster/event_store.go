@@ -276,19 +276,22 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		}
 		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "target_host_set.keyword", "("+strings.Join(thosts, joiner)+")")))
 	}
-	if len(q.TagSet) != 0 {
+	if len(q.TagSet) != 0 || len(q.ExcludeTagSet) != 0 {
 		var tags []string
 		for _, tag := range q.TagSet {
 			tags = append(tags, strings.ToLower(tag))
 		}
 
+		tagQueryStr := ""
 		var joiner string
 		if q.TagAndOperator {
 			joiner = " AND "
 		} else {
 			joiner = " OR "
 		}
-		tagQueryStr := fmt.Sprintf("(%s)", strings.Join(tags, joiner))
+		if len(tags) > 0 {
+			tagQueryStr = fmt.Sprintf("(%s)", strings.Join(tags, joiner))
+		}
 
 		var excludeTags []string
 		for _, tag := range q.ExcludeTagSet {
@@ -296,7 +299,11 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		}
 		if len(excludeTags) > 0 {
 			excludeStr := strings.Join(excludeTags, " AND NOT ")
-			tagQueryStr = tagQueryStr + " AND NOT " + excludeStr
+			if tagQueryStr == "" {
+				tagQueryStr = "* AND NOT " + excludeStr
+			} else {
+				tagQueryStr = tagQueryStr + " AND NOT " + excludeStr
+			}
 		}
 		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "tag_set.keyword", tagQueryStr)))
 	}
