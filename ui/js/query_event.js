@@ -38,7 +38,10 @@ function updateResults() {
 		error: function(data) {
             querySuccess = false;
 			alert("Error querying events: " + data.responseText);
-		}
+		},
+        complete: function(data) {
+            $('#loading-indicator').hide();
+        }
 	});
 }
 
@@ -130,6 +133,7 @@ function hideData(row) {
 }
 
 function submitQuery(form) {
+    $('#loading-indicator').show();
 	var data = $(form).serializeArray();
 	var formData = {};
     var sortFields = [];
