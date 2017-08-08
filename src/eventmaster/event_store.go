@@ -374,6 +374,9 @@ func (es *EventStore) getSearchService(q *eventmaster.Query) *elastic.SearchServ
 		q.EndEventTime = -1
 	}
 	indexNames := es.getESIndices(q.StartEventTime, q.EndEventTime, ids...)
+	if len(indexNames) == 0 {
+		return nil
+	}
 
 	limit := q.Limit
 	if limit == 0 {
@@ -579,7 +582,11 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 		return es.findWithCassandra(q)
 	}
 
+	var evts []*Event
 	sq := es.getSearchService(q)
+	if sq == nil {
+		return evts, nil
+	}
 	ctx := context.Background()
 
 	sr, err := sq.Do(ctx)
@@ -595,7 +602,6 @@ func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {
 	}
 	es.topicMutex.Unlock()
 
-	var evts []*Event
 	var evt Event
 	for _, item := range sr.Each(reflect.TypeOf(evt)) {
 		if e, ok := item.(Event); ok {
@@ -1082,7 +1088,7 @@ func (es *EventStore) FlushToES() error {
 			failedItems := bulkResp.Failed()
 			for _, item := range failedItems {
 				fmt.Println("failed to index event with id", item.Id, item.Error.Type, item.Error)
-				if item.Error.Type == "mapper_parsing_exception" {
+				if item.Error.Type == "mapper_parsing_exception" || item.Error.Type == "illegal_argument_exception" {
 					// never going to succeed, no point in retrying
 					fmt.Println("Permanently removing event", item.Id)
 				} else {
