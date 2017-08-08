@@ -237,3 +237,7 @@ func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 		Results: dcResults,
 	}, nil
 }
+
+func (s *grpcServer) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {
+	return &eventmaster.HealthcheckResponse{"OK"}, nil
+}

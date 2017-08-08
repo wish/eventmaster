@@ -12,6 +12,8 @@ service EventMaster {
     rpc AddDc (Dc) returns (WriteResponse) {}
     rpc UpdateDc (UpdateDcRequest) returns (WriteResponse) {}
     rpc GetDcs (EmptyRequest) returns (DcResult) {}
+    
+    rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {}
 }
  
 message Event {
@@ -89,3 +91,8 @@ message WriteResponse {
 }
 
 message EmptyRequest {}
+
+message HealthcheckRequest {}
+message HealthcheckResponse {
+    string response = 1;
+}

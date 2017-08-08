@@ -18,6 +18,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type dbConfig struct {
@@ -138,6 +139,7 @@ func main() {
 	// Create the gRPC server and register our service
 	grpcS := grpc.NewServer(maxMsgSizeOpt)
 	eventmaster.RegisterEventMasterServer(grpcS, grpcServer)
+	reflection.Register(grpcS)
 
 	go httpS.Serve(httpL)
 	go grpcS.Serve(grpcL)
