@@ -96,7 +96,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	r.GET("/v1/health", wrapHandler(h.handleHealthCheck))
 
 	// plugins endpoint
-	r.POST("/v1/plugins/:name", wrapHandler(h.handlePluginEvent))
+	r.POST("/v1/plugins/:name/add", wrapHandler(h.handlePluginEvent))
 
 	// UI endpoints
 	r.GET("/", h.HandleMainPage)
@@ -420,8 +420,18 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	pluginName := ps.ByName("name")
 	if plugin, ok := Plugins[pluginName]; ok {
-
-		event, err := plugin.ParseRequest(r)
+		defer r.Body.Close()
+		rawData, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error reading request body", r.URL.Path)
+			return
+		}
+		valid := plugin.ValidateAuth(r, rawData)
+		if !valid {
+			h.sendError(w, http.StatusBadRequest, errors.New("Invalid signature"), "Error validating request", r.URL.Path)
+			return
+		}
+		event, err := plugin.ParseRequest(r, rawData)
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, err, "Error parsing event", r.URL.Path)
 			return
