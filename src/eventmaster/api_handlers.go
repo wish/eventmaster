@@ -139,10 +139,10 @@ func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, mess
 	w.Write([]byte(errMsg))
 }
 
-func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, path string) {
+func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val interface{}, path string) {
 	var response []byte
 	if key == "" {
-		response = []byte(val)
+		response = []byte(val.(string))
 	} else {
 		resp := make(map[string]interface{})
 		resp[key] = val
@@ -431,17 +431,32 @@ func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, 
 			h.sendError(w, http.StatusBadRequest, errors.New("Invalid signature"), "Error validating request", r.URL.Path)
 			return
 		}
-		event, err := plugin.ParseRequest(r, rawData)
+		info, err := plugin.ParseRequest(r, rawData)
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, err, "Error parsing event", r.URL.Path)
 			return
 		}
-		id, err := h.store.AddEvent(event)
-		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
-			return
+		dc, host, user, targetHostSet, tags, parentEventId, eventTime, data := plugin.ParseInfo(r, info)
+		var ids []string
+		for _, topic := range plugin.GetTopics() {
+			id, err := h.store.AddEvent(&UnaddedEvent{
+				TopicName:     topic,
+				Dc:            dc,
+				Host:          host,
+				User:          user,
+				TargetHosts:   targetHostSet,
+				Tags:          tags,
+				ParentEventID: parentEventId,
+				EventTime:     eventTime,
+				Data:          data,
+			})
+			ids = append(ids, id)
+			if err != nil {
+				h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
+				return
+			}
 		}
-		h.sendResp(w, "event_id", id, r.URL.Path)
+		h.sendResp(w, "event_id", ids, r.URL.Path)
 	} else {
 		h.sendError(w, http.StatusBadRequest, errors.New("Plugin "+pluginName+" does not exist"), "Error adding event", r.URL.Path)
 	}
