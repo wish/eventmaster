@@ -96,7 +96,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	r.GET("/v1/health", wrapHandler(h.handleHealthCheck))
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent))
+	r.POST("/v1/plugins/:name", wrapHandler(h.handlePluginEvent))
 
 	// UI endpoints
 	r.GET("/", h.HandleMainPage)
@@ -417,31 +417,28 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 	h.sendResp(w, "", string(str), r.URL.Path)
 }
 
-func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var info map[string]interface{}
-
-	defer r.Body.Close()
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
-		return
+func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	pluginName := ps.ByName("name")
+	if plugin, ok := Plugins[pluginName]; ok {
+		reqBody, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
+			return
+		}
+		event, err := plugin.ParseRawData(reqBody)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error parsing event", r.URL.Path)
+			return
+		}
+		id, err := h.store.AddEvent(event)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
+			return
+		}
+		h.sendResp(w, "event_id", id, r.URL.Path)
+	} else {
+		h.sendError(w, http.StatusBadRequest, errors.New("Plugin "+pluginName+" does not exist"), "Error adding event", r.URL.Path)
 	}
-	if err := json.Unmarshal(reqBody, &info); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
-		return
-	}
-
-	id, err := h.store.AddEvent(&UnaddedEvent{
-		Dc:        "github",
-		Host:      "github",
-		TopicName: "github",
-		Data:      info,
-	})
-	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
-		return
-	}
-	h.sendResp(w, "event_id", id, r.URL.Path)
 }
 
 func (h *httpHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
