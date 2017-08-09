@@ -482,7 +482,7 @@ var buildESQueryTests = []struct {
 		TagSet:        []string{"tag1", "tag2"},
 		User:          []string{"user2"},
 		EndEventTime:  1500328222,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"target_host_set.keyword:(host1 OR host2)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 OR tag2)\"}},{\"query_string\":{\"query\":\"parent_event_id.keyword:(d6f377e0-eeed-4cdc-8ba3-ae47018bb80d OR a0d18d31-a5e5-436f-be64-9990e3fc4850)\"}},{\"query_string\":{\"query\":\"user.keyword:(user2)\"}},{\"range\":{\"event_time\":{\"from\":null,\"include_lower\":true,\"include_upper\":true,\"to\":1500328222000}}}]}}", false},
+	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"target_host_set.keyword:(host1 OR host2)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 OR tag2)\"}},{\"query_string\":{\"query\":\"parent_event_id:(d6f377e0-eeed-4cdc-8ba3-ae47018bb80d OR a0d18d31-a5e5-436f-be64-9990e3fc4850)\"}},{\"query_string\":{\"query\":\"user.keyword:(user2)\"}},{\"range\":{\"event_time\":{\"from\":null,\"include_lower\":true,\"include_upper\":true,\"to\":1500328222000}}}]}}", false},
 	{&eventmaster.Query{
 		Dc:        []string{"dc100"},
 		Host:      []string{"host1"},

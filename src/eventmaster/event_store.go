@@ -312,7 +312,7 @@ func (es *EventStore) buildESQuery(q *eventmaster.Query) elastic.Query {
 		for _, id := range q.ParentEventId {
 			ids = append(ids, strings.ToLower(id))
 		}
-		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "parent_event_id.keyword", "("+strings.Join(ids, " OR ")+")")))
+		queries = append(queries, elastic.NewQueryStringQuery(fmt.Sprintf("%s:%s", "parent_event_id", "("+strings.Join(ids, " OR ")+")")))
 	}
 	if len(q.User) != 0 {
 		var users []string
