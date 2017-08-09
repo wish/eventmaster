@@ -95,7 +95,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 
 	r.GET("/v1/health", wrapHandler(h.handleHealthCheck))
 
-	// GitHub webhook endpoint
+	// plugins endpoint
 	r.POST("/v1/plugins/:name", wrapHandler(h.handlePluginEvent))
 
 	// UI endpoints
@@ -420,12 +420,8 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	pluginName := ps.ByName("name")
 	if plugin, ok := Plugins[pluginName]; ok {
-		reqBody, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
-			return
-		}
-		event, err := plugin.ParseRawData(reqBody)
+
+		event, err := plugin.ParseRequest(r)
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, err, "Error parsing event", r.URL.Path)
 			return
