@@ -19,6 +19,7 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	var q eventmaster.Query
 
 	// read from request body first - if there's an error, read from query params
+	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
@@ -165,6 +166,7 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, pa
 func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var evt UnaddedEvent
 
+	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
 	if err := json.Unmarshal(body, &evt); err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
@@ -238,6 +240,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	td := TopicData{}
 
+	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&td); err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
@@ -259,6 +262,7 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 
 func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var td TopicData
+	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
@@ -318,6 +322,7 @@ func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, 
 
 func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dd DcData
+	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
@@ -340,6 +345,7 @@ func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ http
 
 func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var dd DcData
+	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
@@ -385,6 +391,7 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var info map[string]interface{}
 
+	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)

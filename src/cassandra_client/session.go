@@ -2,6 +2,7 @@ package cassandra_client
 
 import (
 	"github.com/gocql/gocql"
+	"time"
 )
 
 type Session interface {
@@ -21,6 +22,7 @@ func NewCqlSession(ips []string, keyspace string, consistency string) (*CqlSessi
 	cluster := gocql.NewCluster(ips...)
 	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.ParseConsistency(consistency)
+	cluster.Timeout = time.Second * 5
 
 	s, err := cluster.CreateSession()
 	if err != nil {
@@ -38,6 +40,7 @@ func (s *CqlSession) ExecQuery(query string) error {
 
 func (s *CqlSession) ExecIterQuery(query string) (ScanIter, CloseIter) {
 	iter := s.session.Query(query).Iter()
+
 	return func(dest ...interface{}) bool {
 			return iter.Scan(dest...)
 		}, func() error {
