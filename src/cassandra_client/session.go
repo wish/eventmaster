@@ -18,11 +18,15 @@ type CqlSession struct {
 type ScanIter func(...interface{}) bool
 type CloseIter func() error
 
-func NewCqlSession(ips []string, keyspace string, consistency string) (*CqlSession, error) {
+func NewCqlSession(ips []string, keyspace string, consistency string, timeout string) (*CqlSession, error) {
 	cluster := gocql.NewCluster(ips...)
 	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.ParseConsistency(consistency)
-	cluster.Timeout = time.Second * 5
+	var err error
+	cluster.Timeout, err = time.ParseDuration(timeout)
+	if err != nil {
+		return nil, err
+	}
 
 	s, err := cluster.CreateSession()
 	if err != nil {

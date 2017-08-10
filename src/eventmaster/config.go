@@ -25,4 +25,6 @@ type Config struct {
 	CertFile string `long:"cert_file" description:"PEM encoded certificate file path"`
 
 	KeyFile string `long:"key_file" description:"PEM encoded private key file path"`
+
+	MasterNode bool `short:"m" long:"master_node" description:"Flag to set current node as master node"`
 }

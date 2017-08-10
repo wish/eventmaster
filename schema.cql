@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS temp_event (
 	tag_set set<text>,
 	data_json text,
 	received_time timestamp,
-	PRIMARY KEY (event_id)
+	PRIMARY KEY (topic_id, event_id)
 );
 
 // Create table to store distinct topics

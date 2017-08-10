@@ -84,6 +84,7 @@ type EventStore struct {
 	topicMutex               *sync.RWMutex
 	dcMutex                  *sync.RWMutex
 	indexMutex               *sync.RWMutex
+	esTimeout                string
 }
 
 func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
@@ -111,7 +112,7 @@ func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
 	fmt.Println("Connecting to Cassandra:", cassandraIps)
 
 	// Establish connection to Cassandra
-	session, err := cass.NewCqlSession(cassandraIps, dbConf.Keyspace, dbConf.Consistency)
+	session, err := cass.NewCqlSession(cassandraIps, dbConf.Keyspace, dbConf.Consistency, dbConf.CassandraTimeout)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating cassandra session")
 	}
@@ -138,7 +139,15 @@ func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
 		dcNameToId:               make(map[string]string),
 		dcIdToName:               make(map[string]string),
+		esTimeout:                dbConf.ESTimeout,
 	}, nil
+}
+
+func (es *EventStore) getTopicIds() map[string]string {
+	es.topicMutex.RLock()
+	ids := es.topicIdToName
+	es.topicMutex.RUnlock()
+	return ids
 }
 
 func (es *EventStore) getTopicId(topic string) string {
@@ -1012,15 +1021,14 @@ func (es *EventStore) Update() error {
 	return nil
 }
 
-func (es *EventStore) FlushToES() error {
+func (es *EventStore) FlushToES(topicId string) error {
 	start := time.Now()
 	defer func() {
 		eventStoreTimer.WithLabelValues("FlushToES").Observe(trackTime(start))
 	}()
 
-	scanIter, closeIter := es.cqlSession.ExecIterQuery(`SELECT event_id, parent_event_id, dc_id, topic_id,
-		host, target_host_set, user, event_time, tag_set, data_json, received_time
-		FROM temp_event LIMIT 1000;`)
+	scanIter, closeIter := es.cqlSession.ExecIterQuery(
+		fmt.Sprintf(`SELECT * FROM temp_event WHERE topic_id=%s LIMIT 8000;`, topicId))
 	var topicID, dcID gocql.UUID
 	var eventTime, receivedTime int64
 	var eventID, parentEventID, host, user, data string
@@ -1032,8 +1040,8 @@ func (es *EventStore) FlushToES() error {
 	var v struct{}
 
 	for true {
-		if scanIter(&eventID, &parentEventID, &dcID, &topicID, &host,
-			&targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
+		if scanIter(&topicID, &eventID, &data, &dcID, &eventTime, &host, &parentEventID,
+			&receivedTime, &tagSet, &targetHostSet, &user) {
 			var d map[string]interface{}
 			if data != "" {
 				if err := json.Unmarshal([]byte(data), &d); err != nil {
@@ -1041,13 +1049,13 @@ func (es *EventStore) FlushToES() error {
 				}
 			}
 			eventIDs[eventID] = v
-			index := getIndex(topicID.String(), eventTime/1000)
+			index := getIndex(topicId, eventTime/1000)
 			esIndices[index] = append(esIndices[index], &Event{
 				EventID:       eventID,
 				ParentEventID: parentEventID,
 				EventTime:     eventTime,
 				DcID:          dcID.String(),
-				TopicID:       topicID.String(),
+				TopicID:       topicId,
 				Tags:          tagSet,
 				Host:          host,
 				TargetHosts:   targetHostSet,
@@ -1070,7 +1078,7 @@ func (es *EventStore) FlushToES() error {
 			return errors.Wrap(err, "Error creating index in elasticsearch")
 		}
 
-		bulkReq := es.esClient.Bulk().Index(index)
+		bulkReq := es.esClient.Bulk().Index(index).Timeout(es.esTimeout)
 		for _, event := range events {
 			req := elastic.NewBulkIndexRequest().
 				Type("event").
@@ -1104,8 +1112,8 @@ func (es *EventStore) FlushToES() error {
 		idArr = append(idArr, fmt.Sprintf("'%s'", eventId))
 	}
 
-	if err := es.cqlSession.ExecQuery(fmt.Sprintf("DELETE FROM temp_event WHERE event_id in (%s)",
-		strings.Join(idArr, ","))); err != nil {
+	if err := es.cqlSession.ExecQuery(fmt.Sprintf("DELETE FROM temp_event WHERE topic_id=%s AND event_id in (%s)",
+		topicId, strings.Join(idArr, ","))); err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
 		return errors.Wrap(err, "Error performing delete from temp_event in cassandra")
 	}
