@@ -6,7 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -25,26 +24,10 @@ type GitHubPlugin struct {
 	EventTopicMapping map[string]string `json:"event_topic_mapping"`
 }
 
-func NewGitHubPlugin() error {
-	confFile, err := ioutil.ReadFile("plugins/github.json")
-	if err != nil {
-		return err
-	}
-	var gp GitHubPlugin
-	if err = json.Unmarshal(confFile, &gp); err != nil {
-		return err
-	}
-	if gp.Dc == "" {
-		gp.Dc = "github"
-	}
-	if gp.Host == "" {
-		gp.Host = "github"
-	}
-	Plugins["github"] = &gp
-	return nil
-}
-
 func (g *GitHubPlugin) ValidateAuth(r *http.Request, payload []byte) bool {
+	if g.Secret == "" {
+		return true
+	}
 	h := hmac.New(sha1.New, []byte(g.Secret))
 	h.Write(payload)
 
@@ -76,13 +59,15 @@ func (g *GitHubPlugin) ParseRequest(r *http.Request, payload []byte) ([]*Unadded
 
 	if repoInfo, ok := info["repository"]; ok {
 		if repoMap, ok := repoInfo.(map[string]interface{}); ok {
-			tags = append(tags, repoMap["full_name"].(string))
+			if fn, ok := repoMap["full_name"].(string); ok {
+				tags = append(tags, fn)
+			}
 		}
 	}
 	user := ""
 	if pusherInfo, ok := info["pusher"]; ok {
 		if pusherMap, ok := pusherInfo.(map[string]interface{}); ok {
-			user = pusherMap["name"].(string)
+			user, _ = pusherMap["name"].(string)
 		}
 	}
 	return []*UnaddedEvent{

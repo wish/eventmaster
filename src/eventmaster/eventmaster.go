@@ -25,6 +25,7 @@ type emConfig struct {
 	DataStore      string          `json:"data_store"`
 	CassConfig     CassandraConfig `json:"cassandra_config"`
 	UpdateInterval int             `json:"update_interval"`
+	GitHubPlugin   *GitHubPlugin   `json:"github_plugin"`
 }
 
 func getEmConfig() emConfig {
@@ -44,10 +45,15 @@ func getEmConfig() emConfig {
 	return emConf
 }
 
-func setupPlugins() {
-	if _, err := os.Stat("plugins/github.json"); err == nil {
-		fmt.Println("Setting up GitHub plugin")
-		NewGitHubPlugin()
+func setupPlugins(emConf emConfig) {
+	if gp := emConf.GitHubPlugin; gp != nil {
+		if gp.Dc == "" {
+			gp.Dc = "github"
+		}
+		if gp.Host == "" {
+			gp.Host = "github"
+		}
+		Plugins["github"] = gp
 	}
 }
 
@@ -92,7 +98,7 @@ func main() {
 		fmt.Println("Error loading dcs and topics from Cassandra", err)
 	}
 
-	setupPlugins()
+	setupPlugins(emConf)
 
 	// Create listening socket for grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port))
