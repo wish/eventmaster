@@ -428,33 +428,21 @@ func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, 
 		}
 		valid := plugin.ValidateAuth(r, rawData)
 		if !valid {
-			h.sendError(w, http.StatusBadRequest, errors.New("Invalid signature"), "Error validating request", r.URL.Path)
+			h.sendError(w, http.StatusUnauthorized, errors.New("Invalid signature"), "Error validating request", r.URL.Path)
 			return
 		}
-		info, err := plugin.ParseRequest(r, rawData)
+		events, err := plugin.ParseRequest(r, rawData)
 		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error parsing event", r.URL.Path)
+			h.sendError(w, http.StatusBadRequest, err, "Error parsing event", r.URL.Path)
 			return
 		}
-		dc, host, user, targetHostSet, tags, parentEventId, eventTime, data := plugin.ParseInfo(r, info)
 		var ids []string
-		for _, topic := range plugin.GetTopics() {
-			id, err := h.store.AddEvent(&UnaddedEvent{
-				TopicName:     topic,
-				Dc:            dc,
-				Host:          host,
-				User:          user,
-				TargetHosts:   targetHostSet,
-				Tags:          tags,
-				ParentEventID: parentEventId,
-				EventTime:     eventTime,
-				Data:          data,
-			})
-			ids = append(ids, id)
+		for _, event := range events {
+			id, err := h.store.AddEvent(event)
 			if err != nil {
 				h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
-				return
 			}
+			ids = append(ids, id)
 		}
 		h.sendResp(w, "event_id", ids, r.URL.Path)
 	} else {

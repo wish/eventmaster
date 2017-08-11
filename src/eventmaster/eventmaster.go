@@ -44,6 +44,13 @@ func getEmConfig() emConfig {
 	return emConf
 }
 
+func setupPlugins() {
+	if _, err := os.Stat("plugins/github.json"); err == nil {
+		fmt.Println("Setting up GitHub plugin")
+		NewGitHubPlugin()
+	}
+}
+
 func main() {
 	var config Config
 	parser := flags.NewParser(&config, flags.Default)
@@ -84,6 +91,8 @@ func main() {
 	if err := store.Update(); err != nil {
 		fmt.Println("Error loading dcs and topics from Cassandra", err)
 	}
+
+	setupPlugins()
 
 	// Create listening socket for grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port))
