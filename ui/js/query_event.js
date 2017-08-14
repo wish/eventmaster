@@ -1,8 +1,14 @@
 var params = [];
 var numSortFields = 0;
 var querySuccess = true;
+var curPage = 0;
 
 function updateResults() {
+    params = params.filter(function(v) {
+        return !(v.startsWith('limit=') || v.startsWith('start='))
+    });
+    params.push('limit=100');
+    params.push('start=' + curPage*100);
 	$.ajax({
 		type: "GET",
 		url: "/v1/event?"+params.join("&"),
@@ -86,6 +92,7 @@ function clearQuery() {
         currentSorts[i].remove();
     }
     updateResults();
+    curPage = 0;
 }
 
 function getTimestampStr(unixTimestamp) {
@@ -212,6 +219,7 @@ function submitQuery(form) {
 			}
 		}
 	}
+    curPage=0;
 	updateResults()
 	return false;
 }
@@ -250,4 +258,16 @@ function loadQueryTimes(start, end) {
     if (end) {
         document.getElementById('end-event-time').value = getTimestampStr(end);
     }
+}
+
+function nextPage() {
+    curPage++;
+    updateResults();
+}
+
+function prevPage() {
+    if (curPage > 0) {
+        curPage--;
+    }
+    updateResults();
 }
