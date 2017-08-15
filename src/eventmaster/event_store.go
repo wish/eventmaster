@@ -46,6 +46,8 @@ type UnaddedEvent struct {
 	Data          map[string]interface{} `json:"data"`
 }
 
+var v struct{}
+
 func (event *Event) toCassandra(data string) string {
 	// TODO: change this to prevent tombstones
 	return fmt.Sprintf(`
@@ -85,6 +87,7 @@ type EventStore struct {
 	dcMutex                  *sync.RWMutex
 	indexMutex               *sync.RWMutex
 	esTimeout                string
+	useCassandra             bool
 }
 
 func NewEventStore(dbConf dbConfig, config Config) (*EventStore, error) {
@@ -517,68 +520,131 @@ func (es *EventStore) checkIndex(index string) error {
 }
 
 func canUseCassandra(q *eventmaster.Query) bool {
-	return len(q.Dc) == 0 && len(q.Host) == 0 && len(q.TargetHostSet) == 0 && len(q.User) == 0 && len(q.TagSet) == 0 && len(q.ParentEventId) == 0 && q.Data == "" && (q.EventId != "" || len(q.TopicName) == 1 && (q.StartEventTime > 0 || q.EndEventTime > 0))
-}
-
-func (es *EventStore) buildCassandraQuery(q *eventmaster.Query) string {
-	fields := `event_id, parent_event_id, dc_id, topic_id,
-		host, target_host_set, user, event_time, tag_set, data_json, received_time`
 	if q.EventId != "" {
-		return fmt.Sprintf(`SELECT %s
-		FROM event WHERE event_id=%s LIMIT 100;`, fields, stringify(q.EventId))
+		return true
+	} else if q.StartEventTime > 0 || q.EndEventTime > 0 {
+		if len(q.TopicName) > 0 || len(q.Host) > 0 {
+			return true
+		}
 	}
-
-	topicId := es.getTopicId(q.TopicName[0])
-	startKsuid, _ := ksuid.FromParts(time.Unix(q.StartEventTime, 0).UTC(), []byte("0000000000000000"))
-	endKsuid, _ := ksuid.FromParts(time.Unix(q.EndEventTime, 0).UTC(), []byte("0000000000000000"))
-	return fmt.Sprintf(`SELECT %s
-		FROM event_by_topic WHERE topic_id=%s
-		AND event_id > %s AND event_id < %s
-		LIMIT 100;`,
-		fields, topicId, stringify(startKsuid.String()), stringify(endKsuid.String()))
+	return false
 }
 
-func (es *EventStore) findWithCassandra(q *eventmaster.Query) ([]*Event, error) {
-	query := es.buildCassandraQuery(q)
+func (es *EventStore) getFromCassandraTable(tableName string, columnName string, lowerBound string, upperBound string, fields []string) (map[string]struct{}, error) {
+	query := fmt.Sprintf(`SELECT event_id FROM %s WHERE %s in (%s)%s%s LIMIT 500;`, tableName, columnName, strings.Join(fields, ","), lowerBound, upperBound)
+	fmt.Println(query)
 	scanIter, closeIter := es.cqlSession.ExecIterQuery(query)
-	var topicID, dcID gocql.UUID
-	var eventTime, receivedTime int64
-	var eventID, parentEventID, host, user, data string
-	var targetHostSet, tagSet []string
 
-	var evts []*Event
-
+	var eventID string
+	events := make(map[string]struct{})
 	for true {
-		if scanIter(&eventID, &parentEventID, &dcID, &topicID, &host,
-			&targetHostSet, &user, &eventTime, &tagSet, &data, &receivedTime) {
-			var d map[string]interface{}
-			if data != "" {
-				if err := json.Unmarshal([]byte(data), &d); err != nil {
-					return nil, errors.Wrap(err, "Error unmarshalling JSON in event data")
-				}
-			}
-			evts = append(evts, &Event{
-				EventID:       eventID,
-				ParentEventID: parentEventID,
-				EventTime:     eventTime / 1000,
-				DcID:          dcID.String(),
-				TopicID:       topicID.String(),
-				Tags:          tagSet,
-				Host:          host,
-				TargetHosts:   targetHostSet,
-				User:          user,
-				Data:          d,
-				ReceivedTime:  receivedTime,
-			})
+		if scanIter(&eventID) {
+			events[eventID] = v
 		} else {
 			break
 		}
 	}
 	if err := closeIter(); err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
-		return nil, errors.Wrap(err, "Error closing iter")
+		return nil, errors.Wrap(err, "Error closing cassandra iter")
 	}
-	return evts, nil
+	return events, nil
+}
+
+func (es *EventStore) findWithCassandra(q *eventmaster.Query) ([]*Event, error) {
+	lowerBoundStr := ""
+	upperBoundStr := ""
+	if q.StartEventTime != 0 {
+		startKsuid, _ := ksuid.FromParts(time.Unix(q.StartEventTime, 0).UTC(), []byte("0000000000000000"))
+		lowerBoundStr = fmt.Sprintf(" AND event_id > %s", stringify(startKsuid.String()))
+	}
+	if q.EndEventTime != 0 {
+		endKsuid, _ := ksuid.FromParts(time.Unix(q.EndEventTime, 0).UTC(), []byte("0000000000000000"))
+		upperBoundStr = fmt.Sprintf(" AND event_id < %s", stringify(endKsuid.String()))
+	}
+	needsIntersection := false
+	var evts map[string]struct{}
+	var err error
+	if len(q.TopicName) > 0 {
+		var topicIds []string
+		for _, topic := range q.TopicName {
+			topicIds = append(topicIds, es.getTopicId(topic))
+		}
+		evts, err = es.getFromCassandraTable("event_by_topic", "topic_id", lowerBoundStr, upperBoundStr, topicIds)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error getting event ids from cassandra table")
+		}
+		needsIntersection = true
+	}
+	if len(q.Host) > 0 {
+		var hosts []string
+		for _, host := range q.Host {
+			hosts = append(hosts, stringify(strings.ToLower(host)))
+		}
+		hostEvts, err := es.getFromCassandraTable("event_by_host", "host", lowerBoundStr, upperBoundStr, hosts)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error getting event ids from cassandra table")
+		}
+		if needsIntersection {
+			newEvts := make(map[string]struct{})
+			for eID, _ := range hostEvts {
+				if _, ok := evts[eID]; ok {
+					newEvts[eID] = v
+				}
+			}
+			evts = newEvts
+		} else {
+			evts = hostEvts
+			needsIntersection = true
+		}
+	}
+
+	ch := make(chan *Event, len(evts))
+	for eID, _ := range evts {
+		go func(eID string) {
+			var topicID, dcID gocql.UUID
+			var eventTime, receivedTime int64
+			var eventID, parentEventID, host, user, data string
+			var targetHostSet, tagSet []string
+			scanIter, closeIter := es.cqlSession.ExecIterQuery(
+				fmt.Sprintf(`SELECT * FROM event WHERE event_id=%s LIMIT 1;`, stringify(eID)))
+			if scanIter(&eventID, &data, &dcID, &eventTime, &host, &parentEventID, &receivedTime, &tagSet, &targetHostSet, &topicID, &user) {
+				var d map[string]interface{}
+				if data != "" {
+					if err := json.Unmarshal([]byte(data), &d); err != nil {
+						fmt.Println("Error unmarshalling json data for eventID", eventID, err)
+					}
+				}
+				ch <- &Event{
+					EventID:       eventID,
+					ParentEventID: parentEventID,
+					EventTime:     eventTime / 1000,
+					DcID:          dcID.String(),
+					TopicID:       topicID.String(),
+					Tags:          tagSet,
+					Host:          host,
+					TargetHosts:   targetHostSet,
+					User:          user,
+					Data:          d,
+					ReceivedTime:  receivedTime,
+				}
+			} else {
+				ch <- nil
+			}
+			if err := closeIter(); err != nil {
+				eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+				fmt.Println("Error closing cassandra iter on read:", err)
+			}
+		}(eID)
+	}
+
+	var events []*Event
+	for _, _ = range evts {
+		if evt := <-ch; evt != nil {
+			events = append(events, evt)
+		}
+	}
+	return events, nil
 }
 
 func (es *EventStore) Find(q *eventmaster.Query) ([]*Event, error) {

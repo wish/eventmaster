@@ -31,6 +31,13 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS event_by_topic AS
 	PRIMARY KEY (topic_id, event_id)
 	WITH CLUSTERING ORDER BY (event_id DESC);
 
+CREATE MATERIALIZED VIEW IF NOT EXISTS event_by_host AS
+	SELECT event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time
+	FROM event
+	WHERE event_id IS NOT NULL AND host IS NOT NULL
+	PRIMARY KEY (host, event_id)
+	WITH CLUSTERING ORDER BY (event_id DESC);
+
 // Create table to store events to flush to ES
 CREATE TABLE IF NOT EXISTS temp_event (
 	event_id text,
