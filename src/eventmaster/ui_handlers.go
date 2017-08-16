@@ -31,7 +31,7 @@ var funcMap = template.FuncMap{
 }
 
 type GetEventPageData struct {
-	Topics []TopicData
+	Topics []Topic
 	Query  *eventmaster.Query
 }
 

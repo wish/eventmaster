@@ -7,48 +7,92 @@ function updateResults() {
     params = params.filter(function(v) {
         return !(v.startsWith('limit=') || v.startsWith('start='))
     });
-    params.push('limit=100');
-    params.push('start=' + curPage*100);
-	$.ajax({
-		type: "GET",
-		url: "/v1/event?"+params.join("&"),
-		dataType: "json",
-		success: function(data) {
-            querySuccess = true;
-			var elem = document.getElementById("event_table")
-			elem.innerHTML = "";
-			var results = data["results"];
-			if (results) {
-				for (var i = 0; i < results.length; i++) {
-					var event = results[i];
-					var item =
-					`<tr onclick=hideData(this)>
-						<td style="word-wrap:break-word;overflow:hidden;">`.concat(event['event_id'],`</td>
-						<th style="word-wrap:break-word;overflow:hidden;" scope="row">`,event['topic_name'],`</th>
-						<td style="word-wrap:break-word;overflow:hidden;">`,event['dc'],`</td>
-						<td style="word-wrap:break-word;overflow:hidden;">`,(event['tag_set'] || []).join(", "),`</td>
-						<td style="word-wrap:break-word;overflow:hidden;">`,new Date(event['event_time']*1000).toString(),`</td>
-						<td style="word-wrap:break-word;overflow:hidden;">`,event['host'],`</td>
-						<td style="word-wrap:break-word;overflow:hidden;">`,(event['target_host_set'] || []).join(", "),`</td>
-						<td style="word-wrap:break-word;overflow:hidden;">`,event['user'],`</td>
-						<td style="word-wrap:break-word;overflow:hidden;">`,event['parent_event_id'],`</td>
-					</tr>
+    var idQuery = params.filter(function(v) {
+        return v.startsWith('event_id=')
+    })
+    if (idQuery.length >0) {
+        $.ajax({
+            type: "GET",
+            url: "/v1/event/"+idQuery[0].substr(9),
+            dataType: "json",
+            success: function(data) {
+                querySuccess = true;
+                var elem = document.getElementById("event_table")
+                elem.innerHTML = "";
+                var event = data["result"];
+                if (event) {
+                    var item =
+                    `<tr onclick=hideData(this)>
+                        <td style="word-wrap:break-word;overflow:hidden;">`.concat(event['event_id'],`</td>
+                        <th style="word-wrap:break-word;overflow:hidden;" scope="row">`,event['topic_name'],`</th>
+                        <td style="word-wrap:break-word;overflow:hidden;">`,event['dc'],`</td>
+                        <td style="word-wrap:break-word;overflow:hidden;">`,(event['tag_set'] || []).join(", "),`</td>
+                        <td style="word-wrap:break-word;overflow:hidden;">`,new Date(event['event_time']*1000).toString(),`</td>
+                        <td style="word-wrap:break-word;overflow:hidden;">`,event['host'],`</td>
+                        <td style="word-wrap:break-word;overflow:hidden;">`,(event['target_host_set'] || []).join(", "),`</td>
+                        <td style="word-wrap:break-word;overflow:hidden;">`,event['user'],`</td>
+                        <td style="word-wrap:break-word;overflow:hidden;">`,event['parent_event_id'],`</td>
+                    </tr>
                     <tr>
                         <td colspan="9" style="word-wrap:break-word;overflow:hidden;"><pre>Data: `,JSON.stringify(event['data'],null,4),`</pre></td>
                     </tr>`)
-					elem.innerHTML += item;
+                    elem.innerHTML += item;
                     $("td[colspan=9]").find("pre").hide();
-				}
-			}
-		},
-		error: function(data) {
-            querySuccess = false;
-			alert("Error querying events: " + data.responseText);
-		},
-        complete: function(data) {
-            $('#loading-indicator').hide();
-        }
-	});
+                }
+            },
+            error: function(data) {
+                querySuccess = false;
+                alert("Error querying events: " + data.responseText);
+            },
+            complete: function(data) {
+                $('#loading-indicator').hide();
+            }
+        });
+    } else {
+        params.push('limit=100');
+        params.push('start=' + curPage*100);
+        $.ajax({
+            type: "GET",
+            url: "/v1/event?"+params.join("&"),
+            dataType: "json",
+            success: function(data) {
+                querySuccess = true;
+                var elem = document.getElementById("event_table")
+                elem.innerHTML = "";
+                var results = data["results"];
+                if (results) {
+                    for (var i = 0; i < results.length; i++) {
+                        var event = results[i];
+                        var item =
+                        `<tr onclick=hideData(this)>
+                            <td style="word-wrap:break-word;overflow:hidden;">`.concat(event['event_id'],`</td>
+                            <th style="word-wrap:break-word;overflow:hidden;" scope="row">`,event['topic_name'],`</th>
+                            <td style="word-wrap:break-word;overflow:hidden;">`,event['dc'],`</td>
+                            <td style="word-wrap:break-word;overflow:hidden;">`,(event['tag_set'] || []).join(", "),`</td>
+                            <td style="word-wrap:break-word;overflow:hidden;">`,new Date(event['event_time']*1000).toString(),`</td>
+                            <td style="word-wrap:break-word;overflow:hidden;">`,event['host'],`</td>
+                            <td style="word-wrap:break-word;overflow:hidden;">`,(event['target_host_set'] || []).join(", "),`</td>
+                            <td style="word-wrap:break-word;overflow:hidden;">`,event['user'],`</td>
+                            <td style="word-wrap:break-word;overflow:hidden;">`,event['parent_event_id'],`</td>
+                        </tr>
+                        <tr>
+                            <td colspan="9" style="word-wrap:break-word;overflow:hidden;"><pre>Data: `,JSON.stringify(event['data'],null,4),`</pre></td>
+                        </tr>`)
+                        elem.innerHTML += item;
+                        $("td[colspan=9]").find("pre").hide();
+                    }
+                }
+            },
+            error: function(data) {
+                querySuccess = false;
+                alert("Error querying events: " + data.responseText);
+            },
+            complete: function(data) {
+                $('#loading-indicator').hide();
+            }
+        });
+    }
+
 }
 
 function backgroundUpdate() {
@@ -254,9 +298,13 @@ function addSortField() {
 function loadQueryTimes(start, end) {
     if (start) {
         document.getElementById('start-event-time').value = getTimestampStr(start);
+    } else {
+        document.getElementById('start-event-time').value = getTimestampStr(Date.now()/1000-5000);
     }
     if (end) {
         document.getElementById('end-event-time').value = getTimestampStr(end);
+    } else {
+        document.getElementById('end-event-time').value = getTimestampStr(Date.now()/1000+60);
     }
 }
 

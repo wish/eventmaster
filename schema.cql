@@ -19,40 +19,64 @@ CREATE TABLE IF NOT EXISTS event (
 	user text,
 	event_time timestamp,
 	tag_set set<text>,
-	data_json text,
 	received_time timestamp,
+	date text,
 	PRIMARY KEY (event_id)
 );
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS event_by_topic AS
-	SELECT event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time
-	FROM event
-	WHERE event_id IS NOT NULL AND topic_id IS NOT NULL
-	PRIMARY KEY (topic_id, event_id)
-	WITH CLUSTERING ORDER BY (event_id DESC);
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS event_by_host AS
-	SELECT event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time
-	FROM event
-	WHERE event_id IS NOT NULL AND host IS NOT NULL
-	PRIMARY KEY (host, event_id)
-	WITH CLUSTERING ORDER BY (event_id DESC);
-
-// Create table to store events to flush to ES
-CREATE TABLE IF NOT EXISTS temp_event (
+CREATE TABLE IF NOT EXISTS event_metadata (
 	event_id text,
-	parent_event_id text,
-	dc_id UUID,
+	data_json text,
+	PRIMARY KEY (event_id)
+);
+
+// Tables to help with querying by column
+CREATE TABLE IF NOT EXISTS event_by_topic (
+	event_id text,
 	topic_id UUID,
+	event_time timestamp,
+	date text,
+	PRIMARY KEY ((topic_id, date), event_time))
+WITH CLUSTERING ORDER BY (event_time DESC);
+
+CREATE TABLE IF NOT EXISTS event_by_dc (
+	event_id text,
+	dc_id UUID,
+	event_time timestamp,
+	date text,
+	PRIMARY KEY ((dc_id, date), event_time))
+WITH CLUSTERING ORDER BY (event_time DESC);
+
+CREATE TABLE IF NOT EXISTS event_by_host (
+	event_id text,
 	host text,
-	target_host_set set<text>,
+	event_time timestamp,
+	date text,
+	PRIMARY KEY ((host, date), event_time))
+WITH CLUSTERING ORDER BY (event_time DESC);
+
+CREATE TABLE IF NOT EXISTS event_by_user (
+	event_id text,
 	user text,
 	event_time timestamp,
-	tag_set set<text>,
-	data_json text,
-	received_time timestamp,
-	PRIMARY KEY (topic_id, event_id)
-);
+	date text,
+	PRIMARY KEY ((user, date), event_time))
+WITH CLUSTERING ORDER BY (event_time DESC);
+
+CREATE TABLE IF NOT EXISTS event_by_parent_event_id (
+	event_id text,
+	parent_event_id text,
+	event_time timestamp,
+	date text,
+	PRIMARY KEY ((parent_event_id, date), event_time))
+WITH CLUSTERING ORDER BY (event_time DESC);
+
+CREATE TABLE IF NOT EXISTS event_by_date (
+	event_id text,
+	event_time timestamp,
+	date text,
+	PRIMARY KEY (date, event_time))
+WITH CLUSTERING ORDER BY (event_time DESC);
 
 // Create table to store distinct topics
 CREATE TABLE IF NOT EXISTS event_topic (

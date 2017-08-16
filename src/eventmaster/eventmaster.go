@@ -21,55 +21,27 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type dbConfig struct {
-	CassandraAddr    []string `json:"cassandra_addr"`
-	Keyspace         string   `json:"cassandra_keyspace"`
-	Consistency      string   `json:"consistency"`
-	ESAddr           []string `json:"es_addr"`
-	ESUsername       string   `json:"es_username"`
-	ESPassword       string   `json:"es_password"`
-	FlushInterval    int      `json:"flush_interval"`
-	UpdateInterval   int      `json:"update_interval"`
-	ESTimeout        string   `json:"es_timeout"`
-	CassandraTimeout string   `json:cassandra_timeout"`
+type emConfig struct {
+	DataStore      string          `json:"data_store"`
+	CassConfig     CassandraConfig `json:"cassandra_config"`
+	UpdateInterval int             `json:"update_interval"`
 }
 
-func getDbConfig() dbConfig {
-	dbConf := dbConfig{}
-	confFile, err := ioutil.ReadFile("db_config.json")
+func getEmConfig() emConfig {
+	emConf := emConfig{}
+	confFile, err := ioutil.ReadFile("em_config.json")
 	if err != nil {
-		fmt.Println("No db_config file specified")
+		fmt.Println("No em_config file specified")
 	} else {
-		err = json.Unmarshal(confFile, &dbConf)
+		err = json.Unmarshal(confFile, &emConf)
 		if err != nil {
-			fmt.Println("Error parsing db_config.json, using defaults:", err)
+			fmt.Println("Error parsing em_config.json, using defaults:", err)
 		}
 	}
-	if dbConf.Keyspace == "" {
-		dbConf.Keyspace = "event_master"
+	if emConf.UpdateInterval == 0 {
+		emConf.UpdateInterval = 5
 	}
-	if dbConf.Consistency == "" {
-		dbConf.Consistency = "quorum"
-	}
-	if dbConf.FlushInterval == 0 {
-		dbConf.FlushInterval = 5
-	}
-	if dbConf.UpdateInterval == 0 {
-		dbConf.UpdateInterval = 5
-	}
-	if dbConf.CassandraTimeout == "" {
-		dbConf.CassandraTimeout = "40s"
-	}
-	if dbConf.ESTimeout == "" {
-		dbConf.ESTimeout = "40s"
-	}
-	if dbConf.CassandraAddr == nil || len(dbConf.CassandraAddr) == 0 {
-		dbConf.CassandraAddr = append(dbConf.CassandraAddr, "127.0.0.1:9042")
-	}
-	if dbConf.ESAddr == nil || len(dbConf.ESAddr) == 0 {
-		dbConf.ESAddr = append(dbConf.ESAddr, "http://127.0.0.1:9200")
-	}
-	return dbConf
+	return emConf
 }
 
 func main() {
@@ -94,8 +66,18 @@ func main() {
 	}
 
 	// Set up event store
-	dbConf := getDbConfig()
-	store, err := NewEventStore(dbConf, config)
+	emConf := getEmConfig()
+	var ds DataStore
+	var err error
+	if emConf.DataStore == "cassandra" {
+		ds, err = NewCassandraStore(emConf.CassConfig)
+		if err != nil {
+			log.Fatalf("failed to create cassandra data store: %v", err)
+		}
+	} else {
+		log.Fatalf("Unrecognized data store option")
+	}
+	store, err := NewEventStore(ds)
 	if err != nil {
 		log.Fatalf("Unable to create event store: %v", err)
 	}
@@ -159,7 +141,7 @@ func main() {
 		}
 	}()
 
-	updateTicker := time.NewTicker(time.Second * time.Duration(dbConf.UpdateInterval))
+	updateTicker := time.NewTicker(time.Second * time.Duration(emConf.UpdateInterval))
 	go func() {
 		for range updateTicker.C {
 			if err := store.Update(); err != nil {
@@ -167,25 +149,6 @@ func main() {
 			}
 		}
 	}()
-
-	flushTicker := time.NewTicker(time.Second * time.Duration(10))
-	go func() {
-		for range flushTicker.C {
-			// only one node needs to be responsible for flushing
-			if os.Getenv("MASTER_EM") == "true" || config.MasterNode {
-				fmt.Println("Flushing to ES")
-				topicIds := store.getTopicIds()
-				for tId, _ := range topicIds {
-					go func(topic string) {
-						if err := store.FlushToES(topic); err != nil {
-							fmt.Println("Error flushing events from temp_event to ES:", err)
-						}
-					}(tId)
-				}
-			}
-		}
-	}()
-
 	rsyslogServer := &rsyslogServer{}
 
 	if config.RsyslogServer {
@@ -201,7 +164,6 @@ func main() {
 
 	<-stopChan
 	fmt.Println("Got shutdown signal, gracefully shutting down...")
-	flushTicker.Stop()
 	updateTicker.Stop()
 	store.CloseSession()
 	grpcS.GracefulStop()

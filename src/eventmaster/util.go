@@ -152,3 +152,8 @@ func parseKeyValuePair(content string) map[string]interface{} {
 	}
 	return data
 }
+
+func getDate(t int64) string {
+	eventTime := time.Unix(t, 0).UTC()
+	return fmt.Sprintf("%04d-%02d-%02d", eventTime.Year(), eventTime.Month(), eventTime.Day())
+}

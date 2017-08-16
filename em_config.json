@@ -1,0 +1,10 @@
+{
+  "data_store": "cassandra",
+  "cassandra_config": {
+    "addr": ["127.0.0.1:9042"],
+    "keyspace": "event_master",
+    "consistency": "one",
+    "timeout": "5s"
+  },
+  "update_interval": 10
+}

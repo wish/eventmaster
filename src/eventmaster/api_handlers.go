@@ -89,6 +89,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	// API endpoints
 	r.POST("/v1/event", wrapHandler(h.handleAddEvent))
 	r.GET("/v1/event", wrapHandler(h.handleGetEvent))
+	r.GET("/v1/event/:id", wrapHandler(h.handleGetEventById))
 	r.POST("/v1/topic", wrapHandler(h.handleAddTopic))
 	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic))
 	r.GET("/v1/topic", wrapHandler(h.handleGetTopic))
@@ -148,7 +149,7 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, pa
 	if key == "" {
 		response = []byte(val)
 	} else {
-		resp := make(map[string]string)
+		resp := make(map[string]interface{})
 		resp[key] = val
 		var err error
 		response, err = json.Marshal(resp)
@@ -237,8 +238,41 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 	h.sendResp(w, "", string(jsonSr), r.URL.Path)
 }
 
+func (h *httpHandler) handleGetEventById(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	eventId := ps.ByName("id")
+	if eventId != "" {
+		ev, err := h.store.FindById(eventId)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
+			return
+		}
+		result := &EventResult{
+			EventID:       ev.EventID,
+			ParentEventID: ev.ParentEventID,
+			EventTime:     ev.EventTime,
+			Dc:            h.store.getDcName(ev.DcID),
+			TopicName:     h.store.getTopicName(ev.TopicID),
+			Tags:          ev.Tags,
+			Host:          ev.Host,
+			TargetHosts:   ev.TargetHosts,
+			User:          ev.User,
+			Data:          ev.Data,
+		}
+		resultMap := make(map[string]*EventResult)
+		resultMap["result"] = result
+		bytes, err := json.Marshal(resultMap)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
+			return
+		}
+		h.sendResp(w, "", string(bytes), r.URL.Path)
+	} else {
+		h.sendError(w, http.StatusBadRequest, errors.New("did not provide event id"), "Did not provide event id", r.URL.Path)
+	}
+}
+
 func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	td := TopicData{}
+	td := Topic{}
 
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
@@ -261,7 +295,7 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 }
 
 func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	var td TopicData
+	var td Topic
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -294,7 +328,7 @@ func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ h
 		return
 	}
 
-	topicSet := make(map[string][]TopicData)
+	topicSet := make(map[string][]Topic)
 	topicSet["results"] = topics
 	str, err := json.Marshal(topicSet)
 	if err != nil {
@@ -321,7 +355,7 @@ func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, 
 }
 
 func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var dd DcData
+	var dd Dc
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -344,7 +378,7 @@ func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ http
 }
 
 func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	var dd DcData
+	var dd Dc
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -373,7 +407,7 @@ func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps 
 }
 
 func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	dcSet := make(map[string][]DcData)
+	dcSet := make(map[string][]Dc)
 	dcs, err := h.store.GetDcs()
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store", r.URL.Path)

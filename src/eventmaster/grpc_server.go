@@ -117,7 +117,7 @@ func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*event
 		if err != nil {
 			return "", err
 		}
-		return s.store.AddTopic(TopicData{
+		return s.store.AddTopic(Topic{
 			Name:   t.TopicName,
 			Schema: schema,
 		})
@@ -131,7 +131,7 @@ func (s *grpcServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopic
 		if err != nil {
 			return "", err
 		}
-		return s.store.UpdateTopic(t.OldName, TopicData{
+		return s.store.UpdateTopic(t.OldName, Topic{
 			Name:   t.NewName,
 			Schema: schema,
 		})
@@ -186,7 +186,7 @@ func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 			}
 		}
 		topicResults = append(topicResults, &eventmaster.Topic{
-			Id:         topic.Id,
+			Id:         topic.ID,
 			TopicName:  topic.Name,
 			DataSchema: schemaBytes,
 		})
@@ -228,7 +228,7 @@ func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 
 	for _, dc := range dcs {
 		dcResults = append(dcResults, &eventmaster.Dc{
-			Id:     dc.Id,
+			Id:     dc.ID,
 			DcName: dc.Name,
 		})
 	}
