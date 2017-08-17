@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ContextLogic/eventmaster/eventmaster"
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	"github.com/segmentio/ksuid"

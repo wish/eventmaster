@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ContextLogic/eventmaster/eventmaster"
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
 	"github.com/soheilhy/cmux"

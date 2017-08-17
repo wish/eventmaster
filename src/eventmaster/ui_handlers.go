@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ContextLogic/eventmaster/eventmaster"
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	"github.com/julienschmidt/httprouter"
 )
 

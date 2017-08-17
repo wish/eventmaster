@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ContextLogic/eventmaster/eventmaster"
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	context "golang.org/x/net/context"
 )
 

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ContextLogic/eventmaster/eventmaster"
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )
