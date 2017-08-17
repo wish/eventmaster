@@ -1,14 +1,10 @@
-hash: 349bd47f888bf6908c68070a40eafd9672b3fa9519619746b6bef2825ee02044
-updated: 2017-08-01T14:47:19.969923243-07:00
+hash: 7a3d5982211b16207e5150a7accc93be5561c92263761ba485f3b81cec951ecc
+updated: 2017-08-21T09:15:04.544932218-07:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
   subpackages:
   - quantile
-- name: github.com/ContextLogic/gobrubeckclient
-  version: d4f432c8594db6b27d0282033dc5429b714ca9d5
-  subpackages:
-  - brubeck
 - name: github.com/ContextLogic/goServiceLookup
   version: 43a14c585a6f18c18fca4d63ad12dcf8d83388a8
   subpackages:
@@ -23,6 +19,7 @@ imports:
   version: 9f174c986221c608fb5143bd623b6076a71feae3
   subpackages:
   - proto
+  - protoc-gen-go/descriptor
   - ptypes/any
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
@@ -60,11 +57,11 @@ imports:
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/segmentio/ksuid
-  version: e80c9d7e48ddbebf8dae5b155583a3c0d98e7850
+  version: 1c9d746aad27142a443654fba83c3b7578dbeba0
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/soheilhy/cmux
-  version: bf4a8ede9e87c006fe1d4278c6c7f2b8be1fa84c
+  version: bb79a83465015a27a175925ebd155e660f55e9f1
 - name: github.com/stretchr/testify
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
@@ -113,6 +110,7 @@ imports:
   - naming
   - peer
   - reflection
+  - reflection/grpc_reflection_v1alpha
   - stats
   - status
   - tap
@@ -125,6 +123,10 @@ imports:
   - config
   - uritemplates
 testImports:
+- name: github.com/ContextLogic/eventmaster
+  version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
+  subpackages:
+  - eventmaster
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:

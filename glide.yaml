@@ -1,8 +1,5 @@
 package: github.com/ContextLogic/eventmaster/src/eventmaster
 import:
-- package: github.com/ContextLogic/gobrubeckclient
-  subpackages:
-  - brubeck
 - package: github.com/Sirupsen/logrus
   version: ~0.11.5
 - package: github.com/jessevdk/go-flags

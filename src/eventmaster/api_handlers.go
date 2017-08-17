@@ -23,11 +23,6 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
-		if val, ok := query["event_id"]; ok {
-			if len(val) > 0 {
-				q.EventId = val[0]
-			}
-		}
 		q.ParentEventId = query["parent_event_id"]
 		q.Dc = query["dc"]
 		q.Host = query["host"]

@@ -65,6 +65,40 @@ func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 	})
 }
 
+func (s *grpcServer) GetEventById(ctx context.Context, id *eventmaster.EventId) (*eventmaster.Event, error) {
+	name := "GetEventById"
+	start := time.Now()
+	defer func() {
+		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+	}()
+	grpcReqCounter.WithLabelValues(name).Inc()
+
+	ev, err := s.store.FindById(id.EventId)
+	if err != nil {
+		grpcRespCounter.WithLabelValues(name, "1").Inc()
+		fmt.Println("Error performing event store find", err)
+		return nil, err
+	}
+	d, err := json.Marshal(ev.Data)
+	if err != nil {
+		grpcRespCounter.WithLabelValues(name, "1").Inc()
+		fmt.Println("Error marshalling event data into JSON", err)
+		return nil, err
+	}
+	return &eventmaster.Event{
+		EventId:       ev.EventID,
+		ParentEventId: ev.ParentEventID,
+		EventTime:     ev.EventTime,
+		Dc:            s.store.getDcName(ev.DcID),
+		TopicName:     s.store.getTopicName(ev.TopicID),
+		TagSet:        ev.Tags,
+		Host:          ev.Host,
+		TargetHostSet: ev.TargetHosts,
+		User:          ev.User,
+		Data:          d,
+	}, nil
+}
+
 func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
 	name := "GetEvents"
 	start := time.Now()
@@ -105,6 +139,19 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 	}
 	grpcRespCounter.WithLabelValues(name, "0").Inc()
 	return nil
+}
+
+func (s *grpcServer) GetEventIds(q *eventmaster.TimeQuery, stream eventmaster.EventMaster_GetEventIdsServer) error {
+	name := "GetEventByIds"
+	start := time.Now()
+	defer func() {
+		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+	}()
+
+	streamProxy := func(eventId string) error {
+		return stream.Send(&eventmaster.EventId{eventId})
+	}
+	return s.store.FindIds(q, streamProxy)
 }
 
 func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {

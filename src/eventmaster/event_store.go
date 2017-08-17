@@ -279,6 +279,21 @@ func (es *EventStore) FindById(id string) (*Event, error) {
 	return evt, nil
 }
 
+func (es *EventStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) error {
+	start := time.Now()
+	defer func() {
+		eventStoreTimer.WithLabelValues("FindIds").Observe(trackTime(start))
+	}()
+	if q.Limit == 0 {
+		q.Limit = 200
+	}
+	if q.StartEventTime == 0 || q.EndEventTime == 0 {
+		return errors.New("Start and end event time must be specified")
+	}
+
+	return es.ds.FindIds(q, stream)
+}
+
 func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 	start := time.Now()
 	defer func() {
