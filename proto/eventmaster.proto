@@ -5,6 +5,8 @@ package eventmaster;
 service EventMaster {
     rpc AddEvent (Event) returns (WriteResponse) {}
     rpc GetEvents (Query) returns (stream Event) {}
+    rpc GetEventById (EventId) returns (Event) {}
+    rpc GetEventIds (TimeQuery) returns (stream EventId) {}
     rpc AddTopic (Topic) returns (WriteResponse) {}
     rpc UpdateTopic (UpdateTopicRequest) returns (WriteResponse) {}
     rpc DeleteTopic (DeleteTopicRequest) returns (WriteResponse) {}
@@ -46,9 +48,21 @@ message Query {
     repeated bool sort_ascending = 14;
     int32 start = 15;
     int32 limit = 16;
+    string event_id = 17;
     bool tag_and_operator = 18;
     bool target_host_and_operator = 19;
     repeated string exclude_tag_set = 20;
+}
+
+message TimeQuery {
+    int64 start_event_time = 1;
+    int64 end_event_time = 2;
+    int32 limit = 3;
+    bool ascending = 4;
+}
+
+message EventId {
+    string event_id = 1;
 }
  
 message Topic {

@@ -13,10 +13,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+type streamFn func(eventId string) error
+
 type DataStore interface {
 	AddEvent(*Event) error
 	Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error)
 	FindById(string, bool) (*Event, error)
+	FindIds(*eventmaster.TimeQuery, streamFn) error
 	GetTopics() ([]Topic, error)
 	AddTopic(RawTopic) error
 	UpdateTopic(RawTopic) error
@@ -198,11 +201,11 @@ func (c *CassandraStore) FindById(id string, includeData bool) (*Event, error) {
 	return evt, nil
 }
 
-func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error) {
+func getDates(startEventTime int64, endEventTime int64) ([]string, error) {
 	var dates []string
-	startDate := getDate(q.StartEventTime)
-	endDate := getDate(q.EndEventTime)
-	// get range of dates between startDate and endDate
+	startDate := getDate(startEventTime)
+	endDate := getDate(endEventTime)
+
 	for {
 		if startDate == endDate {
 			break
@@ -216,6 +219,14 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 		}
 	}
 	dates = append(dates, startDate)
+	return dates, nil
+}
+
+func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error) {
+	dates, err := getDates(q.StartEventTime, q.EndEventTime)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error getting dates from timestamps")
+	}
 	timeFilter := fmt.Sprintf("event_time >= %d AND event_time <= %d", q.StartEventTime*1000, q.EndEventTime*1000)
 
 	needsIntersection := false
@@ -291,7 +302,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 		for _, date := range dates {
 			var eventID string
 			dateFilter := fmt.Sprintf("date = %s", stringify(date))
-			query := fmt.Sprintf(`SELECT event_id FROM %s WHERE %s AND %s;`,
+			query := fmt.Sprintf(`SELECT event_id FROM %s WHERE %s AND %s LIMIT 200;`,
 				"event_by_date", dateFilter, timeFilter)
 			scanIter, closeIter := c.session.ExecIterQuery(query)
 			for true {
@@ -403,6 +414,35 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 		events = append(events, event)
 	}
 	return events, nil
+}
+
+func (c *CassandraStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) error {
+	dates, err := getDates(q.StartEventTime, q.EndEventTime)
+	if err != nil {
+		return errors.Wrap(err, "Error getting dates from start and end time")
+	}
+	timeFilter := fmt.Sprintf("event_time >= %d AND event_time <= %d", q.StartEventTime*1000, q.EndEventTime*1000)
+	for _, date := range dates {
+		var eventID string
+		dateFilter := fmt.Sprintf("date = %s", stringify(date))
+		order := "DESC"
+		if q.Ascending {
+			order = "ASC"
+		}
+		query := fmt.Sprintf(`SELECT event_id FROM %s WHERE %s AND %s ORDER BY event_time %s LIMIT %d;`,
+			"event_by_date", dateFilter, timeFilter, order, q.Limit)
+		scanIter, closeIter := c.session.ExecIterQuery(query)
+		for scanIter(&eventID) {
+			if err := stream(eventID); err != nil {
+				closeIter()
+				return errors.Wrap(err, "Error streaming event ID")
+			}
+		}
+		if err := closeIter(); err != nil {
+			return errors.Wrap(err, "Error closing cassandra iter")
+		}
+	}
+	return nil
 }
 
 func (c *CassandraStore) GetTopics() ([]Topic, error) {
