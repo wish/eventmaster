@@ -6,5 +6,14 @@
     "consistency": "one",
     "timeout": "5s"
   },
-  "update_interval": 10
+  "update_interval": 10,
+  "plugins": {
+    "github": {
+      "dc": "github",
+      "topic": "github",
+      "event_topic_mapping": {
+        "push": "github"
+      }
+    }
+  }
 }

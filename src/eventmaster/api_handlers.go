@@ -95,8 +95,8 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 
 	r.GET("/v1/health", wrapHandler(h.handleHealthCheck))
 
-	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent))
+	// plugins endpoint
+	r.POST("/v1/plugins/:name/add", wrapHandler(h.handlePluginEvent))
 
 	// UI endpoints
 	r.GET("/", h.HandleMainPage)
@@ -121,6 +121,12 @@ func wrapHandler(h httprouter.Handle) httprouter.Handle {
 		start := time.Now()
 		defer func() {
 			httpReqLatencies.WithLabelValues(r.URL.Path).Observe(trackTime(start))
+			if rec := recover(); rec != nil {
+				fmt.Println("Panic from path:", r.URL.Path, rec)
+				httpRespCounter.WithLabelValues(r.URL.Path, fmt.Sprintf("%d", http.StatusInternalServerError)).Inc()
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("Panic occured: %v", rec)))
+			}
 		}()
 		httpReqCounter.WithLabelValues(r.URL.Path).Inc()
 		h(w, r, ps)
@@ -139,24 +145,21 @@ func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, mess
 	w.Write([]byte(errMsg))
 }
 
-func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, path string) {
-	var response []byte
-	if key == "" {
-		response = []byte(val)
-	} else {
-		resp := make(map[string]interface{})
-		resp[key] = val
-		var err error
-		response, err = json.Marshal(resp)
-		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", path)
-			return
-		}
+func (h *httpHandler) sendObj(w http.ResponseWriter, val map[string]interface{}, path string) {
+	resp, err := json.Marshal(val)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", path)
+		return
 	}
+	httpRespCounter.WithLabelValues(path, "200").Inc()
+	h.sendResp(w, resp, path)
+}
+
+func (h *httpHandler) sendResp(w http.ResponseWriter, val []byte, path string) {
 	httpRespCounter.WithLabelValues(path, "200").Inc()
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(response)
+	w.Write(val)
 }
 
 func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -174,7 +177,7 @@ func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusBadRequest, err, "Error writing event", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "event_id", id, r.URL.Path)
+	h.sendObj(w, map[string]interface{}{"event_id": id}, r.URL.Path)
 }
 
 type EventResult struct {
@@ -230,7 +233,7 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(jsonSr), r.URL.Path)
+	h.sendResp(w, jsonSr, r.URL.Path)
 }
 
 func (h *httpHandler) handleGetEventById(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -260,7 +263,7 @@ func (h *httpHandler) handleGetEventById(w http.ResponseWriter, r *http.Request,
 			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
 			return
 		}
-		h.sendResp(w, "", string(bytes), r.URL.Path)
+		h.sendResp(w, bytes, r.URL.Path)
 	} else {
 		h.sendError(w, http.StatusBadRequest, errors.New("did not provide event id"), "Did not provide event id", r.URL.Path)
 	}
@@ -286,7 +289,7 @@ func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusBadRequest, err, "Error adding topic", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "topic_id", id, r.URL.Path)
+	h.sendObj(w, map[string]interface{}{"topic_id": id}, r.URL.Path)
 }
 
 func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -313,7 +316,7 @@ func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, 
 		h.sendError(w, http.StatusBadRequest, err, "Error updating topic", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "topic_id", id, r.URL.Path)
+	h.sendObj(w, map[string]interface{}{"topic_id": id}, r.URL.Path)
 }
 
 func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -330,7 +333,7 @@ func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ h
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(str), r.URL.Path)
+	h.sendResp(w, str, r.URL.Path)
 }
 
 func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -346,7 +349,7 @@ func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, 
 		h.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", "", r.URL.Path)
+	h.sendResp(w, []byte{}, r.URL.Path)
 }
 
 func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -369,7 +372,7 @@ func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ http
 		h.sendError(w, http.StatusBadRequest, err, "Error adding dc", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "dc_id", id, r.URL.Path)
+	h.sendObj(w, map[string]interface{}{"dc_id": id}, r.URL.Path)
 }
 
 func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -398,7 +401,7 @@ func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps 
 		h.sendError(w, http.StatusBadRequest, err, "Error updating dc", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "dc_id", id, r.URL.Path)
+	h.sendObj(w, map[string]interface{}{"dc_id": id}, r.URL.Path)
 }
 
 func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -414,37 +417,49 @@ func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ http
 		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(str), r.URL.Path)
+	h.sendResp(w, str, r.URL.Path)
 }
 
-func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var info map[string]interface{}
-
-	defer r.Body.Close()
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
-		return
+func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	pluginName := ps.ByName("name")
+	if plugin, ok := Plugins[pluginName]; ok {
+		defer r.Body.Close()
+		rawData, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, err, "Error reading request body", r.URL.Path)
+			return
+		}
+		if valid := plugin.ValidateAuth(r, rawData); !valid {
+			h.sendError(w, http.StatusUnauthorized, errors.New("Invalid signature"), "Error validating request", r.URL.Path)
+			return
+		}
+		events, err := plugin.ParseRequest(r, rawData)
+		if err != nil {
+			h.sendError(w, http.StatusBadRequest, err, "Error parsing event", r.URL.Path)
+			return
+		}
+		var ids []string
+		var failedEvents []*UnaddedEvent
+		for _, event := range events {
+			id, err := h.store.AddEvent(event)
+			if err != nil {
+				fmt.Println("Error adding event to store", err)
+				failedEvents = append(failedEvents, event)
+			} else {
+				ids = append(ids, id)
+			}
+		}
+		h.sendObj(w, map[string]interface{}{"succeeded_ids": ids, "failed_events": failedEvents}, r.URL.Path)
+	} else {
+		h.sendError(w, http.StatusBadRequest, errors.New("Plugin "+pluginName+" does not exist"), "Error adding event", r.URL.Path)
 	}
-	if err := json.Unmarshal(reqBody, &info); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
-		return
-	}
-
-	id, err := h.store.AddEvent(&UnaddedEvent{
-		Dc:        "github",
-		Host:      "github",
-		TopicName: "github",
-		Data:      info,
-	})
-	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
-		return
-	}
-	h.sendResp(w, "event_id", id, r.URL.Path)
 }
 
 func (h *httpHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// TODO: make this more useful
-	h.sendResp(w, "", "", r.URL.Path)
+	if serverHealthy {
+		h.sendResp(w, []byte{}, r.URL.Path)
+		return
+	}
+	h.sendError(w, http.StatusInternalServerError, errors.New(""), "Server is not healthy", r.URL.Path)
 }
