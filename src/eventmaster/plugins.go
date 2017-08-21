@@ -24,6 +24,34 @@ type GitHubPlugin struct {
 	EventTopicMapping map[string]string `json:"event_topic_mapping"`
 }
 
+func NewGitHubPlugin(conf map[string]interface{}) *GitHubPlugin {
+	dc := "github"
+	host := "github"
+	secret := ""
+	eventTopicMapping := make(map[string]string)
+	if v, ok := conf["dc"]; ok {
+		dc = v.(string)
+	}
+	if v, ok := conf["host"]; ok {
+		host = v.(string)
+	}
+	if v, ok := conf["secret"]; ok {
+		secret = v.(string)
+	}
+	if v, ok := conf["event_topic_mapping"]; ok {
+		topicMapping := v.(map[string]interface{})
+		for k, v := range topicMapping {
+			eventTopicMapping[k] = v.(string)
+		}
+	}
+	return &GitHubPlugin{
+		Secret:            secret,
+		Dc:                dc,
+		Host:              host,
+		EventTopicMapping: eventTopicMapping,
+	}
+}
+
 func (g *GitHubPlugin) ValidateAuth(r *http.Request, payload []byte) bool {
 	if g.Secret == "" {
 		return true
@@ -53,7 +81,10 @@ func (g *GitHubPlugin) ParseRequest(r *http.Request, payload []byte) ([]*Unadded
 	if eventType, ok := r.Header["X-Github-Event"]; ok {
 		tags = eventType
 		if g.EventTopicMapping != nil && len(eventType) > 0 {
-			topicName = g.EventTopicMapping[eventType[0]]
+			eType := eventType[0]
+			if v, ok := g.EventTopicMapping[eType]; ok {
+				topicName = v
+			}
 		}
 	}
 

@@ -22,10 +22,10 @@ import (
 )
 
 type emConfig struct {
-	DataStore      string          `json:"data_store"`
-	CassConfig     CassandraConfig `json:"cassandra_config"`
-	UpdateInterval int             `json:"update_interval"`
-	GitHubPlugin   *GitHubPlugin   `json:"github_plugin"`
+	DataStore      string                              `json:"data_store"`
+	CassConfig     CassandraConfig                     `json:"cassandra_config"`
+	UpdateInterval int                                 `json:"update_interval"`
+	Plugins        map[string](map[string]interface{}) `json:"plugins"`
 }
 
 func getEmConfig() emConfig {
@@ -45,17 +45,13 @@ func getEmConfig() emConfig {
 	return emConf
 }
 
-func setupPlugins(emConf emConfig) {
-	if gp := emConf.GitHubPlugin; gp != nil {
-		if gp.Dc == "" {
-			gp.Dc = "github"
-		}
-		if gp.Host == "" {
-			gp.Host = "github"
-		}
-		Plugins["github"] = gp
+func setupPlugins(plugins map[string](map[string]interface{})) {
+	if plugin, ok := plugins["github"]; ok {
+		Plugins["github"] = NewGitHubPlugin(plugin)
 	}
 }
+
+var serverHealthy bool
 
 func main() {
 	var config Config
@@ -98,7 +94,7 @@ func main() {
 		fmt.Println("Error loading dcs and topics from Cassandra", err)
 	}
 
-	setupPlugins(emConf)
+	setupPlugins(emConf.Plugins)
 
 	// Create listening socket for grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port))
@@ -151,6 +147,7 @@ func main() {
 
 	go func() {
 		fmt.Println("Starting server on port", config.Port)
+		serverHealthy = true
 		if err := mux.Serve(); err != nil {
 			log.Fatalf("Error starting server: %v", err)
 		}
@@ -178,6 +175,7 @@ func main() {
 	signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
 
 	<-stopChan
+	serverHealthy = false
 	fmt.Println("Got shutdown signal, gracefully shutting down...")
 	updateTicker.Stop()
 	store.CloseSession()

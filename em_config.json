@@ -7,9 +7,13 @@
     "timeout": "5s"
   },
   "update_interval": 10,
-  "github_plugin": {
-    "secret": "",
-    "dc": "github",
-    "host": "github"
+  "plugins": {
+    "github": {
+      "dc": "github",
+      "topic": "github",
+      "event_topic_mapping": {
+        "push": "github"
+      }
+    }
   }
 }

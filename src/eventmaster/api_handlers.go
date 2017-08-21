@@ -123,6 +123,9 @@ func wrapHandler(h httprouter.Handle) httprouter.Handle {
 			httpReqLatencies.WithLabelValues(r.URL.Path).Observe(trackTime(start))
 			if rec := recover(); rec != nil {
 				fmt.Println("Panic from path:", r.URL.Path, rec)
+				httpRespCounter.WithLabelValues(r.URL.Path, fmt.Sprintf("%d", http.StatusInternalServerError)).Inc()
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("Panic occured: %v", rec)))
 			}
 		}()
 		httpReqCounter.WithLabelValues(r.URL.Path).Inc()
@@ -426,8 +429,7 @@ func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, 
 			h.sendError(w, http.StatusInternalServerError, err, "Error reading request body", r.URL.Path)
 			return
 		}
-		valid := plugin.ValidateAuth(r, rawData)
-		if !valid {
+		if valid := plugin.ValidateAuth(r, rawData); !valid {
 			h.sendError(w, http.StatusUnauthorized, errors.New("Invalid signature"), "Error validating request", r.URL.Path)
 			return
 		}
@@ -437,14 +439,17 @@ func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, 
 			return
 		}
 		var ids []string
+		var failedEvents []*UnaddedEvent
 		for _, event := range events {
 			id, err := h.store.AddEvent(event)
 			if err != nil {
-				h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
+				fmt.Println("Error adding event to store", err)
+				failedEvents = append(failedEvents, event)
+			} else {
+				ids = append(ids, id)
 			}
-			ids = append(ids, id)
 		}
-		h.sendObj(w, map[string]interface{}{"event_id": ids}, r.URL.Path)
+		h.sendObj(w, map[string]interface{}{"succeeded_ids": ids, "failed_events": failedEvents}, r.URL.Path)
 	} else {
 		h.sendError(w, http.StatusBadRequest, errors.New("Plugin "+pluginName+" does not exist"), "Error adding event", r.URL.Path)
 	}
@@ -452,5 +457,9 @@ func (h *httpHandler) handlePluginEvent(w http.ResponseWriter, r *http.Request, 
 
 func (h *httpHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// TODO: make this more useful
-	h.sendResp(w, []byte{}, r.URL.Path)
+	if serverHealthy {
+		h.sendResp(w, []byte{}, r.URL.Path)
+		return
+	}
+	h.sendError(w, http.StatusInternalServerError, errors.New(""), "Server is not healthy", r.URL.Path)
 }
