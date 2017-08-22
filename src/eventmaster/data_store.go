@@ -122,7 +122,7 @@ func (c *CassandraStore) getFromTable(tableName string, columnName string, dates
 	for _, date := range dates {
 		dateFilter := fmt.Sprintf("date = %s", stringify(date))
 		// TODO: put a reasonable limit on this
-		query := fmt.Sprintf(`SELECT event_id FROM %s WHERE %s in (%s) AND %s AND %s;`,
+		query := fmt.Sprintf(`SELECT event_id FROM %s WHERE %s in (%s) AND %s AND %s LIMIT 200;`,
 			tableName, columnName, strings.Join(fields, ","), dateFilter, timeFilter)
 		scanIter, closeIter := c.session.ExecIterQuery(query)
 		for true {
@@ -485,7 +485,7 @@ func (c *CassandraStore) UpdateTopic(t RawTopic) error {
 	queryStr := fmt.Sprintf(`UPDATE event_topic SET
 		topic_name=%s,
 		data_schema=%s
-		WHERE topic_id=%s;`, t.Name, t.Schema, t.ID)
+		WHERE topic_id=%s;`, stringify(t.Name), stringify(t.Schema), t.ID)
 	return c.session.ExecQuery(queryStr)
 }
 

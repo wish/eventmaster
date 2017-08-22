@@ -287,7 +287,7 @@ func (es *EventStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) error {
 	if q.Limit == 0 {
 		q.Limit = 200
 	}
-	if q.StartEventTime == 0 || q.EndEventTime == 0 {
+	if q.StartEventTime == 0 || q.EndEventTime == 0 || q.EndEventTime < q.StartEventTime {
 		return errors.New("Start and end event time must be specified")
 	}
 

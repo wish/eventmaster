@@ -9,13 +9,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/ContextLogic/eventmaster/eventmaster"
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	cass "github.com/ContextLogic/eventmaster/src/cassandra_client"
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/xeipuuv/gojsonschema"
-	elastic "gopkg.in/olivere/elastic.v5"
 )
 
 var uuidMatchStr = "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}"
@@ -45,10 +45,10 @@ var dataSchema = map[string]interface{}{
 	},
 }
 
-var testTopics = []TopicData{
-	TopicData{Name: "test1"},
-	TopicData{Name: "test2"},
-	TopicData{Name: "test3", Schema: dataSchema},
+var testTopics = []Topic{
+	Topic{Name: "test1"},
+	Topic{Name: "test2"},
+	Topic{Name: "test3", Schema: dataSchema},
 }
 
 var testDcs = []*eventmaster.Dc{
@@ -89,15 +89,16 @@ func NewMockESServer() *httptest.Server {
 	return ts
 }
 
-func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
-	testESClient, err := elastic.NewSimpleClient(elastic.SetURL(testESServer.URL))
-	if err != nil {
-		return nil, err
+func NewMockDataStore() DataStore {
+	return &CassandraStore{
+		session: &cass.MockCassSession{},
 	}
+}
 
+func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
+	ds := NewMockDataStore()
 	return &EventStore{
-		cqlSession:               &cass.MockCassSession{},
-		esClient:                 testESClient,
+		ds:                       ds,
 		topicMutex:               &sync.RWMutex{},
 		dcMutex:                  &sync.RWMutex{},
 		indexMutex:               &sync.RWMutex{},
@@ -115,19 +116,19 @@ func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
 ******************************************/
 
 var addTopicTests = []struct {
-	Topic       TopicData
+	Topic       Topic
 	ErrExpected bool
 }{
-	{TopicData{Name: "test1"}, false},
-	{TopicData{Name: ""}, true},
-	{TopicData{
+	{Topic{Name: "test1"}, false},
+	{Topic{Name: ""}, true},
+	{Topic{
 		Name:   "test3",
 		Schema: dataSchema,
 	}, false},
-	{TopicData{Name: "test1"}, true},
+	{Topic{Name: "test1"}, true},
 }
 
-func checkAddTopicQuery(query string, topic TopicData, id string) bool {
+func checkAddTopicQuery(query string, topic Topic, id string) bool {
 	schemaStr := "{}"
 	if topic.Schema != nil {
 		schemaBytes, err := json.Marshal(topic.Schema)
@@ -140,7 +141,7 @@ func checkAddTopicQuery(query string, topic TopicData, id string) bool {
 	schemaStr = strings.Replace(schemaStr, "[", "\\[", -1)
 	schemaStr = strings.Replace(schemaStr, "]", "\\]", -1)
 
-	exp := fmt.Sprintf(`^INSERT INTO event_topic \(topic_id, topic_name, data_schema\)[\s\S]*VALUES \(%s, %s, %s\);$`,
+	exp := fmt.Sprintf(`^INSERT INTO event_topic[\s\S]*\(topic_id, topic_name, data_schema\)[\s\S]*VALUES \(%s, %s, %s\);$`,
 		id, stringify(topic.Name), stringify(schemaStr))
 	return regexp.MustCompile(exp).MatchString(query)
 }
@@ -157,7 +158,7 @@ func TestAddTopic(t *testing.T) {
 		assert.Equal(t, test.ErrExpected, err != nil)
 		if !test.ErrExpected {
 			assert.True(t, isUUID(id))
-			assert.True(t, checkAddTopicQuery(s.cqlSession.(*cass.MockCassSession).LastQuery(), test.Topic, id))
+			assert.True(t, checkAddTopicQuery(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery(), test.Topic, id))
 		}
 	}
 }
@@ -196,22 +197,22 @@ func TestDeleteTopic(t *testing.T) {
 		assert.Equal(t, test.NumTopics, len(s.topicNameToId))
 
 		if !test.ErrExpected {
-			assert.True(t, checkDeleteTopicQuery(s.cqlSession.(*cass.MockCassSession).LastQuery(), id))
+			assert.True(t, checkDeleteTopicQuery(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery(), id))
 		}
 	}
 }
 
 var updateTopicTests = []struct {
 	Name          string
-	Topic         TopicData
+	Topic         Topic
 	ErrExpected   bool
 	ExpectedQuery string
 }{
-	{"test1", TopicData{Name: "test4"}, false,
-		"UPDATE event_topic SET topic_name='test4' WHERE topic_id=%s;"},
-	{"test1", TopicData{Name: "test2"}, true, ""},
-	{"test2", TopicData{Name: "test4"}, true, ""},
-	{"test3", TopicData{Schema: map[string]interface{}{
+	{"test1", Topic{Name: "test4"}, false,
+		`^UPDATE event_topic SET[\s\S]*topic_name='test4',[\s\S]*data_schema='{}'[\s\S]*WHERE topic_id=%s;$`},
+	{"test1", Topic{Name: "test2"}, true, ""},
+	{"test2", Topic{Name: "test4"}, true, ""},
+	{"test3", Topic{Schema: map[string]interface{}{
 		"title":       "test",
 		"description": "test",
 		"type":        "object",
@@ -230,7 +231,7 @@ var updateTopicTests = []struct {
 			},
 		},
 	}}, true, ""},
-	{"test3", TopicData{Schema: map[string]interface{}{
+	{"test3", Topic{Schema: map[string]interface{}{
 		"title":       "test",
 		"description": "test",
 		"type":        "object",
@@ -267,7 +268,7 @@ func TestUpdateTopic(t *testing.T) {
 
 		if test.ExpectedQuery != "" {
 			assert.True(t, isUUID(id))
-			assert.Equal(t, fmt.Sprintf(test.ExpectedQuery, id), s.cqlSession.(*cass.MockCassSession).LastQuery())
+			assert.True(t, regexp.MustCompile(fmt.Sprintf(test.ExpectedQuery, id)).MatchString(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery()))
 		}
 	}
 }
@@ -298,9 +299,9 @@ func TestAddDc(t *testing.T) {
 
 		if !test.ErrExpected {
 			assert.True(t, isUUID(id))
-			expectedQ := fmt.Sprintf("INSERT INTO event_dc (dc_id, dc) VALUES (%s, %s);",
+			exp := fmt.Sprintf(`^INSERT INTO event_dc[\s\S]*\(dc_id, dc\)[\s\S]*VALUES \(%s, %s\);$`,
 				id, stringify(test.Dc.DcName))
-			assert.Equal(t, expectedQ, s.cqlSession.(*cass.MockCassSession).LastQuery())
+			assert.True(t, regexp.MustCompile(exp).MatchString(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery()))
 		}
 	}
 }
@@ -333,7 +334,7 @@ func TestUpdateDc(t *testing.T) {
 			assert.True(t, isUUID(id))
 			expectedQ := fmt.Sprintf("UPDATE event_dc SET dc=%s WHERE dc_id=%s;",
 				stringify(test.Req.NewName), id)
-			assert.Equal(t, expectedQ, s.cqlSession.(*cass.MockCassSession).LastQuery())
+			assert.Equal(t, expectedQ, s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery())
 		}
 	}
 }
@@ -431,10 +432,16 @@ func checkAddEventQuery(query string, id string, evt *UnaddedEvent) bool {
 		return false
 	}
 
-	matchStr := fmt.Sprintf(`[\s\S]*BEGIN BATCH[\s\S]*INSERT INTO event \(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time\)[\s\S]*VALUES \(%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]s, %[9]s, \$\$%[10]s\$\$, %[11]s\);[\s\S]*INSERT INTO temp_event \(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, data_json, received_time\)[\s\S]*VALUES \(%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]s, %[9]s, \$\$%[10]s\$\$, %[11]s\);[\s\S]*APPLY BATCH;`,
+	unixTimestamp := time.Now().Unix()
+	if evt.EventTime != 0 {
+		unixTimestamp = evt.EventTime
+	}
+	date := getDate(unixTimestamp)
+
+	matchStr := fmt.Sprintf(`[\s\S]*BEGIN BATCH[\s\S]*INSERT INTO event \(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, user, event_time, tag_set, received_time, date\)[\s\S]*VALUES \(%[1]s, %[2]s, %[3]s, %[4]s, %[5]s, %[6]s, %[7]s, %[8]s, %[9]s, %[11]s, %[12]s\);[\s\S]*INSERT INTO event_metadata\(event_id, data_json\)[\s\S]*VALUES \(%[1]s, \$\$%[10]s\$\$\);[\s\S]*INSERT INTO event_by_topic\(event_id, topic_id, event_time, date\)[\s\S]*VALUES \(%[1]s, %[4]s, %[8]s, %[12]s\);[\s\S]*INSERT INTO event_by_dc\(event_id, dc_id, event_time, date\)[\s\S]*VALUES \(%[1]s, %[3]s, %[8]s, %[12]s\);[\s\S]*INSERT INTO event_by_host\(event_id, host, event_time, date\)[\s\S]*VALUES \(%[1]s, %[5]s, %[8]s, %[12]s\);[\s\S]*INSERT INTO event_by_date\(event_id, event_time, date\)[\s\S]*VALUES \(%[1]s, %[8]s, %[12]s\);[\s\S]*APPLY BATCH;`,
 		stringify(id), stringify(evt.ParentEventID), uuidMatchStr, uuidMatchStr,
 		stringify(evt.Host), stringifyArr(evt.TargetHosts), stringify(evt.User), "\\d{10}000",
-		stringifyArr(evt.Tags), string(data), "\\d{10}000")
+		stringifyArr(evt.Tags), string(data), "\\d{10}000", stringify(date))
 
 	return regexp.MustCompile(matchStr).MatchString(query)
 }
@@ -458,137 +465,7 @@ func TestAddEvent(t *testing.T) {
 		if !test.ErrExpected {
 			_, err := ksuid.Parse(id)
 			assert.Nil(t, err)
-			assert.True(t, checkAddEventQuery(s.cqlSession.(*cass.MockCassSession).LastQuery(), id, test.Event))
+			assert.True(t, checkAddEventQuery(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery(), id, test.Event))
 		}
-	}
-}
-
-var buildESQueryTests = []struct {
-	Query           *eventmaster.Query
-	ExpectedSource  string
-	NeedsFormatting bool
-}{
-	{&eventmaster.Query{}, "{\"bool\":{}}", false},
-	{&eventmaster.Query{
-		Dc:             []string{"dc1", "dc2"},
-		Host:           []string{"hostname"},
-		TopicName:      []string{"test1"},
-		User:           []string{"user1", "user2"},
-		StartEventTime: 1500328222,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s OR %s)\"}},{\"query_string\":{\"query\":\"host.keyword:(hostname)\"}},{\"query_string\":{\"query\":\"user.keyword:(user1 OR user2)\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":null}}}]}}", true},
-	{&eventmaster.Query{
-		TargetHostSet: []string{"host1", "host2"},
-		ParentEventId: []string{"d6f377e0-eeed-4cdc-8ba3-ae47018bb80d", "a0d18d31-a5e5-436f-be64-9990e3fc4850"},
-		TagSet:        []string{"tag1", "tag2"},
-		User:          []string{"user2"},
-		EndEventTime:  1500328222,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"target_host_set.keyword:(host1 OR host2)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 OR tag2)\"}},{\"query_string\":{\"query\":\"parent_event_id:(d6f377e0-eeed-4cdc-8ba3-ae47018bb80d OR a0d18d31-a5e5-436f-be64-9990e3fc4850)\"}},{\"query_string\":{\"query\":\"user.keyword:(user2)\"}},{\"range\":{\"event_time\":{\"from\":null,\"include_lower\":true,\"include_upper\":true,\"to\":1500328222000}}}]}}", false},
-	{&eventmaster.Query{
-		Dc:        []string{"dc100"},
-		Host:      []string{"host1"},
-		TopicName: []string{"test100"},
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:()\"}},{\"query_string\":{\"query\":\"host.keyword:(host1)\"}}]}}", false},
-	{&eventmaster.Query{
-		Dc:             []string{"dc1"},
-		Data:           "fulltextsearch",
-		StartEventTime: 1500328222,
-		EndEventTime:   1500329000,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s)\"}},{\"query_string\":{\"query\":\"fulltextsearch\"}},{\"range\":{\"event_time\":{\"from\":1500328222000,\"include_lower\":true,\"include_upper\":true,\"to\":1500329000000}}}]}}", true},
-	{&eventmaster.Query{
-		Data: "{\"key1\": {\"value1\": \"morevalue\"}, \"key2\": \"value2\"}",
-	}, "{\"bool\":{\"must\":[{\"term\":{\"data.key1.value1\":\"morevalue\"}},{\"term\":{\"data.key2\":\"value2\"}}]}}", false},
-	{&eventmaster.Query{
-		Dc:             []string{"dc1"},
-		TagSet:         []string{"tag1", "tag2", "tag3"},
-		ExcludeTagSet:  []string{"tag4", "tag5"},
-		TagAndOperator: true,
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"dc_id.keyword:(%s)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:(tag1 AND tag2 AND tag3) AND NOT tag4 AND NOT tag5\"}}]}}", true},
-	{&eventmaster.Query{
-		Host:          []string{"host1"},
-		ExcludeTagSet: []string{"tag1"},
-	}, "{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"host.keyword:(host1)\"}},{\"query_string\":{\"query\":\"tag_set.keyword:\\* AND NOT tag1\"}}]}}", false},
-}
-
-func TestBuildESQuery(t *testing.T) {
-	testESServer := NewMockESServer()
-	defer testESServer.Close()
-
-	s, err := GetTestEventStore(testESServer)
-	assert.Nil(t, err)
-
-	err = populateTopics(s)
-	assert.Nil(t, err)
-
-	err = populateDcs(s)
-	assert.Nil(t, err)
-
-	for _, test := range buildESQueryTests {
-		bq := s.buildESQuery(test.Query)
-		source, err := bq.Source()
-		assert.Nil(t, err)
-		b, err := json.Marshal(source)
-		assert.Nil(t, err)
-
-		expected := strings.Replace(test.ExpectedSource, "(", "\\(", -1)
-		expected = strings.Replace(expected, ")", "\\)", -1)
-		expected = strings.Replace(expected, "[", "\\[", -1)
-		expected = strings.Replace(expected, "]", "\\]", -1)
-		expected = strings.Replace(expected, "%s", "%[1]s", -1)
-
-		matchStr := expected
-		actual := string(b)
-		if test.NeedsFormatting {
-			matchStr = fmt.Sprintf(expected, uuidMatchStr)
-		}
-
-		r := regexp.MustCompile(matchStr)
-		assert.True(t, r.MatchString(actual))
-	}
-}
-
-var getESIndicesTests = []struct {
-	StartEventTime int64
-	EndEventTime   int64
-	TopicIds       []string
-	ExpectedResult []string
-}{
-	{-1, -1, []string{"aaf7cc73-0431-444e-9b9f-83bfba4acb45"}, []string{
-		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2018_02_28",
-		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2016_05_17",
-	}},
-	{-1, 1483228800, []string{}, []string{
-		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2016_03_21",
-		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2016_05_17",
-	}},
-	{1498780800, 1519776000, []string{}, []string{
-		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
-		"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2018_02_28",
-	}},
-	{1458552480, 1498867200, []string{"17e71f4f-06c8-4c47-b9c8-920ac0b71067"}, []string{
-		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
-		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2016_03_21",
-	}},
-	{1498780800, 1498780800, []string{"17e71f4f-06c8-4c47-b9c8-920ac0b71067"}, []string{
-		"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
-	}},
-}
-
-func TestGetIndices(t *testing.T) {
-	testESServer := NewMockESServer()
-	defer testESServer.Close()
-
-	s, err := GetTestEventStore(testESServer)
-	assert.Nil(t, err)
-
-	for _, test := range getESIndicesTests {
-		s.indexNames = []string{
-			"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2017_06_30",
-			"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2018_02_28",
-			"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2016_03_21",
-			"17e71f4f-06c8-4c47-b9c8-920ac0b71067_2018_12_03",
-			"aaf7cc73-0431-444e-9b9f-83bfba4acb45_2016_05_17",
-		}
-		indices := s.getESIndices(test.StartEventTime, test.EndEventTime, test.TopicIds...)
-		assert.Equal(t, test.ExpectedResult, indices)
 	}
 }

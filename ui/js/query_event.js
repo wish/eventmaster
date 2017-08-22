@@ -170,7 +170,8 @@ $(document).ready(function() {
         buttonWidth: '100%'
     });
     $('#query-form').submit();
-	backgroundUpdate();
+    // re-enable this when performance for Cassandra is better
+	// backgroundUpdate();
 });
 
 $("#menu-toggle").click(function(e) {
