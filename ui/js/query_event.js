@@ -34,7 +34,7 @@ function updateResults() {
                         <td style="word-wrap:break-word;overflow:hidden;">`,event['parent_event_id'],`</td>
                     </tr>
                     <tr>
-                        <td colspan="9" style="word-wrap:break-word;overflow:hidden;"><pre>Data: `,JSON.stringify(event['data'],null,4),`</pre></td>
+                        <td colspan="9" style="word-wrap:break-word;overflow:hidden;"><pre></pre></td>
                     </tr>`)
                     elem.innerHTML += item;
                     $("td[colspan=9]").find("pre").hide();
@@ -76,7 +76,7 @@ function updateResults() {
                             <td style="word-wrap:break-word;overflow:hidden;">`,event['parent_event_id'],`</td>
                         </tr>
                         <tr>
-                            <td colspan="9" style="word-wrap:break-word;overflow:hidden;"><pre>Data: `,JSON.stringify(event['data'],null,4),`</pre></td>
+                            <td colspan="9" style="word-wrap:break-word;overflow:hidden;"><pre></pre></td>
                         </tr>`)
                         elem.innerHTML += item;
                         $("td[colspan=9]").find("pre").hide();
@@ -181,6 +181,24 @@ $("#menu-toggle").click(function(e) {
 
 function hideData(row) {
     document.getElementById("refreshCheckbox").checked = false;
+    var id = $(row).find("td:first").html();
+    var nextRow = $(row).next().find("pre");
+    if ($(nextRow).html() === "") {
+        $.ajax({
+            type: "GET",
+            url: "/v1/event/"+id,
+            dataType: "json",
+            success: function(data) {
+                var event = data["result"];
+                if (event) {
+                    $(row).next().find("pre").text(JSON.stringify(event['data'],null,4))
+                }
+            },
+            error: function(data) {
+                alert("Error getting event data: " + data.responseText);
+            },
+        });
+    }
     $(row).next().find("pre").slideToggle();
 }
 

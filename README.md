@@ -9,7 +9,6 @@ There are lots of events that happen in production such as deploys, bounces, sca
 ## Setup
 ### Dependencies
 - Go v1.8.x
-- ElasticSearch v5.4
 - Cassandra v3.10
 
 ### Get Code
@@ -33,22 +32,22 @@ $ glide install
 ```
 
 ### Configuration
-Modify `db_config.json` to specify the address of Cassandra and ES along with other database options. Alternatively, [service lookup](https://github.com/ContextLogic/goServiceLookup) can be used to find the IPs of Cassandra and ES clusters by specifying the `--es_servicename` and `--cassandra_servicename` command line options.
+Modify `em_config.json` to specify the address of Cassandra along with other database options. Alternatively, [service lookup](https://github.com/ContextLogic/goServiceLookup) can be used to find the IPs of Cassandra clusters by specifying the `--cassandra_servicename` command line options.
 
 ### Database Setup
-Execute `schema.cql` on your Cassandra cluster. This will set up the `event_master` keyspace and `event`, `temp_event`, `event_topic`, and `event_dc` tables. Note that the `class` and `replication_factor` can be modified as long as the `consistency` attribute is configured accordingly in the `db_config.json`.
+Execute `schema.cql` on your Cassandra cluster. This will set up the `event_master` keyspace and `event`, `temp_event`, `event_topic`, and `event_dc` tables. Note that the `class` and `replication_factor` can be modified as long as the `consistency` attribute is configured accordingly in the `em_config.json`.
 ```
 $ cqlsh -f schema.cql
 ```
 
 ### Running
-To use options set in `db_config.json` or defaults, run
+To use options set in `em_config.json` or defaults, run
 ```
 $ make run
 ```
 To use service lookup, run
 ```
-$ go run src/eventmaster/*.go --es_servicename=<elasticsearch-servicename> --cassandra_servicename=<cassandra-servicename> --cassandra_port=<cassandra-port>
+$ go run src/eventmaster/*.go --cassandra_servicename=<cassandra-servicename> --cassandra_port=<cassandra-port>
 ```
 The port of the eventmaster server can be configured using the `--port` option.
 
