@@ -6,22 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var getIndexTests = []struct {
-	TopicId        string
-	Time           int64
-	ExpectedResult string
-}{
-	{"0fb22da2-a2c6-4d2e-a966-cae5eceff5cf", 1500333894, "0fb22da2-a2c6-4d2e-a966-cae5eceff5cf_2017_07_17"},
-	{"fdedfdd5-67d8-4569-bc0e-21d7aef02f3e", 1000, "fdedfdd5-67d8-4569-bc0e-21d7aef02f3e_1970_01_01"},
-	{"fdedfdd5-67d8-4569-bc0e-21d7aef02f3e", 1500333936000, "fdedfdd5-67d8-4569-bc0e-21d7aef02f3e_49513_09_10"},
-}
-
-func TestGetIndex(t *testing.T) {
-	for _, test := range getIndexTests {
-		assert.Equal(t, test.ExpectedResult, getIndex(test.TopicId, test.Time))
-	}
-}
-
 var insertDefaultsTests = []struct {
 	Schema         map[string]interface{}
 	Input          map[string]interface{}
@@ -150,5 +134,20 @@ var parseKeyValueTests = []struct {
 func TestParseKeyValuePairs(t *testing.T) {
 	for _, test := range parseKeyValueTests {
 		assert.Equal(t, test.ExpectedResult, parseKeyValuePair(test.Input))
+	}
+}
+
+var getDateTests = []struct {
+	Input    int64
+	Expected string
+}{
+	{1503521169, "2017-08-23"},
+	{13219200, "1970-06-03"},
+	{1758758432, "2025-09-25"},
+}
+
+func TestGetDate(t *testing.T) {
+	for _, test := range getDateTests {
+		assert.Equal(t, test.Expected, getDate(test.Input))
 	}
 }

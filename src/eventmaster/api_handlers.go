@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
@@ -31,17 +30,6 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 		q.TagSet = query["tag_set"]
 		q.ExcludeTagSet = query["exclude_tag_set"]
 		q.TopicName = query["topic_name"]
-		q.SortField = query["sort_field"]
-		for _, elem := range query["sort_ascending"] {
-			if strings.ToLower(elem) == "true" {
-				q.SortAscending = append(q.SortAscending, true)
-			} else if strings.ToLower(elem) == "false" {
-				q.SortAscending = append(q.SortAscending, false)
-			}
-		}
-		if len(q.SortField) != len(q.SortAscending) {
-			return nil, errors.New("sort_field and sort_ascending don't match")
-		}
 		if len(query["data"]) > 0 {
 			q.Data = query["data"][0]
 		}

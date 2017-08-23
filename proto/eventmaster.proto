@@ -44,8 +44,7 @@ message Query {
     int64 end_event_time = 10;
     int64 start_received_time = 11;
     int64 end_received_time = 12;
-    repeated string sort_field = 13;
-    repeated bool sort_ascending = 14;
+
     int32 start = 15;
     int32 limit = 16;
     string event_id = 17;

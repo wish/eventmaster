@@ -1,12 +1,8 @@
 package main
 
-// Configuration struct for the mongo proxy
-// TODO: we want to also allow for a config file, so the "required" check will need to be moved
-// out into a method that can do that-- since we'll be loading yaml and CLI args together
+// Configuration struct for the eventmaster
 type Config struct {
 	Port int `long:"port" default:"50052" description:"Port for EventMaster gRPC + HTTP API"` // What port for the API to listen on
-
-	ESServiceName string `long:"es_servicename" description:"name of elasticsearch service to talk to"`
 
 	CassandraServiceName string `long:"cassandra_servicename" description:"name of cassandra service to talk to"`
 
@@ -25,6 +21,4 @@ type Config struct {
 	CertFile string `long:"cert_file" description:"PEM encoded certificate file path"`
 
 	KeyFile string `long:"key_file" description:"PEM encoded private key file path"`
-
-	MasterNode bool `short:"m" long:"master_node" description:"Flag to set current node as master node"`
 }

@@ -1,5 +1,5 @@
-hash: 7a3d5982211b16207e5150a7accc93be5561c92263761ba485f3b81cec951ecc
-updated: 2017-08-21T09:15:04.544932218-07:00
+hash: b6c9a92c7594090ffe2a2a4fc1d8c51c51baf81b4ea80fb480b75d34d1ceb759
+updated: 2017-08-23T14:47:30.429749639-07:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -117,16 +117,7 @@ imports:
   - transport
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
-- name: gopkg.in/olivere/elastic.v5
-  version: edbef41beaacc2ee95e61af8faff04e67c01e268
-  subpackages:
-  - config
-  - uritemplates
 testImports:
-- name: github.com/ContextLogic/eventmaster
-  version: 1b26f96221ee5953fad78270dccd600fcb0a0f82
-  subpackages:
-  - eventmaster
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:

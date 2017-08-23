@@ -1,11 +1,10 @@
 var params = [];
-var numSortFields = 0;
 var querySuccess = true;
 var curPage = 0;
 
 function updateResults() {
     params = params.filter(function(v) {
-        return !(v.startsWith('limit=') || v.startsWith('start='))
+        return !v.startsWith('limit=')
     });
     var idQuery = params.filter(function(v) {
         return v.startsWith('event_id=')
@@ -50,7 +49,6 @@ function updateResults() {
         });
     } else {
         params.push('limit=100');
-        params.push('start=' + curPage*100);
         $.ajax({
             type: "GET",
             url: "/v1/event?"+params.join("&"),
@@ -60,7 +58,7 @@ function updateResults() {
                 var elem = document.getElementById("event_table")
                 elem.innerHTML = "";
                 var results = data["results"];
-                if (results) {
+                if (results && results.length > 0) {
                     for (var i = 0; i < results.length; i++) {
                         var event = results[i];
                         var item =
@@ -111,7 +109,6 @@ function getShareableLink() {
 
 function clearQuery() {
     params = [];
-    numSortFields = 0;
     document.getElementById("event_id").value = "";
     document.getElementById("parent_event_id").value = "";
     document.getElementById("dc").value = "";
@@ -129,12 +126,6 @@ function clearQuery() {
     document.getElementById("data").value = "";
     document.getElementById("start-event-time").value = "";
     document.getElementById("end-event-time").value = "";
-    var currentSorts = $("div").filter(function() {
-        return /^divSortField\d$/.test(this.id);
-    });
-    for (var i = 0; i < currentSorts.length; i++) {
-        currentSorts[i].remove();
-    }
     updateResults();
     curPage = 0;
 }
@@ -170,7 +161,7 @@ $(document).ready(function() {
         buttonWidth: '100%'
     });
     $('#query-form').submit();
-    // re-enable this when performance for Cassandra is better
+    // re-enable this when performance for Cassandra is better along with checkbox in UI
 	// backgroundUpdate();
 });
 
@@ -180,7 +171,7 @@ $("#menu-toggle").click(function(e) {
 });
 
 function hideData(row) {
-    document.getElementById("refreshCheckbox").checked = false;
+    // document.getElementById("refreshCheckbox").checked = false;
     var id = $(row).find("td:first").html();
     var nextRow = $(row).next().find("pre");
     if ($(nextRow).html() === "") {
@@ -206,24 +197,14 @@ function submitQuery(form) {
     $('#loading-indicator').show();
 	var data = $(form).serializeArray();
 	var formData = {};
-    var sortFields = [];
-    var sortAscending = [];
 	var startEventTime, endEventTime;
 	var topics = [];
 	for (var i = 0; i < data.length; i++) {
 		var key = data[i]["name"];
 		var value = data[i]["value"];
 		if (value) {
-            if (key.startsWith("sort_field")) {
-                sortFields.push(value);
-            } else if (key.endsWith("operator")) {
+            if (key.endsWith("operator")) {
             	formData[key] = "true"
-            } else if (key.startsWith("sort_ascending")) {
-                if (value.toLowerCase() === "t" || value.toLowerCase() === "true") {
-                    sortAscending.push("true")
-                } else {
-                    sortAscending.push("false")
-                }
             } else {
                 switch(key) {
                     case "selected_topics[]":
@@ -246,21 +227,6 @@ function submitQuery(form) {
 	}
     if (topics.length > 0) {
         formData["topic_name"] = topics;
-    }
-
-    if (sortFields.length > 0) {
-        sortFieldsArr = [];
-        sortAscendingArr = [];
-        for (var i = 0; i < sortFields.length; i++) {
-            if (sortFields[i] !== "") {
-                sortFieldsArr.push(sortFields[i]);
-                sortAscendingArr.push(sortAscending[i]);
-            }
-        }
-        if (sortFieldsArr.length > 0) {
-            formData["sort_field"] = sortFieldsArr;
-            formData["sort_ascending"] = sortAscendingArr;
-        }
     }
 
 	if (startEventTime) {
@@ -287,33 +253,6 @@ function submitQuery(form) {
 	return false;
 }
 
-function addSortField() {
-    var newSortField = document.createElement('div');
-    newSortField.id = "divSortField"+numSortFields;
-    var html = `<div class="form-group">
-        <select name="sort_field`+numSortFields+`" class="form-control" style="display: inline-block;">
-            <option value=""></option>
-            <option value="topic">topic</option>
-            <option value="dc">dc</option>
-            <option value="host">host</option>
-            <option value="target_host_set">target host set</option>
-            <option value="user">user</option>
-            <option value="tag_set">tag</option>
-            <option value="parent_event_id">parent event id</option>
-            <option value="event_time">event time</option>
-        </select>
-        <select name="sort_ascending` + numSortFields + `" class="form-control" style="display: inline-block;">
-            <option value="true">ascending</option>
-            <option value="false">descending</option>
-        </select>
-        <button onclick='$("#divSortField`+numSortFields+`").remove();' class="btn btn-secondary btn-sm">Remove</label>
-    </div>`;
-
-    newSortField.innerHTML = html;
-    numSortFields++;
-    document.getElementById("sortFields").appendChild(newSortField);
-}
-
 function loadQueryTimes(start, end) {
     if (start) {
         document.getElementById('start-event-time').value = getTimestampStr(start);
@@ -327,14 +266,3 @@ function loadQueryTimes(start, end) {
     }
 }
 
-function nextPage() {
-    curPage++;
-    updateResults();
-}
-
-function prevPage() {
-    if (curPage > 0) {
-        curPage--;
-    }
-    updateResults();
-}

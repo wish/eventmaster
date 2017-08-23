@@ -37,11 +37,6 @@ func stringifyUUID(str string) string {
 	return str
 }
 
-func getIndex(topicId string, evtTime int64) string {
-	eventTime := time.Unix(evtTime, 0).UTC()
-	return fmt.Sprintf("%s_%04d_%02d_%02d", topicId, eventTime.Year(), eventTime.Month(), eventTime.Day())
-}
-
 func getDataQueries(data map[string]interface{}) []Pair {
 	var pairs []Pair
 	for k, v := range data {
