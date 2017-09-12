@@ -7,7 +7,7 @@ import (
 	"time"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
-	cass "github.com/ContextLogic/eventmaster/src/cassandra_client"
+	cass "github.com/ContextLogic/eventmaster/cassandra"
 	servicelookup "github.com/ContextLogic/goServiceLookup/servicelookup"
 	"github.com/gocql/gocql"
 	"github.com/pkg/errors"
