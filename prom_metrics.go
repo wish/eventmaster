@@ -86,7 +86,7 @@ func GetPromHandler() *httprouter.Router {
 	return r
 }
 
-func registerPromMetrics() error {
+func RegisterPromMetrics() error {
 	regErr := prometheus.Register(httpReqLatencies)
 	if regErr != nil {
 		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
