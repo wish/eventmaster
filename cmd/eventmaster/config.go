@@ -20,7 +20,7 @@ func DefaultEMConfig() EMConfig {
 	return EMConfig{
 		DataStore: "cassandra",
 		CassConfig: em.CassandraConfig{
-			Addr:        []string{"127.0.0.1:9042"},
+			Addrs:       []string{"127.0.0.1:9042"},
 			Keyspace:    "event_master",
 			Consistency: "one",
 			Timeout:     "5s",
