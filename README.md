@@ -39,7 +39,8 @@ make
 will emit `$GOPATH/bin/eventmaster` after fetching and compiling dependencies.
 
 ### Running
-To use options set in `em_config.json` or defaults, run
+
+The `Makefile` includes some sane defaults so adjust options set in `em_config.json`, and run:
 
 ```
 $ make run
