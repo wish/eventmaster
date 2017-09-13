@@ -149,7 +149,7 @@ func (s *grpcServer) GetEventIds(q *eventmaster.TimeQuery, stream eventmaster.Ev
 	}()
 
 	streamProxy := func(eventId string) error {
-		return stream.Send(&eventmaster.EventId{eventId})
+		return stream.Send(&eventmaster.EventId{EventId: eventId})
 	}
 	return s.store.FindIds(q, streamProxy)
 }
@@ -286,5 +286,5 @@ func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 }
 
 func (s *grpcServer) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {
-	return &eventmaster.HealthcheckResponse{"OK"}, nil
+	return &eventmaster.HealthcheckResponse{Response: "OK"}, nil
 }
