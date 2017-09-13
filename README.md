@@ -42,21 +42,26 @@ $ cqlsh -f schema.cql
 
 ### Running
 To use options set in `em_config.json` or defaults, run
+
 ```
 $ make run
 ```
+
 To use service lookup, run
+
 ```
-$ go run src/eventmaster/*.go --cassandra_servicename=<cassandra-servicename> --cassandra_port=<cassandra-port>
+$ eventmaster --cassandra_servicename=<cassandra-servicename> --cassandra_port=<cassandra-port>
 ```
+
 The port of the eventmaster server can be configured using the `--port` option.
 
 Open the eventmaster UI in your browser (default: `http://localhost:50052`). Through the UI, events, topics and data centers can be added and events can be queried.
 
 ### Tests
-Tests can be run using
+Tests can be run (using the go tool) by calling:
+
 ```
-$ make run
+$ make test
 ```
 
 ## REST API
@@ -352,7 +357,7 @@ The gRPC API supports all methods supported by the REST API. Refer to the [proto
 Eventmaster facilitates centralized logging by translating logs into events and adding them to the event store.
 To run Eventmaster's Rsyslog server, include the `-r` option:
 ```
-$ go run src/eventmaster/*.go -r --rsyslog_port=50053 <other_options>
+$ eventmaster -r --rsyslog_port=50053 <other_options>
 ```
 
 Rsyslog clients can be configured to send logs to Eventmaster's Rsyslog server over TCP by formatting logs according to the template found in the [sample Rsyslog client configuration template file](https://github.com/ContextLogic/eventmaster/blob/master/rsyslog-eventmaster.conf.erb).
