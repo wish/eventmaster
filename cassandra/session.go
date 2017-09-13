@@ -1,4 +1,4 @@
-package cassandra_client
+package cassandra
 
 import (
 	"github.com/gocql/gocql"

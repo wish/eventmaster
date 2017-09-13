@@ -1,4 +1,4 @@
-package main
+package eventmaster
 
 import (
 	"crypto/tls"
@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type rsyslogServer struct {
+type RsyslogServer struct {
 	lis   net.Listener
 	store *EventStore
 }
@@ -46,7 +46,7 @@ func parseAuditd(timestamp int64, dc string, host string, topic string, msg stri
 	}
 }
 
-func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*rsyslogServer, error) {
+func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*RsyslogServer, error) {
 	var lis net.Listener
 	var err error
 	if tlsConfig != nil {
@@ -59,13 +59,13 @@ func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*rsyslogS
 	}
 	fmt.Println("Starting rsyslog server on port", port)
 
-	return &rsyslogServer{
+	return &RsyslogServer{
 		lis:   lis,
 		store: s,
 	}, nil
 }
 
-func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
+func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 	start := time.Now()
 	defer func() {
 		rsyslogReqLatencies.WithLabelValues().Observe(trackTime(start))
@@ -108,7 +108,7 @@ func (s *rsyslogServer) handleLogRequest(conn net.Conn) {
 	}
 }
 
-func (s *rsyslogServer) AcceptLogs() {
+func (s *RsyslogServer) AcceptLogs() {
 	go func() {
 		for {
 			conn, err := s.lis.Accept()
@@ -122,6 +122,6 @@ func (s *rsyslogServer) AcceptLogs() {
 	}()
 }
 
-func (s *rsyslogServer) Stop() error {
+func (s *RsyslogServer) Stop() error {
 	return s.lis.Close()
 }

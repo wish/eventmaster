@@ -18,19 +18,6 @@ $ cd $GOPATH/src/github.com/ContextLogic/
 $ git clone git@github.com:ContextLogic/eventmaster.git
 ```
 
-### Get Required Packages
-Glide is used to manage project dependencies: https://glide.sh/.
-It can be installed by running
-```
-$ curl https://glide.sh/get | sh
-```
-
-To install required packages, run
-```
-$ cd $GOPATH/src/github.com/ContextLogic/eventmaster
-$ glide install
-```
-
 ### Configuration
 Modify `em_config.json` to specify the address of Cassandra along with other database options. Alternatively, [service lookup](https://github.com/ContextLogic/goServiceLookup) can be used to find the IPs of Cassandra clusters by specifying the `--cassandra_servicename` command line options.
 
@@ -40,23 +27,40 @@ Execute `schema.cql` on your Cassandra cluster. This will set up the `event_mast
 $ cqlsh -f schema.cql
 ```
 
+### Building
+
+Dependencies are currently fetched using [glide](https://glide.sh). These are
+set up as dependencies to the default make target, so running:
+
+```
+make
+```
+
+will emit `$GOPATH/bin/eventmaster` after fetching and compiling dependencies.
+
 ### Running
-To use options set in `em_config.json` or defaults, run
+
+The `Makefile` includes some sane defaults so adjust options set in `em_config.json`, and run:
+
 ```
 $ make run
 ```
+
 To use service lookup, run
+
 ```
-$ go run src/eventmaster/*.go --cassandra_servicename=<cassandra-servicename> --cassandra_port=<cassandra-port>
+$ eventmaster --cassandra_servicename=<cassandra-servicename> --cassandra_port=<cassandra-port>
 ```
+
 The port of the eventmaster server can be configured using the `--port` option.
 
 Open the eventmaster UI in your browser (default: `http://localhost:50052`). Through the UI, events, topics and data centers can be added and events can be queried.
 
 ### Tests
-Tests can be run using
+Tests can be run (using the go tool) by calling:
+
 ```
-$ make run
+$ make test
 ```
 
 ## REST API
@@ -352,7 +356,7 @@ The gRPC API supports all methods supported by the REST API. Refer to the [proto
 Eventmaster facilitates centralized logging by translating logs into events and adding them to the event store.
 To run Eventmaster's Rsyslog server, include the `-r` option:
 ```
-$ go run src/eventmaster/*.go -r --rsyslog_port=50053 <other_options>
+$ eventmaster -r --rsyslog_port=50053 <other_options>
 ```
 
 Rsyslog clients can be configured to send logs to Eventmaster's Rsyslog server over TCP by formatting logs according to the template found in the [sample Rsyslog client configuration template file](https://github.com/ContextLogic/eventmaster/blob/master/rsyslog-eventmaster.conf.erb).

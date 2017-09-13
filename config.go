@@ -1,4 +1,4 @@
-package main
+package eventmaster
 
 // Configuration struct for the eventmaster
 type Config struct {

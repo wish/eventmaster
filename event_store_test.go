@@ -1,4 +1,4 @@
-package main
+package eventmaster
 
 import (
 	"encoding/json"
@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ContextLogic/eventmaster/cassandra"
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
-	cass "github.com/ContextLogic/eventmaster/src/cassandra_client"
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/xeipuuv/gojsonschema"
@@ -91,7 +91,7 @@ func NewMockESServer() *httptest.Server {
 
 func NewMockDataStore() DataStore {
 	return &CassandraStore{
-		session: &cass.MockCassSession{},
+		session: &cassandra.MockCassSession{},
 	}
 }
 
@@ -158,7 +158,7 @@ func TestAddTopic(t *testing.T) {
 		assert.Equal(t, test.ErrExpected, err != nil)
 		if !test.ErrExpected {
 			assert.True(t, isUUID(id))
-			assert.True(t, checkAddTopicQuery(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery(), test.Topic, id))
+			assert.True(t, checkAddTopicQuery(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery(), test.Topic, id))
 		}
 	}
 }
@@ -197,7 +197,7 @@ func TestDeleteTopic(t *testing.T) {
 		assert.Equal(t, test.NumTopics, len(s.topicNameToId))
 
 		if !test.ErrExpected {
-			assert.True(t, checkDeleteTopicQuery(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery(), id))
+			assert.True(t, checkDeleteTopicQuery(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery(), id))
 		}
 	}
 }
@@ -268,7 +268,7 @@ func TestUpdateTopic(t *testing.T) {
 
 		if test.ExpectedQuery != "" {
 			assert.True(t, isUUID(id))
-			assert.True(t, regexp.MustCompile(fmt.Sprintf(test.ExpectedQuery, id)).MatchString(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery()))
+			assert.True(t, regexp.MustCompile(fmt.Sprintf(test.ExpectedQuery, id)).MatchString(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery()))
 		}
 	}
 }
@@ -301,7 +301,7 @@ func TestAddDc(t *testing.T) {
 			assert.True(t, isUUID(id))
 			exp := fmt.Sprintf(`^INSERT INTO event_dc[\s\S]*\(dc_id, dc\)[\s\S]*VALUES \(%s, %s\);$`,
 				id, stringify(test.Dc.DcName))
-			assert.True(t, regexp.MustCompile(exp).MatchString(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery()))
+			assert.True(t, regexp.MustCompile(exp).MatchString(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery()))
 		}
 	}
 }
@@ -334,7 +334,7 @@ func TestUpdateDc(t *testing.T) {
 			assert.True(t, isUUID(id))
 			expectedQ := fmt.Sprintf("UPDATE event_dc SET dc=%s WHERE dc_id=%s;",
 				stringify(test.Req.NewName), id)
-			assert.Equal(t, expectedQ, s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery())
+			assert.Equal(t, expectedQ, s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery())
 		}
 	}
 }
@@ -465,7 +465,7 @@ func TestAddEvent(t *testing.T) {
 		if !test.ErrExpected {
 			_, err := ksuid.Parse(id)
 			assert.Nil(t, err)
-			assert.True(t, checkAddEventQuery(s.ds.(*CassandraStore).session.(*cass.MockCassSession).LastQuery(), id, test.Event))
+			assert.True(t, checkAddEventQuery(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery(), id, test.Event))
 		}
 	}
 }

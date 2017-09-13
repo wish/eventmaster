@@ -13,7 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	em "github.com/ContextLogic/eventmaster"
+	emproto "github.com/ContextLogic/eventmaster/proto"
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
 	"github.com/soheilhy/cmux"
@@ -22,9 +23,9 @@ import (
 )
 
 type emConfig struct {
-	DataStore      string          `json:"data_store"`
-	CassConfig     CassandraConfig `json:"cassandra_config"`
-	UpdateInterval int             `json:"update_interval"`
+	DataStore      string             `json:"data_store"`
+	CassConfig     em.CassandraConfig `json:"cassandra_config"`
+	UpdateInterval int                `json:"update_interval"`
 }
 
 func getEmConfig() emConfig {
@@ -45,14 +46,14 @@ func getEmConfig() emConfig {
 }
 
 func main() {
-	var config Config
+	var config em.Config
 	parser := flags.NewParser(&config, flags.Default)
 	if _, err := parser.Parse(); err != nil {
 		log.Fatalf("Error parsing flags: %v", err)
 	}
 
 	if config.PromExporter {
-		err := registerPromMetrics()
+		err := em.RegisterPromMetrics()
 		if err != nil {
 			log.Fatalf("Unable to register prometheus metrics: %v", err)
 		}
@@ -62,22 +63,22 @@ func main() {
 			log.Fatalf("failed to start prom client: %v", err)
 		}
 		fmt.Println("starting prometheus exporter on port", config.PromPort)
-		go http.Serve(promL, GetPromHandler())
+		go http.Serve(promL, em.GetPromHandler())
 	}
 
 	// Set up event store
 	emConf := getEmConfig()
-	var ds DataStore
+	var ds em.DataStore
 	var err error
 	if emConf.DataStore == "cassandra" {
-		ds, err = NewCassandraStore(emConf.CassConfig)
+		ds, err = em.NewCassandraStore(emConf.CassConfig)
 		if err != nil {
 			log.Fatalf("failed to create cassandra data store: %v", err)
 		}
 	} else {
 		log.Fatalf("Unrecognized data store option")
 	}
-	store, err := NewEventStore(ds)
+	store, err := em.NewEventStore(ds)
 	if err != nil {
 		log.Fatalf("Unable to create event store: %v", err)
 	}
@@ -117,10 +118,10 @@ func main() {
 		}
 	}
 
-	httpS := NewHTTPServer(tlsConfig, store)
+	httpS := em.NewHTTPServer(tlsConfig, store)
 
 	// Create the EventMaster grpc server
-	grpcServer, err := NewGRPCServer(&config, store)
+	grpcServer, err := em.NewGRPCServer(&config, store)
 	if err != nil {
 		log.Fatalf("Unable to start server: %v", err)
 	}
@@ -128,7 +129,7 @@ func main() {
 	maxMsgSizeOpt := grpc.MaxMsgSize(1024 * 1024 * 100)
 	// Create the gRPC server and register our service
 	grpcS := grpc.NewServer(maxMsgSizeOpt)
-	eventmaster.RegisterEventMasterServer(grpcS, grpcServer)
+	emproto.RegisterEventMasterServer(grpcS, grpcServer)
 	reflection.Register(grpcS)
 
 	go httpS.Serve(httpL)
@@ -149,10 +150,10 @@ func main() {
 			}
 		}
 	}()
-	rsyslogServer := &rsyslogServer{}
+	rsyslogServer := &em.RsyslogServer{}
 
 	if config.RsyslogServer {
-		rsyslogServer, err = NewRsyslogServer(store, tlsConfig, config.RsyslogPort)
+		rsyslogServer, err = em.NewRsyslogServer(store, tlsConfig, config.RsyslogPort)
 		if err != nil {
 			log.Fatalf("Unable to start server: %v", err)
 		}
