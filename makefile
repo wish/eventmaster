@@ -10,7 +10,7 @@ $(BINARY): *.go proto
 .PHONY: proto
 proto: proto/eventmaster.pb.go
 
-proto/eventmaster.pb.go: proto/eventmaster.proto
+proto/eventmaster.pb.go: $(PGG) proto/eventmaster.proto
 	protoc --plugin=${PGG} -I proto/ proto/eventmaster.proto --go_out=plugins=grpc:proto
 
 .PHONY: test
