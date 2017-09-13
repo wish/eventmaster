@@ -18,19 +18,6 @@ $ cd $GOPATH/src/github.com/ContextLogic/
 $ git clone git@github.com:ContextLogic/eventmaster.git
 ```
 
-### Get Required Packages
-Glide is used to manage project dependencies: https://glide.sh/.
-It can be installed by running
-```
-$ curl https://glide.sh/get | sh
-```
-
-To install required packages, run
-```
-$ cd $GOPATH/src/github.com/ContextLogic/eventmaster
-$ glide install
-```
-
 ### Configuration
 Modify `em_config.json` to specify the address of Cassandra along with other database options. Alternatively, [service lookup](https://github.com/ContextLogic/goServiceLookup) can be used to find the IPs of Cassandra clusters by specifying the `--cassandra_servicename` command line options.
 
@@ -39,6 +26,17 @@ Execute `schema.cql` on your Cassandra cluster. This will set up the `event_mast
 ```
 $ cqlsh -f schema.cql
 ```
+
+### Building
+
+Dependencies are currently fetched using [glide](https://glide.sh). These are
+set up as dependencies to the default make target, so running:
+
+```
+make
+```
+
+will emit `$GOPATH/bin/eventmaster` after fetching and compiling dependencies.
 
 ### Running
 To use options set in `em_config.json` or defaults, run

@@ -1,10 +1,11 @@
 BIN_DIR := $(GOPATH)/bin
 GOLINT  := $(BIN_DIR)/golint
+GLIDE   := $(BIN_DIR)/glide
 PGG     := $(BIN_DIR)/protoc-gen-go
 PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
-$(BINARY): *.go proto
+$(BINARY): *.go proto vendor
 	@go install -v github.com/ContextLogic/eventmaster/cmd/eventmaster
 
 .PHONY: proto
@@ -31,3 +32,9 @@ $(PGG):
 .PHONY: run
 run: $(BINARY)
 	eventmaster -r -p
+
+$(GLIDE):
+	go get -v github.com/Masterminds/glide
+
+vendor: $(GLIDE)
+	glide install
