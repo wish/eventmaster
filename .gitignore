@@ -4,3 +4,9 @@ vendor/
 # Ignore IDE specific files
 .idea/
 *.iml
+
+*.pb.go
+
+# the generated template/static files
+ui.go
+templates
