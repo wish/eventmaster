@@ -12,8 +12,6 @@ type Config struct {
 
 	RsyslogPort int `long:"rsyslog_port" default:"50053" description:"Port for rsyslog clients to send logs to"`
 
-	PromExporter bool `short:"p" long:"prom_exporter" description:"Flag to start Prometheus metrics exporter"`
-
 	PromPort int `long:"prom_port" default:"9000" description:"Port for Prometheus client"`
 
 	CAFile string `long:"ca_file" description:"PEM encoded CA's certificate file path"`

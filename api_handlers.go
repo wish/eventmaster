@@ -12,6 +12,7 @@ import (
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
@@ -92,6 +93,8 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 	r.GET("/topic", h.HandleTopicPage)
 	r.GET("/dc", h.HandleDcPage)
 	r.GET("/event", h.HandleGetEventPage)
+
+	r.Handler("GET", "/metrics", promhttp.Handler())
 
 	// JS file endpoints
 	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
