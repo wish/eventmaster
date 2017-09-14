@@ -5,7 +5,7 @@ PGG     := $(BIN_DIR)/protoc-gen-go
 PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
-$(BINARY): $(wildcard **/*.go) proto vendor
+$(BINARY): $(wildcard **/*.go) proto vendor ui.go
 	@go install -v github.com/ContextLogic/eventmaster/cmd/eventmaster
 
 .PHONY: proto
@@ -38,3 +38,6 @@ $(GLIDE):
 
 vendor: $(GLIDE)
 	glide install
+
+ui.go: $(wildcard static/ui/**/*)
+	go-bindata -prefix="static/" -o ui.go -pkg=eventmaster static/ui/...
