@@ -2,6 +2,7 @@ BIN_DIR := $(GOPATH)/bin
 GOLINT  := $(BIN_DIR)/golint
 GLIDE   := $(BIN_DIR)/glide
 PGG     := $(BIN_DIR)/protoc-gen-go
+GBD     := $(BIN_DIR)/go-bindata
 PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
@@ -28,6 +29,9 @@ $(GOLINT):
 
 $(PGG):
 	go get -u github.com/golang/protobuf/protoc-gen-go
+
+$(GBD):
+	go install -v ./vendor/github.com/jteeuwen/go-bindata/go-bindata
 
 .PHONY: run
 run: $(BINARY)
