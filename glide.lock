@@ -1,5 +1,5 @@
-hash: b6c9a92c7594090ffe2a2a4fc1d8c51c51baf81b4ea80fb480b75d34d1ceb759
-updated: 2017-08-23T14:47:30.429749639-07:00
+hash: bd19bf06e0d8efe45f7e2cb8c8a53f8a88ecbb8e9e8518c5087f27862f792ab5
+updated: 2017-09-14T14:19:40.014607609-07:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -9,6 +9,8 @@ imports:
   version: 43a14c585a6f18c18fca4d63ad12dcf8d83388a8
   subpackages:
   - servicelookup
+- name: github.com/elazarl/go-bindata-assetfs
+  version: 30f82fa23fd844bd5bb1e5f216db87fd77b5eb43
 - name: github.com/gocql/gocql
   version: 05df4896cf271375039b0645117594e861bde0d9
   subpackages:

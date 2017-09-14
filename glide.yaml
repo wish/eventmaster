@@ -35,3 +35,4 @@ import:
 - package: github.com/Masterminds/glide
   version: ^0.12.3
 - package: github.com/jteeuwen/go-bindata
+- package: github.com/elazarl/go-bindata-assetfs
