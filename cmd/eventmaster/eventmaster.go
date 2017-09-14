@@ -12,7 +12,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/jessevdk/go-flags"
+	flags "github.com/jessevdk/go-flags"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -25,7 +25,7 @@ func main() {
 	var config em.Config
 	parser := flags.NewParser(&config, flags.Default)
 	if _, err := parser.Parse(); err != nil {
-		log.Fatalf("Error parsing flags: %v", err)
+		os.Exit(1)
 	}
 
 	err := em.RegisterPromMetrics()
