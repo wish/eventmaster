@@ -15,6 +15,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	tmpl "github.com/ContextLogic/eventmaster/templates"
 )
 
 func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
@@ -115,13 +117,14 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static s
 	}
 	r.Handler("GET", "/ui/*filepath", http.FileServer(fs))
 
-	var tmpl TemplateGetter
+	var t TemplateGetter
 	switch templates {
 	case "":
+		t = NewAssetTemplate(tmpl.Asset)
 	default:
-		tmpl = Disk{Root: templates}
+		t = Disk{Root: templates}
 	}
-	h.templates = tmpl
+	h.templates = t
 
 	return &http.Server{
 		Handler:   r,
