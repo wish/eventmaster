@@ -1,4 +1,4 @@
-package: github.com/ContextLogic/eventmaster/src/eventmaster
+package: github.com/ContextLogic/eventmaster
 import:
 - package: github.com/Sirupsen/logrus
   version: ~0.11.5

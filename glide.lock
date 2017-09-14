@@ -1,5 +1,5 @@
-hash: bd19bf06e0d8efe45f7e2cb8c8a53f8a88ecbb8e9e8518c5087f27862f792ab5
-updated: 2017-09-14T14:19:40.014607609-07:00
+hash: 30a4cbbc698ed32f208aef17154c08e0ddaaaa7ec9ca7844914b4bfa51b9bb72
+updated: 2017-09-14T15:01:47.241248986-07:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -31,8 +31,6 @@ imports:
   version: 48cf8722c3375517aba351d1f7577c40663a4407
 - name: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
-  subpackages:
-  - '...'
 - name: github.com/julienschmidt/httprouter
   version: 8c199fb6259ffc1af525cc3ad52ee60ba8359669
 - name: github.com/Masterminds/glide
@@ -44,7 +42,7 @@ imports:
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/prometheus/client_golang
-  version: c5b7fccd204277076155f10851dad72b76a49317
+  version: 967789050ba94deca04a5e84cce8ad472ce313c1
   subpackages:
   - prometheus
   - prometheus/promhttp
