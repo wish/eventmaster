@@ -32,3 +32,5 @@ import:
   subpackages:
   - prometheus
 - package: github.com/segmentio/ksuid
+- package: github.com/Masterminds/glide
+  version: ^0.12.3

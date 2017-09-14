@@ -29,6 +29,8 @@ imports:
   version: 48cf8722c3375517aba351d1f7577c40663a4407
 - name: github.com/julienschmidt/httprouter
   version: 8c199fb6259ffc1af525cc3ad52ee60ba8359669
+- name: github.com/Masterminds/glide
+  version: 84607742b10f492430762d038e954236bbaf23f7
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
