@@ -5,7 +5,7 @@ PGG     := $(BIN_DIR)/protoc-gen-go
 PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
-$(BINARY): $(wildcard **/*.go) proto vendor ui.go
+$(BINARY): deps $(wildcard **/*.go) proto vendor ui.go
 	@go install -v github.com/ContextLogic/eventmaster/cmd/eventmaster
 
 .PHONY: proto
@@ -34,10 +34,14 @@ run: $(BINARY)
 	eventmaster -r
 
 $(GLIDE):
-	go get -v github.com/Masterminds/glide
+	go install -v ./vendor/github.com/Masterminds/glide
 
-vendor: $(GLIDE)
+
+.PHONY: deps
+deps: vendor/gopkg.in
+# here we randomly choose something I *know* glide will fetch
+vendor/gopkg.in: $(GLIDE)
 	glide install
 
-ui.go: $(wildcard static/ui/**/*)
+ui.go: $(GBD) $(wildcard static/ui/**/*)
 	go-bindata -prefix="static/" -o ui.go -pkg=eventmaster static/ui/...
