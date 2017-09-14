@@ -1,8 +1,8 @@
 {{ define "form" }}
-<script type="text/javascript" src="/bootstrap/js/bootstrap-datetimepicker.min.js"></script>
-<link rel="stylesheet" href="/bootstrap/css/bootstrap-datetimepicker.min.css"/>
-<script type="text/javascript" src="/bootstrap/js/bootstrap-multiselect.js"></script>
-<link rel="stylesheet" href="/bootstrap/css/bootstrap-multiselect.css" type="text/css"/>
+<script type="text/javascript" src="/ui/bootstrap/js/bootstrap-datetimepicker.min.js"></script>
+<link rel="stylesheet" href="/ui/bootstrap/css/bootstrap-datetimepicker.min.css"/>
+<script type="text/javascript" src="/ui/bootstrap/js/bootstrap-multiselect.js"></script>
+<link rel="stylesheet" href="/ui/bootstrap/css/bootstrap-multiselect.css" type="text/css"/>
 
 <div id="wrapper">
 	<div id="sidebar-wrapper">
@@ -119,10 +119,10 @@
 	<!-- /#page-content-wrapper -->
 </div>
 
-<script type="text/javascript" src="/js/query_event.js"></script>
+<script type="text/javascript" src="/ui/js/query_event.js"></script>
 <script type="text/javascript">
 $(document).ready(loadQueryTimes({{ .Query.StartEventTime }}, {{ .Query.EndEventTime }}))
 </script>
-<link rel="stylesheet" href="/css/query_sidebar.css"/>
+<link rel="stylesheet" href="/ui/css/query_sidebar.css"/>
 
 {{ end }}
