@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -21,29 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
-
-type emConfig struct {
-	DataStore      string             `json:"data_store"`
-	CassConfig     em.CassandraConfig `json:"cassandra_config"`
-	UpdateInterval int                `json:"update_interval"`
-}
-
-func getEmConfig() emConfig {
-	emConf := emConfig{}
-	confFile, err := ioutil.ReadFile("em_config.json")
-	if err != nil {
-		fmt.Println("No em_config file specified")
-	} else {
-		err = json.Unmarshal(confFile, &emConf)
-		if err != nil {
-			fmt.Println("Error parsing em_config.json, using defaults:", err)
-		}
-	}
-	if emConf.UpdateInterval == 0 {
-		emConf.UpdateInterval = 5
-	}
-	return emConf
-}
 
 func main() {
 	var config em.Config
@@ -67,9 +43,12 @@ func main() {
 	}
 
 	// Set up event store
-	emConf := getEmConfig()
+	emConf, err := ParseEMConfig(config.ConfigFile)
+	if err != nil {
+		log.Fatalf("problem parsing config file: %v", err)
+	}
+
 	var ds em.DataStore
-	var err error
 	if emConf.DataStore == "cassandra" {
 		ds, err = em.NewCassandraStore(emConf.CassConfig)
 		if err != nil {

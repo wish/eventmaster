@@ -31,7 +31,7 @@ type DataStore interface {
 }
 
 type CassandraConfig struct {
-	Addr        []string `json:"addr"`
+	Addrs       []string `json:"addrs"`
 	Keyspace    string   `json:"keyspace"`
 	Consistency string   `json:"consistency"`
 	Timeout     string   `json:"timeout"`
@@ -49,7 +49,7 @@ func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 		slClient := servicelookup.NewClient(false)
 		cassandraIps = slClient.GetServiceIps(c.ServiceName, "")
 	} else {
-		cassandraIps = c.Addr
+		cassandraIps = c.Addrs
 	}
 
 	fmt.Println("Connecting to cassandra:", cassandraIps)

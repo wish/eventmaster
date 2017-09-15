@@ -21,4 +21,6 @@ type Config struct {
 	CertFile string `long:"cert_file" description:"PEM encoded certificate file path"`
 
 	KeyFile string `long:"key_file" description:"PEM encoded private key file path"`
+
+	ConfigFile string `short:"c" long:"config" description:"location of configuration file"`
 }
