@@ -64,10 +64,11 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	return &q, nil
 }
 
-func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
+func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static string) *http.Server {
 	r := httprouter.New()
 	h := httpHandler{
-		store: store,
+		store:     store,
+		templates: templates,
 	}
 
 	// API endpoints
@@ -119,7 +120,8 @@ func wrapHandler(h httprouter.Handle) httprouter.Handle {
 }
 
 type httpHandler struct {
-	store *EventStore
+	store     *EventStore
+	templates string
 }
 
 func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, message string, path string) {
