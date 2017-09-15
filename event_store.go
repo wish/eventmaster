@@ -8,11 +8,12 @@ import (
 	"sync"
 	"time"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	"github.com/segmentio/ksuid"
 	"github.com/xeipuuv/gojsonschema"
+
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
 type Event struct {

@@ -11,13 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	em "github.com/ContextLogic/eventmaster"
-	emproto "github.com/ContextLogic/eventmaster/proto"
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	em "github.com/ContextLogic/eventmaster"
+	emproto "github.com/ContextLogic/eventmaster/proto"
 )
 
 func main() {

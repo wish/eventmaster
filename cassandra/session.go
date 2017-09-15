@@ -1,8 +1,9 @@
 package cassandra
 
 import (
-	"github.com/gocql/gocql"
 	"time"
+
+	"github.com/gocql/gocql"
 )
 
 type Session interface {

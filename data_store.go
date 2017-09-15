@@ -6,11 +6,13 @@ import (
 	"strings"
 	"time"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
-	cass "github.com/ContextLogic/eventmaster/cassandra"
-	servicelookup "github.com/ContextLogic/goServiceLookup/servicelookup"
 	"github.com/gocql/gocql"
 	"github.com/pkg/errors"
+
+	cass "github.com/ContextLogic/eventmaster/cassandra"
+	servicelookup "github.com/ContextLogic/goServiceLookup/servicelookup"
+
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
 type streamFn func(eventId string) error

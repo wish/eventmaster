@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"time"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	tmpl "github.com/ContextLogic/eventmaster/templates"
+	assetfs "github.com/elazarl/go-bindata-assetfs"
 )
 
 func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {

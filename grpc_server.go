@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	context "golang.org/x/net/context"
+
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
 func NewGRPCServer(config *Config, s *EventStore) (*grpcServer, error) {
