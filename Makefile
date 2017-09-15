@@ -31,7 +31,7 @@ $(PGG):
 
 .PHONY: run
 run: $(BINARY)
-	eventmaster -r -p
+	eventmaster -r
 
 $(GLIDE):
 	go get -v github.com/Masterminds/glide

@@ -3,9 +3,7 @@ package eventmaster
 import (
 	"time"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -79,12 +77,6 @@ var (
 		Help:      "The count of db errors by db name and type of operation",
 	}, []string{"db_name", "operation"})
 )
-
-func GetPromHandler() *httprouter.Router {
-	r := httprouter.New()
-	r.Handler("GET", "/metrics", promhttp.Handler())
-	return r
-}
 
 func RegisterPromMetrics() error {
 	regErr := prometheus.Register(httpReqLatencies)

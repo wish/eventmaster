@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,18 +27,9 @@ func main() {
 		log.Fatalf("Error parsing flags: %v", err)
 	}
 
-	if config.PromExporter {
-		err := em.RegisterPromMetrics()
-		if err != nil {
-			log.Fatalf("Unable to register prometheus metrics: %v", err)
-		}
-
-		promL, err := net.Listen("tcp", fmt.Sprintf(":%d", config.PromPort))
-		if err != nil {
-			log.Fatalf("failed to start prom client: %v", err)
-		}
-		fmt.Println("starting prometheus exporter on port", config.PromPort)
-		go http.Serve(promL, em.GetPromHandler())
+	err := em.RegisterPromMetrics()
+	if err != nil {
+		log.Fatalf("Unable to register prometheus metrics: %v", err)
 	}
 
 	// Set up event store
