@@ -1,5 +1,5 @@
-hash: b6c9a92c7594090ffe2a2a4fc1d8c51c51baf81b4ea80fb480b75d34d1ceb759
-updated: 2017-08-23T14:47:30.429749639-07:00
+hash: 30a4cbbc698ed32f208aef17154c08e0ddaaaa7ec9ca7844914b4bfa51b9bb72
+updated: 2017-09-14T15:01:47.241248986-07:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -9,6 +9,8 @@ imports:
   version: 43a14c585a6f18c18fca4d63ad12dcf8d83388a8
   subpackages:
   - servicelookup
+- name: github.com/elazarl/go-bindata-assetfs
+  version: 30f82fa23fd844bd5bb1e5f216db87fd77b5eb43
 - name: github.com/gocql/gocql
   version: 05df4896cf271375039b0645117594e861bde0d9
   subpackages:
@@ -27,8 +29,12 @@ imports:
   version: e80d13ce29ede4452c43dea11e79b9bc8a15b478
 - name: github.com/jessevdk/go-flags
   version: 48cf8722c3375517aba351d1f7577c40663a4407
+- name: github.com/jteeuwen/go-bindata
+  version: a0ff2567cfb70903282db057e799fd826784d41d
 - name: github.com/julienschmidt/httprouter
   version: 8c199fb6259ffc1af525cc3ad52ee60ba8359669
+- name: github.com/Masterminds/glide
+  version: 84607742b10f492430762d038e954236bbaf23f7
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
@@ -36,7 +42,7 @@ imports:
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/prometheus/client_golang
-  version: c5b7fccd204277076155f10851dad72b76a49317
+  version: 967789050ba94deca04a5e84cce8ad472ce313c1
   subpackages:
   - prometheus
   - prometheus/promhttp

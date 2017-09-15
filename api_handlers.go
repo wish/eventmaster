@@ -6,13 +6,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	tmpl "github.com/ContextLogic/eventmaster/templates"
 )
 
 func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
@@ -64,7 +68,7 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	return &q, nil
 }
 
-func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
+func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static string) *http.Server {
 	r := httprouter.New()
 	h := httpHandler{
 		store: store,
@@ -96,10 +100,31 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore) *http.Server {
 
 	r.Handler("GET", "/metrics", promhttp.Handler())
 
-	// JS file endpoints
-	r.ServeFiles("/js/*filepath", http.Dir("ui/js"))
-	r.ServeFiles("/bootstrap/*filepath", http.Dir("ui/bootstrap"))
-	r.ServeFiles("/css/*filepath", http.Dir("ui/css"))
+	// Handle static files either embedded (empty static) or off the filesystem (during dev work)
+	var fs http.FileSystem
+	switch static {
+	case "":
+		fs = &assetfs.AssetFS{
+			Asset:     Asset,
+			AssetDir:  AssetDir,
+			AssetInfo: AssetInfo,
+		}
+	default:
+		if p, d := filepath.Split(static); d == "ui" {
+			static = p
+		}
+		fs = http.Dir(static)
+	}
+	r.Handler("GET", "/ui/*filepath", http.FileServer(fs))
+
+	var t TemplateGetter
+	switch templates {
+	case "":
+		t = NewAssetTemplate(tmpl.Asset)
+	default:
+		t = Disk{Root: templates}
+	}
+	h.templates = t
 
 	return &http.Server{
 		Handler:   r,
@@ -119,7 +144,8 @@ func wrapHandler(h httprouter.Handle) httprouter.Handle {
 }
 
 type httpHandler struct {
-	store *EventStore
+	store     *EventStore
+	templates TemplateGetter
 }
 
 func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, message string, path string) {

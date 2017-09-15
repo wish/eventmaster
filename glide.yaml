@@ -1,4 +1,4 @@
-package: github.com/ContextLogic/eventmaster/src/eventmaster
+package: github.com/ContextLogic/eventmaster
 import:
 - package: github.com/Sirupsen/logrus
   version: ~0.11.5
@@ -32,3 +32,7 @@ import:
   subpackages:
   - prometheus
 - package: github.com/segmentio/ksuid
+- package: github.com/Masterminds/glide
+  version: ^0.12.3
+- package: github.com/jteeuwen/go-bindata
+- package: github.com/elazarl/go-bindata-assetfs

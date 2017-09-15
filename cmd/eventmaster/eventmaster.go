@@ -87,7 +87,7 @@ func main() {
 		}
 	}
 
-	httpS := em.NewHTTPServer(tlsConfig, store)
+	httpS := em.NewHTTPServer(tlsConfig, store, config.Templates, config.StaticFiles)
 
 	// Create the EventMaster grpc server
 	grpcServer, err := em.NewGRPCServer(&config, store)

@@ -1,0 +1,16 @@
+{{define "form"}}
+<div class="container">
+	<form onsubmit='return submitDc(this)'>
+		<div class="form-group">
+		    <label for="dc_name">Data Center *</label>
+		    <input type="text" class="form-control" name="dc_name" required>
+		</div>
+		<span class="input-group-btn">
+	  		<button class="btn btn-default" type="submit">Submit</button>
+	  	</span>
+	</form>
+	<div class="panel-group" id="dc_list" style="padding-top:20px">
+	</div>
+</div>
+<script type="text/javascript" src="/ui/js/dc.js"></script>
+{{end}}

@@ -21,4 +21,8 @@ type Config struct {
 	KeyFile string `long:"key_file" description:"PEM encoded private key file path"`
 
 	ConfigFile string `short:"c" long:"config" description:"location of configuration file"`
+
+	StaticFiles string `short:"s" long:"static" description:"location of static files to use (instead of embedded files)"`
+
+	Templates string `short:"t" long:"templates" description:"location of template files to use (instead of embedded)"`
 }
