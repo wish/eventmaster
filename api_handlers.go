@@ -69,8 +69,7 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static string) *http.Server {
 	r := httprouter.New()
 	h := httpHandler{
-		store:     store,
-		templates: templates,
+		store: store,
 	}
 
 	// API endpoints
@@ -116,6 +115,14 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static s
 	}
 	r.Handler("GET", "/ui/*filepath", http.FileServer(fs))
 
+	var tmpl TemplateGetter
+	switch templates {
+	case "":
+	default:
+		tmpl = Disk{Root: templates}
+	}
+	h.templates = tmpl
+
 	return &http.Server{
 		Handler:   r,
 		TLSConfig: tlsConfig,
@@ -135,7 +142,7 @@ func wrapHandler(h httprouter.Handle) httprouter.Handle {
 
 type httpHandler struct {
 	store     *EventStore
-	templates string
+	templates TemplateGetter
 }
 
 func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, message string, path string) {
