@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
 	"github.com/julienschmidt/httprouter"
+
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
 var funcMap = template.FuncMap{
