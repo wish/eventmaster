@@ -100,6 +100,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static s
 
 	// grafana datasource endpoints
 	r.GET("/grafana", cors(h.grafanaOK))
+	r.GET("/grafana/", cors(h.grafanaOK))
 	r.OPTIONS("/grafana/:route", cors(h.grafanaOK))
 	r.POST("/grafana/:route", cors(h.grafana))
 
