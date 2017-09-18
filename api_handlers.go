@@ -98,6 +98,11 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static s
 	r.GET("/dc", h.HandleDcPage)
 	r.GET("/event", h.HandleGetEventPage)
 
+	// grafana datasource endpoints
+	r.GET("/grafana", cors(h.grafanaOK))
+	r.OPTIONS("/grafana/:route", cors(h.grafanaOK))
+	r.POST("/grafana/:route", cors(h.grafana))
+
 	r.Handler("GET", "/metrics", promhttp.Handler())
 
 	// Handle static files either embedded (empty static) or off the filesystem (during dev work)
