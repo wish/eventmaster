@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
+
+	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
 // cors adds headers that Grafana requires to work as a direct access data
@@ -34,8 +38,30 @@ func (h *httpHandler) grafana(w http.ResponseWriter, r *http.Request, p httprout
 			return
 		}
 
-		evs := []AnnotationResponse{}
-		if err := json.NewEncoder(w).Encode(evs); err != nil {
+		q := &eventmaster.Query{
+			StartEventTime: ar.Range.From.Unix(),
+			EndEventTime:   ar.Range.To.Unix(),
+		}
+
+		evs, err := h.store.Find(q)
+		if err != nil {
+			e := errors.Wrapf(err, "grafana search with %v", q)
+			http.Error(w, e.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		ars := []AnnotationResponse{}
+		for _, ev := range evs {
+			ar := AnnotationResponse{
+				Time:  ev.EventTime * 1000,
+				Title: fmt.Sprintf("%v @ %v", h.store.getTopicName(ev.TopicID), h.store.getDcName(ev.DcID)),
+				Tags:  strings.Join(ev.Tags, " "),
+				Text:  "text",
+			}
+			ars = append(ars, ar)
+		}
+
+		if err := json.NewEncoder(w).Encode(ars); err != nil {
 			log.Printf("json enc: %+v", err)
 		}
 	default:
