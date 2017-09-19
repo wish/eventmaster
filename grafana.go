@@ -1,11 +1,13 @@
 package eventmaster
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
@@ -52,11 +54,10 @@ func (h *httpHandler) grafana(w http.ResponseWriter, r *http.Request, p httprout
 
 		ars := []AnnotationResponse{}
 		for _, ev := range evs {
-			ar := AnnotationResponse{
-				Time:  ev.EventTime * 1000,
-				Title: fmt.Sprintf("%v @ %v", h.store.getTopicName(ev.TopicID), h.store.getDcName(ev.DcID)),
-				Tags:  strings.Join(ev.Tags, " "),
-				Text:  "text",
+			ar, err := FromEvent(h.store, ev)
+			if err != nil {
+				http.Error(w, errors.Wrap(err, "from event").Error(), http.StatusInternalServerError)
+				return
 			}
 			ars = append(ars, ar)
 		}
@@ -109,4 +110,38 @@ type AnnotationResponse struct {
 	Tags string `json:"tags"`
 	// Text for the annotation. (optional)
 	Text string `json:"text"`
+}
+
+type topicNamer interface {
+	getTopicName(string) string
+	getDcName(string) string
+}
+
+func FromEvent(store topicNamer, ev *Event) (AnnotationResponse, error) {
+	fm := template.FuncMap{
+		"trim": strings.TrimSpace,
+	}
+	t := `<pre>
+Host: {{ .Host }}
+Target Hosts:
+{{- range .TargetHosts }}
+	{{ trim . -}}
+{{ end }}
+User: {{ .User }}
+Data: {{ .Data }}
+</pre>
+`
+	tmpl, err := template.New("text").Funcs(fm).Parse(t)
+	if err != nil {
+		return AnnotationResponse{}, errors.Wrap(err, "making template")
+	}
+	buf := &bytes.Buffer{}
+	tmpl.Execute(buf, ev)
+	r := AnnotationResponse{
+		Time:  ev.EventTime * 1000,
+		Title: fmt.Sprintf("%v in %v", store.getTopicName(ev.TopicID), store.getDcName(ev.DcID)),
+		Text:  buf.String(),
+		Tags:  strings.Join(ev.Tags, ","),
+	}
+	return r, nil
 }
