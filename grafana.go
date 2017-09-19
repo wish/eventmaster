@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -68,6 +69,46 @@ func (h *httpHandler) grafana(w http.ResponseWriter, r *http.Request, p httprout
 	default:
 		http.Error(w, "bad method; supported POST", http.StatusBadRequest)
 		return
+	}
+}
+
+func (h *httpHandler) grafanaSearch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	req := &struct {
+		Target string `json:"target"`
+	}{}
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		http.Error(w, errors.Wrap(err, "json decode").Error(), http.StatusBadRequest)
+		return
+	}
+
+	tags := []string{}
+	switch req.Target {
+	case "dc":
+		dcs, err := h.store.GetDcs()
+		if err != nil {
+			http.Error(w, errors.Wrap(err, "get dcs").Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, dc := range dcs {
+			tags = append(tags, dc.Name)
+		}
+	case "topic":
+		topics, err := h.store.GetTopics()
+		if err != nil {
+			http.Error(w, errors.Wrap(err, "get topics").Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, topic := range topics {
+			tags = append(tags, topic.Name)
+		}
+	default:
+		http.Error(w, fmt.Sprintf("unknown target: got %q, want [%q, %q]", req.Target, "dc", "topic"), http.StatusBadRequest)
+		return
+	}
+
+	sort.Strings(tags)
+	if err := json.NewEncoder(w).Encode(tags); err != nil {
+		log.Printf("json encode failure: %+v", err)
 	}
 }
 
