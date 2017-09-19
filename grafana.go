@@ -81,7 +81,7 @@ func (h *httpHandler) grafanaSearch(w http.ResponseWriter, r *http.Request, p ht
 		return
 	}
 
-	tags := []string{}
+	tags := []string{"all"}
 	switch req.Target {
 	case "dc":
 		dcs, err := h.store.GetDcs()
