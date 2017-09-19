@@ -46,6 +46,20 @@ func (h *httpHandler) grafana(w http.ResponseWriter, r *http.Request, p httprout
 			EndEventTime:   ar.Range.To.Unix(),
 		}
 
+		if rq := ar.Annotation.Query; rq != "" {
+			aq := AnnotationQuery{}
+			if err := json.Unmarshal([]byte(rq), &aq); err != nil {
+				http.Error(w, fmt.Sprintf("json decode failure: %v", err), http.StatusBadRequest)
+				return
+			}
+			if aq.DC != "all" {
+				q.Dc = []string{aq.DC}
+			}
+			if aq.Topic != "all" {
+				q.TopicName = []string{aq.Topic}
+			}
+		}
+
 		evs, err := h.store.Find(q)
 		if err != nil {
 			e := errors.Wrapf(err, "grafana search with %v", q)
@@ -185,4 +199,9 @@ Data: {{ .Data }}
 		Tags:  strings.Join(ev.Tags, ","),
 	}
 	return r, nil
+}
+
+type AnnotationQuery struct {
+	Topic string `json:"topic"`
+	DC    string `json:"dc"`
 }
