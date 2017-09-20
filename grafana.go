@@ -20,6 +20,9 @@ import (
 // cors adds headers that Grafana requires to work as a direct access data
 // source.
 //
+// forgetting to add these manifests itself as an unintellible error when
+// adding a datasource.
+//
 // These are not required if using "proxy" access.
 func cors(h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -32,6 +35,12 @@ func cors(h httprouter.Handle) httprouter.Handle {
 
 func (h *httpHandler) grafanaOK(w http.ResponseWriter, r *http.Request, p httprouter.Params) {}
 
+// grafanaAnnotations handles the POST requests from Grafana asking for
+// a window of annotations.
+//
+// It accepts an AnnotationsReq in the request body, and parses the
+// AnnotationsReq.Query for a AnnotationQuery. If one is found it parses it,
+// and interprets the value "all" as "do not apply this filter".
 func (h *httpHandler) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	switch r.Method {
 	case http.MethodPost:
@@ -154,6 +163,8 @@ type Annotation struct {
 
 // AnnotationResponse contains all the information needed to render an
 // annotation event.
+//
+// https://github.com/grafana/simple-json-datasource#annotation-api
 type AnnotationResponse struct {
 	// The original annotation sent from Grafana.
 	Annotation Annotation `json:"annotation"`
@@ -201,6 +212,15 @@ Data: {{ .Data }}
 	return r, nil
 }
 
+// AnnotationQuery is a collection of possible filters for a Grafana annotation
+// request.
+//
+// These values are set in gear icon > annotations > edit > Query and can have
+// such useful values as:
+//
+//		{"topic": "$topic", "dc": "$dc"}
+//
+// or if you do not want filtering leave it blank.
 type AnnotationQuery struct {
 	Topic string `json:"topic"`
 	DC    string `json:"dc"`
