@@ -32,7 +32,7 @@ func cors(h httprouter.Handle) httprouter.Handle {
 
 func (h *httpHandler) grafanaOK(w http.ResponseWriter, r *http.Request, p httprouter.Params) {}
 
-func (h *httpHandler) grafana(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *httpHandler) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	switch r.Method {
 	case http.MethodPost:
 		ar := AnnotationsReq{}

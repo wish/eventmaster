@@ -102,7 +102,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static s
 	r.GET("/grafana", cors(h.grafanaOK))
 	r.GET("/grafana/", cors(h.grafanaOK))
 	r.OPTIONS("/grafana/:route", cors(h.grafanaOK))
-	r.POST("/grafana/annotations", cors(h.grafana))
+	r.POST("/grafana/annotations", cors(h.grafanaAnnotations))
 	r.POST("/grafana/search", cors(h.grafanaSearch))
 
 	r.Handler("GET", "/metrics", promhttp.Handler())
