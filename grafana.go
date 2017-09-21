@@ -90,7 +90,7 @@ func cors(h httprouter.Handle) httprouter.Handle {
 	}
 }
 
-func (h *httpHandler) grafanaOK(w http.ResponseWriter, r *http.Request, p httprouter.Params) {}
+func (h *Server) grafanaOK(w http.ResponseWriter, r *http.Request, p httprouter.Params) {}
 
 // grafanaAnnotations handles the POST requests from Grafana asking for
 // a window of annotations.
@@ -98,7 +98,7 @@ func (h *httpHandler) grafanaOK(w http.ResponseWriter, r *http.Request, p httpro
 // It accepts an AnnotationsReq in the request body, and parses the
 // AnnotationsReq.Query for a AnnotationQuery. If one is found it parses it,
 // and interprets the value "all" as "do not apply this filter".
-func (h *httpHandler) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *Server) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	switch r.Method {
 	case http.MethodPost:
 		ar := AnnotationsReq{}
@@ -152,7 +152,7 @@ func (h *httpHandler) grafanaAnnotations(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (h *httpHandler) grafanaSearch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *Server) grafanaSearch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	req := &struct {
 		Target string `json:"target"`
 	}{}

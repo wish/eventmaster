@@ -70,40 +70,40 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 
 func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static string) *http.Server {
 	r := httprouter.New()
-	h := httpHandler{
+	srv := Server{
 		store: store,
 	}
 
 	// API endpoints
-	r.POST("/v1/event", wrapHandler(h.handleAddEvent))
-	r.GET("/v1/event", wrapHandler(h.handleGetEvent))
-	r.GET("/v1/event/:id", wrapHandler(h.handleGetEventById))
-	r.POST("/v1/topic", wrapHandler(h.handleAddTopic))
-	r.PUT("/v1/topic/:name", wrapHandler(h.handleUpdateTopic))
-	r.GET("/v1/topic", wrapHandler(h.handleGetTopic))
-	r.DELETE("/v1/topic/:name", wrapHandler(h.handleDeleteTopic))
-	r.POST("/v1/dc", wrapHandler(h.handleAddDc))
-	r.PUT("/v1/dc/:name", wrapHandler(h.handleUpdateDc))
-	r.GET("/v1/dc", wrapHandler(h.handleGetDc))
+	r.POST("/v1/event", wrapHandler(srv.handleAddEvent))
+	r.GET("/v1/event", wrapHandler(srv.handleGetEvent))
+	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventById))
+	r.POST("/v1/topic", wrapHandler(srv.handleAddTopic))
+	r.PUT("/v1/topic/:name", wrapHandler(srv.handleUpdateTopic))
+	r.GET("/v1/topic", wrapHandler(srv.handleGetTopic))
+	r.DELETE("/v1/topic/:name", wrapHandler(srv.handleDeleteTopic))
+	r.POST("/v1/dc", wrapHandler(srv.handleAddDc))
+	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDc))
+	r.GET("/v1/dc", wrapHandler(srv.handleGetDc))
 
-	r.GET("/v1/health", wrapHandler(h.handleHealthCheck))
+	r.GET("/v1/health", wrapHandler(srv.handleHealthCheck))
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(h.handleGitHubEvent))
+	r.POST("/v1/github_event", wrapHandler(srv.handleGitHubEvent))
 
 	// UI endpoints
-	r.GET("/", h.HandleMainPage)
-	r.GET("/add_event", h.HandleCreatePage)
-	r.GET("/topic", h.HandleTopicPage)
-	r.GET("/dc", h.HandleDcPage)
-	r.GET("/event", h.HandleGetEventPage)
+	r.GET("/", srv.HandleMainPage)
+	r.GET("/add_event", srv.HandleCreatePage)
+	r.GET("/topic", srv.HandleTopicPage)
+	r.GET("/dc", srv.HandleDcPage)
+	r.GET("/event", srv.HandleGetEventPage)
 
 	// grafana datasource endpoints
-	r.GET("/grafana", cors(h.grafanaOK))
-	r.GET("/grafana/", cors(h.grafanaOK))
-	r.OPTIONS("/grafana/:route", cors(h.grafanaOK))
-	r.POST("/grafana/annotations", cors(h.grafanaAnnotations))
-	r.POST("/grafana/search", cors(h.grafanaSearch))
+	r.GET("/grafana", cors(srv.grafanaOK))
+	r.GET("/grafana/", cors(srv.grafanaOK))
+	r.OPTIONS("/grafana/:route", cors(srv.grafanaOK))
+	r.POST("/grafana/annotations", cors(srv.grafanaAnnotations))
+	r.POST("/grafana/search", cors(srv.grafanaSearch))
 
 	r.Handler("GET", "/metrics", promhttp.Handler())
 
@@ -131,7 +131,7 @@ func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static s
 	default:
 		t = Disk{Root: templates}
 	}
-	h.templates = t
+	srv.templates = t
 
 	return &http.Server{
 		Handler:   r,
@@ -150,12 +150,13 @@ func wrapHandler(h httprouter.Handle) httprouter.Handle {
 	}
 }
 
-type httpHandler struct {
+// Server implements http.HandlerFuncs for the eventmaster http server.
+type Server struct {
 	store     *EventStore
 	templates TemplateGetter
 }
 
-func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, message string, path string) {
+func (s *Server) sendError(w http.ResponseWriter, code int, err error, message string, path string) {
 	httpRespCounter.WithLabelValues(path, fmt.Sprintf("%d", code)).Inc()
 	errMsg := fmt.Sprintf("%s: %s", message, err.Error())
 	fmt.Println(errMsg)
@@ -163,7 +164,7 @@ func (h *httpHandler) sendError(w http.ResponseWriter, code int, err error, mess
 	w.Write([]byte(errMsg))
 }
 
-func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, path string) {
+func (s *Server) sendResp(w http.ResponseWriter, key string, val string, path string) {
 	var response []byte
 	if key == "" {
 		response = []byte(val)
@@ -173,7 +174,7 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, pa
 		var err error
 		response, err = json.Marshal(resp)
 		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", path)
+			s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", path)
 			return
 		}
 	}
@@ -183,22 +184,22 @@ func (h *httpHandler) sendResp(w http.ResponseWriter, key string, val string, pa
 	w.Write(response)
 }
 
-func (h *httpHandler) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var evt UnaddedEvent
 
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
 	if err := json.Unmarshal(body, &evt); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
 		return
 	}
 
-	id, err := h.store.AddEvent(&evt)
+	id, err := s.store.AddEvent(&evt)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error writing event", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error writing event", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "event_id", id, r.URL.Path)
+	s.sendResp(w, "event_id", id, r.URL.Path)
 }
 
 type EventResult struct {
@@ -219,16 +220,16 @@ type SearchResult struct {
 	Results []*EventResult `json:"results"`
 }
 
-func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	q, err := getQueryFromRequest(r)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error", r.URL.Path)
 		return
 	}
 
-	events, err := h.store.Find(q)
+	events, err := s.store.Find(q)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error executing query", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error executing query", r.URL.Path)
 		return
 	}
 	var results []*EventResult
@@ -237,8 +238,8 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 			EventID:       ev.EventID,
 			ParentEventID: ev.ParentEventID,
 			EventTime:     ev.EventTime,
-			Dc:            h.store.getDcName(ev.DcID),
-			TopicName:     h.store.getTopicName(ev.TopicID),
+			Dc:            s.store.getDcName(ev.DcID),
+			TopicName:     s.store.getTopicName(ev.TopicID),
 			Tags:          ev.Tags,
 			Host:          ev.Host,
 			TargetHosts:   ev.TargetHosts,
@@ -251,26 +252,26 @@ func (h *httpHandler) handleGetEvent(w http.ResponseWriter, r *http.Request, _ h
 	}
 	jsonSr, err := json.Marshal(sr)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error marshalling results into JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(jsonSr), r.URL.Path)
+	s.sendResp(w, "", string(jsonSr), r.URL.Path)
 }
 
-func (h *httpHandler) handleGetEventById(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *Server) handleGetEventById(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	eventId := ps.ByName("id")
 	if eventId != "" {
-		ev, err := h.store.FindById(eventId)
+		ev, err := s.store.FindById(eventId)
 		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
+			s.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
 			return
 		}
 		result := &EventResult{
 			EventID:       ev.EventID,
 			ParentEventID: ev.ParentEventID,
 			EventTime:     ev.EventTime,
-			Dc:            h.store.getDcName(ev.DcID),
-			TopicName:     h.store.getTopicName(ev.TopicID),
+			Dc:            s.store.getDcName(ev.DcID),
+			TopicName:     s.store.getTopicName(ev.TopicID),
 			Tags:          ev.Tags,
 			Host:          ev.Host,
 			TargetHosts:   ev.TargetHosts,
@@ -281,69 +282,69 @@ func (h *httpHandler) handleGetEventById(w http.ResponseWriter, r *http.Request,
 		resultMap["result"] = result
 		bytes, err := json.Marshal(resultMap)
 		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
+			s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
 			return
 		}
-		h.sendResp(w, "", string(bytes), r.URL.Path)
+		s.sendResp(w, "", string(bytes), r.URL.Path)
 	} else {
-		h.sendError(w, http.StatusBadRequest, errors.New("did not provide event id"), "Did not provide event id", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, errors.New("did not provide event id"), "Did not provide event id", r.URL.Path)
 	}
 }
 
-func (h *httpHandler) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	td := Topic{}
 
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&td); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
 		return
 	}
 
 	if td.Name == "" {
-		h.sendError(w, http.StatusBadRequest, errors.New("Must include topic_name in request"), "Error adding topic", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, errors.New("Must include topic_name in request"), "Error adding topic", r.URL.Path)
 		return
 	}
 
-	id, err := h.store.AddTopic(td)
+	id, err := s.store.AddTopic(td)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error adding topic", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error adding topic", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "topic_id", id, r.URL.Path)
+	s.sendResp(w, "topic_id", id, r.URL.Path)
 }
 
-func (h *httpHandler) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *Server) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var td Topic
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	err = json.Unmarshal(reqBody, &td)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 
 	topicName := ps.ByName("name")
 	if topicName == "" {
-		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error updating topic, no topic name provided", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error updating topic, no topic name provided", r.URL.Path)
 		return
 	}
-	id, err := h.store.UpdateTopic(topicName, td)
+	id, err := s.store.UpdateTopic(topicName, td)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error updating topic", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error updating topic", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "topic_id", id, r.URL.Path)
+	s.sendResp(w, "topic_id", id, r.URL.Path)
 }
 
-func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	topics, err := h.store.GetTopics()
+func (s *Server) handleGetTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	topics, err := s.store.GetTopics()
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store", r.URL.Path)
 		return
 	}
 
@@ -351,124 +352,124 @@ func (h *httpHandler) handleGetTopic(w http.ResponseWriter, r *http.Request, _ h
 	topicSet["results"] = topics
 	str, err := json.Marshal(topicSet)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(str), r.URL.Path)
+	s.sendResp(w, "", string(str), r.URL.Path)
 }
 
-func (h *httpHandler) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	topicName := ps.ByName("name")
 	if topicName == "" {
-		h.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error deleting topic, no topic name provided", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, errors.New("Must provide topic name in URL"), "Error deleting topic, no topic name provided", r.URL.Path)
 		return
 	}
-	err := h.store.DeleteTopic(&eventmaster.DeleteTopicRequest{
+	err := s.store.DeleteTopic(&eventmaster.DeleteTopicRequest{
 		TopicName: topicName,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", "", r.URL.Path)
+	s.sendResp(w, "", "", r.URL.Path)
 }
 
-func (h *httpHandler) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dd Dc
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	err = json.Unmarshal(reqBody, &dd)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
-	id, err := h.store.AddDc(&eventmaster.Dc{
+	id, err := s.store.AddDc(&eventmaster.Dc{
 		DcName: dd.Name,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error adding dc", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error adding dc", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "dc_id", id, r.URL.Path)
+	s.sendResp(w, "dc_id", id, r.URL.Path)
 }
 
-func (h *httpHandler) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *Server) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var dd Dc
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	err = json.Unmarshal(reqBody, &dd)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 	dcName := ps.ByName("name")
 	if dcName == "" {
-		h.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", r.URL.Path)
 		return
 	}
-	id, err := h.store.UpdateDc(&eventmaster.UpdateDcRequest{
+	id, err := s.store.UpdateDc(&eventmaster.UpdateDcRequest{
 		OldName: dcName,
 		NewName: dd.Name,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error updating dc", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error updating dc", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "dc_id", id, r.URL.Path)
+	s.sendResp(w, "dc_id", id, r.URL.Path)
 }
 
-func (h *httpHandler) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	dcSet := make(map[string][]Dc)
-	dcs, err := h.store.GetDcs()
+	dcs, err := s.store.GetDcs()
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store", r.URL.Path)
 		return
 	}
 	dcSet["results"] = dcs
 	str, err := json.Marshal(dcSet)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response to JSON", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "", string(str), r.URL.Path)
+	s.sendResp(w, "", string(str), r.URL.Path)
 }
 
-func (h *httpHandler) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var info map[string]interface{}
 
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
 		return
 	}
 	if err := json.Unmarshal(reqBody, &info); err != nil {
-		h.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 
-	id, err := h.store.AddEvent(&UnaddedEvent{
+	id, err := s.store.AddEvent(&UnaddedEvent{
 		Dc:        "github",
 		Host:      "github",
 		TopicName: "github",
 		Data:      info,
 	})
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error adding event to store", r.URL.Path)
 		return
 	}
-	h.sendResp(w, "event_id", id, r.URL.Path)
+	s.sendResp(w, "event_id", id, r.URL.Path)
 }
 
-func (h *httpHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// TODO: make this more useful
-	h.sendResp(w, "", "", r.URL.Path)
+	s.sendResp(w, "", "", r.URL.Path)
 }
