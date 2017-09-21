@@ -90,14 +90,13 @@ func NewMockESServer() *httptest.Server {
 	return ts
 }
 
-func NewMockDataStore() DataStore {
+func NewNoOpDataStore() DataStore {
 	return &CassandraStore{
 		session: &cassandra.MockCassSession{},
 	}
 }
 
-func GetTestEventStore() (*EventStore, error) {
-	ds := NewMockDataStore()
+func GetTestEventStore(ds DataStore) (*EventStore, error) {
 	ev := &EventStore{
 		ds:                       ds,
 		topicMutex:               &sync.RWMutex{},
@@ -152,7 +151,7 @@ func TestAddTopic(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore()
+	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
 	for _, test := range addTopicTests {
@@ -185,7 +184,7 @@ func TestDeleteTopic(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore()
+	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
 	err = populateTopics(s)
@@ -258,7 +257,7 @@ func TestUpdateTopic(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore()
+	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
 	err = populateTopics(s)
@@ -292,7 +291,7 @@ func TestAddDc(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore()
+	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
 	for _, test := range addDcTests {
@@ -322,7 +321,7 @@ func TestUpdateDc(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore()
+	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
 	err = populateDcs(s)
@@ -452,7 +451,7 @@ func TestAddEvent(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore()
+	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
 	err = populateTopics(s)
