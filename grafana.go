@@ -186,7 +186,7 @@ func (h *Server) grafanaSearch(w http.ResponseWriter, r *http.Request, p httprou
 		return
 	}
 
-	sort.Strings(tags)
+	sort.Strings(tags[1:])
 	if err := json.NewEncoder(w).Encode(tags); err != nil {
 		log.Printf("json encode failure: %+v", err)
 	}
