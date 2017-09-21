@@ -1,22 +1,17 @@
 package eventmaster
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
-	tmpl "github.com/ContextLogic/eventmaster/templates"
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 )
 
 func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
@@ -68,77 +63,6 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	return &q, nil
 }
 
-func NewHTTPServer(tlsConfig *tls.Config, store *EventStore, templates, static string) *http.Server {
-	r := httprouter.New()
-	srv := Server{
-		store: store,
-	}
-
-	// API endpoints
-	r.POST("/v1/event", wrapHandler(srv.handleAddEvent))
-	r.GET("/v1/event", wrapHandler(srv.handleGetEvent))
-	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventById))
-	r.POST("/v1/topic", wrapHandler(srv.handleAddTopic))
-	r.PUT("/v1/topic/:name", wrapHandler(srv.handleUpdateTopic))
-	r.GET("/v1/topic", wrapHandler(srv.handleGetTopic))
-	r.DELETE("/v1/topic/:name", wrapHandler(srv.handleDeleteTopic))
-	r.POST("/v1/dc", wrapHandler(srv.handleAddDc))
-	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDc))
-	r.GET("/v1/dc", wrapHandler(srv.handleGetDc))
-
-	r.GET("/v1/health", wrapHandler(srv.handleHealthCheck))
-
-	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(srv.handleGitHubEvent))
-
-	// UI endpoints
-	r.GET("/", srv.HandleMainPage)
-	r.GET("/add_event", srv.HandleCreatePage)
-	r.GET("/topic", srv.HandleTopicPage)
-	r.GET("/dc", srv.HandleDcPage)
-	r.GET("/event", srv.HandleGetEventPage)
-
-	// grafana datasource endpoints
-	r.GET("/grafana", cors(srv.grafanaOK))
-	r.GET("/grafana/", cors(srv.grafanaOK))
-	r.OPTIONS("/grafana/:route", cors(srv.grafanaOK))
-	r.POST("/grafana/annotations", cors(srv.grafanaAnnotations))
-	r.POST("/grafana/search", cors(srv.grafanaSearch))
-
-	r.Handler("GET", "/metrics", promhttp.Handler())
-
-	// Handle static files either embedded (empty static) or off the filesystem (during dev work)
-	var fs http.FileSystem
-	switch static {
-	case "":
-		fs = &assetfs.AssetFS{
-			Asset:     Asset,
-			AssetDir:  AssetDir,
-			AssetInfo: AssetInfo,
-		}
-	default:
-		if p, d := filepath.Split(static); d == "ui" {
-			static = p
-		}
-		fs = http.Dir(static)
-	}
-	r.Handler("GET", "/ui/*filepath", http.FileServer(fs))
-
-	var t TemplateGetter
-	switch templates {
-	case "":
-		t = NewAssetTemplate(tmpl.Asset)
-	default:
-		t = Disk{Root: templates}
-	}
-	srv.templates = t
-
-	return &http.Server{
-		Handler:   r,
-		TLSConfig: tlsConfig,
-	}
-}
-
 func wrapHandler(h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		start := time.Now()
@@ -148,12 +72,6 @@ func wrapHandler(h httprouter.Handle) httprouter.Handle {
 		httpReqCounter.WithLabelValues(r.URL.Path).Inc()
 		h(w, r, ps)
 	}
-}
-
-// Server implements http.HandlerFuncs for the eventmaster http server.
-type Server struct {
-	store     *EventStore
-	templates TemplateGetter
 }
 
 func (s *Server) sendError(w http.ResponseWriter, code int, err error, message string, path string) {

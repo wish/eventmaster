@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -88,7 +89,10 @@ func main() {
 		}
 	}
 
-	httpS := em.NewHTTPServer(tlsConfig, store, config.Templates, config.StaticFiles)
+	httpS := &http.Server{
+		Handler:   em.NewServer(store, config.StaticFiles, config.Templates),
+		TLSConfig: tlsConfig,
+	}
 
 	// Create the EventMaster grpc server
 	grpcServer, err := em.NewGRPCServer(&config, store)
