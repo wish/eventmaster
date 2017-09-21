@@ -18,8 +18,38 @@ func (mds *MockDataStore) AddEvent(e *Event) error {
 	return nil
 }
 
-func (mds *MockDataStore) Find(q *proto.Query, topicImds []string, dcImds []string) (Events, error) {
-	return nil, errors.New("NYI")
+func (mds *MockDataStore) Find(q *proto.Query, topicIds []string, dcIds []string) (Events, error) {
+	// for some reason we convert to ms randomly throughout the code
+	q.StartEventTime *= 1000
+	q.EndEventTime *= 1000
+
+	ts := map[string]bool{}
+	ds := map[string]bool{}
+	for _, tid := range topicIds {
+		ts[tid] = true
+	}
+	for _, dc := range dcIds {
+		ds[dc] = true
+	}
+
+	r := Events{}
+	for _, ev := range mds.events {
+		if !(ev.EventTime > q.StartEventTime && ev.EventTime < q.EndEventTime) {
+			continue
+		}
+		if topicIds != nil {
+			if _, ok := ts[ev.TopicID]; !ok {
+				continue
+			}
+		}
+		if dcIds != nil {
+			if _, ok := ds[ev.DcID]; !ok {
+				continue
+			}
+		}
+		r = append(r, ev)
+	}
+	return r, nil
 }
 
 func (mds *MockDataStore) FindById(id string, data bool) (*Event, error) {
