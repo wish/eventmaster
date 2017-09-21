@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/xeipuuv/gojsonschema"
@@ -469,4 +471,24 @@ func TestAddEvent(t *testing.T) {
 			assert.True(t, checkAddEventQuery(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery(), id, test.Event))
 		}
 	}
+}
+
+func PopulateTestData(es *EventStore) error {
+	for i := 0; i < 5; i++ {
+		dc := &eventmaster.Dc{
+			Id:     uuid.NewV4().String(),
+			DcName: fmt.Sprintf("dc%04d", i),
+		}
+		if _, err := es.AddDc(dc); err != nil {
+			return errors.Wrapf(err, "adding dc: %v", dc)
+		}
+		t := Topic{
+			ID:   uuid.NewV4().String(),
+			Name: fmt.Sprintf("t%04d", i),
+		}
+		if _, err := es.AddTopic(t); err != nil {
+			return errors.Wrapf(err, "adding topic: %v", t)
+		}
+	}
+	return nil
 }
