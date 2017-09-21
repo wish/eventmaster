@@ -311,7 +311,6 @@ func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
 
-	fmt.Println("Event added:", evt.EventID)
 	return evt.EventID, nil
 }
 
@@ -388,7 +387,6 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 	es.topicSchemaMap[id] = jsonSchema
 	es.topicMutex.Unlock()
 
-	fmt.Println("Topic Added:", name, id)
 	return id, nil
 }
 
@@ -455,7 +453,6 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 	es.topicSchemaPropertiesMap[id] = schema
 	es.topicMutex.Unlock()
 
-	fmt.Println("Topic Updated:", newName, id)
 	return id, nil
 }
 
@@ -483,7 +480,6 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	delete(es.topicSchemaPropertiesMap, id)
 	es.topicMutex.Unlock()
 
-	fmt.Println("Topic Deleted:", topicName, id)
 	return nil
 }
 
@@ -516,7 +512,6 @@ func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
 	es.dcNameToId[name] = id
 	es.dcMutex.Unlock()
 
-	fmt.Println("Dc Added:", name, id)
 	return id, nil
 }
 
@@ -557,7 +552,6 @@ func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, 
 	}
 	es.dcMutex.Unlock()
 
-	fmt.Println("Dc Updated:", newName, id)
 	return id, nil
 }
 
