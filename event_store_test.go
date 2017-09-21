@@ -96,9 +96,9 @@ func NewMockDataStore() DataStore {
 	}
 }
 
-func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
+func GetTestEventStore() (*EventStore, error) {
 	ds := NewMockDataStore()
-	return &EventStore{
+	ev := &EventStore{
 		ds:                       ds,
 		topicMutex:               &sync.RWMutex{},
 		dcMutex:                  &sync.RWMutex{},
@@ -109,7 +109,8 @@ func GetTestEventStore(testESServer *httptest.Server) (*EventStore, error) {
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
 		dcNameToId:               make(map[string]string),
 		dcIdToName:               make(map[string]string),
-	}, nil
+	}
+	return ev, nil
 }
 
 /******************************************
@@ -151,7 +152,7 @@ func TestAddTopic(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore(testESServer)
+	s, err := GetTestEventStore()
 	assert.Nil(t, err)
 
 	for _, test := range addTopicTests {
@@ -184,7 +185,7 @@ func TestDeleteTopic(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore(testESServer)
+	s, err := GetTestEventStore()
 	assert.Nil(t, err)
 
 	err = populateTopics(s)
@@ -257,7 +258,7 @@ func TestUpdateTopic(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore(testESServer)
+	s, err := GetTestEventStore()
 	assert.Nil(t, err)
 
 	err = populateTopics(s)
@@ -291,7 +292,7 @@ func TestAddDc(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore(testESServer)
+	s, err := GetTestEventStore()
 	assert.Nil(t, err)
 
 	for _, test := range addDcTests {
@@ -321,7 +322,7 @@ func TestUpdateDc(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore(testESServer)
+	s, err := GetTestEventStore()
 	assert.Nil(t, err)
 
 	err = populateDcs(s)
@@ -451,7 +452,7 @@ func TestAddEvent(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
-	s, err := GetTestEventStore(testESServer)
+	s, err := GetTestEventStore()
 	assert.Nil(t, err)
 
 	err = populateTopics(s)
