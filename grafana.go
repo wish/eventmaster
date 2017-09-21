@@ -74,6 +74,10 @@ type AnnotationQuery struct {
 	DC    string `json:"dc"`
 }
 
+type TemplateRequest struct {
+	Target string `json:"target"`
+}
+
 // cors adds headers that Grafana requires to work as a direct access data
 // source.
 //
@@ -153,10 +157,8 @@ func (h *Server) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p ht
 }
 
 func (h *Server) grafanaSearch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	req := &struct {
-		Target string `json:"target"`
-	}{}
-	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+	req := TemplateRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, errors.Wrap(err, "json decode").Error(), http.StatusBadRequest)
 		return
 	}
