@@ -122,10 +122,10 @@ func (h *Server) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p ht
 				http.Error(w, fmt.Sprintf("json decode failure: %v", err), http.StatusBadRequest)
 				return
 			}
-			if aq.DC != "all" {
+			if aq.DC != "" && aq.DC != "all" {
 				q.Dc = []string{aq.DC}
 			}
-			if aq.Topic != "all" {
+			if aq.Topic != "" && aq.Topic != "all" {
 				q.TopicName = []string{aq.Topic}
 			}
 		}
