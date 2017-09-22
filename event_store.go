@@ -20,7 +20,7 @@ type Event struct {
 	EventID       string                 `json:"event_id"`
 	ParentEventID string                 `json:"parent_event_id"`
 	EventTime     int64                  `json:"event_time"`
-	DcID          string                 `json:"dc_id"`
+	DCID          string                 `json:"dc_id"`
 	TopicID       string                 `json:"topic_id"`
 	Tags          []string               `json:"tag_set"`
 	Host          string                 `json:"host"`
@@ -47,7 +47,7 @@ func (evts Events) Swap(i, j int) {
 type UnaddedEvent struct {
 	ParentEventID string                 `json:"parent_event_id"`
 	EventTime     int64                  `json:"event_time"`
-	Dc            string                 `json:"dc"`
+	DC            string                 `json:"dc"`
 	TopicName     string                 `json:"topic_name"`
 	Tags          []string               `json:"tag_set"`
 	Host          string                 `json:"host"`
@@ -70,7 +70,7 @@ type Topic struct {
 	Schema map[string]interface{} `json:"data_schema"`
 }
 
-type Dc struct {
+type DC struct {
 	ID   string `json:"dc_id"`
 	Name string `json:"dc_name"`
 }
@@ -139,14 +139,14 @@ func (es *EventStore) getTopicSchemaProperties(id string) map[string]interface{}
 	return schema
 }
 
-func (es *EventStore) getDcId(dc string) string {
+func (es *EventStore) getDCID(dc string) string {
 	es.dcMutex.RLock()
 	id := es.dcNameToID[strings.ToLower(dc)]
 	es.dcMutex.RUnlock()
 	return id
 }
 
-func (es *EventStore) getDcName(id string) string {
+func (es *EventStore) getDCName(id string) string {
 	es.dcMutex.RLock()
 	name := es.dcIDToName[id]
 	es.dcMutex.RUnlock()
@@ -170,7 +170,7 @@ func (es *EventStore) insertDefaults(s map[string]interface{}, m map[string]inte
 
 func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 	// validate Event
-	if event.Dc == "" {
+	if event.DC == "" {
 		return nil, errors.New("Event missing dc")
 	} else if event.Host == "" {
 		return nil, errors.New("Event missing host")
@@ -182,9 +182,9 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 		event.EventTime = time.Now().Unix()
 	}
 
-	dcID := es.getDcId(strings.ToLower(event.Dc))
+	dcID := es.getDCID(strings.ToLower(event.DC))
 	if dcID == "" {
-		return nil, errors.New(fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc)))
+		return nil, fmt.Errorf("DC '%s' does not exist in dc table", strings.ToLower(event.DC))
 	}
 	topicID := es.getTopicID(strings.ToLower(event.TopicName))
 	if topicID == "" {
@@ -224,7 +224,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 		EventID:       eventID.String(),
 		ParentEventID: event.ParentEventID,
 		EventTime:     event.EventTime * 1000,
-		DcID:          dcID,
+		DCID:          dcID,
 		TopicID:       topicID,
 		Tags:          event.Tags,
 		Host:          event.Host,
@@ -247,8 +247,8 @@ func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	for _, topic := range q.TopicName {
 		topicIDs = append(topicIDs, es.getTopicID(topic))
 	}
-	for _, dc := range q.Dc {
-		dcIds = append(dcIds, es.getDcId(dc))
+	for _, dc := range q.DC {
+		dcIDs = append(dcIDs, es.getDCID(dc))
 	}
 	evts, err := es.ds.Find(q, topicIDs, dcIDs)
 	if err != nil {
@@ -327,13 +327,13 @@ func (es *EventStore) GetTopics() ([]Topic, error) {
 	return topics, nil
 }
 
-func (es *EventStore) GetDcs() ([]Dc, error) {
+func (es *EventStore) GetDCs() ([]DC, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("GetDcs").Observe(trackTime(start))
+		eventStoreTimer.WithLabelValues("GetDCs").Observe(trackTime(start))
 	}()
 
-	dcs, err := es.ds.GetDcs()
+	dcs, err := es.ds.GetDCs()
 	if err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
 		return nil, errors.Wrap(err, "Error deleting topic from data source")
@@ -483,23 +483,23 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	return nil
 }
 
-func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
+func (es *EventStore) AddDC(dc *eventmaster.DC) (string, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("AddDc").Observe(trackTime(start))
+		eventStoreTimer.WithLabelValues("AddDC").Observe(trackTime(start))
 	}()
 
-	name := strings.ToLower(dc.DcName)
+	name := strings.ToLower(dc.DCName)
 	if name == "" {
 		return "", errors.New("Error adding dc - dc name is empty")
 	}
-	id := es.getDcId(name)
+	id := es.getDCID(name)
 	if id != "" {
-		return "", errors.New(fmt.Sprintf("Error adding dc - dc with name %s already exists", dc))
+		return "", fmt.Errorf("Error adding dc - dc with name %s already exists", dc)
 	}
 
 	id = uuid.NewV4().String()
-	if err := es.ds.AddDc(Dc{
+	if err := es.ds.AddDC(DC{
 		ID:   id,
 		Name: name,
 	}); err != nil {
@@ -515,31 +515,31 @@ func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
 	return id, nil
 }
 
-func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, error) {
+func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("UpdateDc").Observe(trackTime(start))
+		eventStoreTimer.WithLabelValues("UpdateDC").Observe(trackTime(start))
 	}()
 
 	oldName := updateReq.OldName
 	newName := updateReq.NewName
 
 	if newName == "" {
-		return "", errors.New("Dc name cannot be empty")
+		return "", errors.New("DC name cannot be empty")
 	}
 	if oldName == newName {
 		return "", errors.New("There are no changes to be made")
 	}
 
-	id := es.getDcId(newName)
+	id := es.getDCID(newName)
 	if id != "" {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s already exists", newName))
 	}
-	id = es.getDcId(oldName)
+	id = es.getDCID(oldName)
 	if id == "" {
 		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s doesn't exist", oldName))
 	}
-	if err := es.ds.UpdateDc(id, newName); err != nil {
+	if err := es.ds.UpdateDC(id, newName); err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
 		return "", errors.Wrap(err, "Error executing update query in data source")
 	}
@@ -561,22 +561,22 @@ func (es *EventStore) Update() error {
 		eventStoreTimer.WithLabelValues("Update").Observe(trackTime(start))
 	}()
 
-	// Update Dc maps
-	newDcNameToId := make(map[string]string)
-	newDcIdToName := make(map[string]string)
-	dcs, err := es.ds.GetDcs()
+	// Update DC maps
+	newDCNameToID := make(map[string]string)
+	newDCIDToName := make(map[string]string)
+	dcs, err := es.ds.GetDCs()
 	if err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
 		return errors.Wrap(err, "Error closing dc iter")
 	}
 	for _, dc := range dcs {
-		newDcNameToId[dc.Name] = dc.ID
-		newDcIdToName[dc.ID] = dc.Name
+		newDCNameToID[dc.Name] = dc.ID
+		newDCIDToName[dc.ID] = dc.Name
 	}
-	if newDcNameToId != nil {
+	if newDCNameToID != nil {
 		es.dcMutex.Lock()
-		es.dcNameToId = newDcNameToId
-		es.dcIdToName = newDcIdToName
+		es.dcNameToID = newDCNameToID
+		es.dcIDToName = newDCIDToName
 		es.dcMutex.Unlock()
 	}
 

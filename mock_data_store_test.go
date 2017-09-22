@@ -15,7 +15,7 @@ func TestPopulateTestData(t *testing.T) {
 		t.Fatalf("populating test data: %v", err)
 	}
 
-	dcs, err := store.GetDcs()
+	dcs, err := store.GetDCs()
 	if err != nil {
 		t.Fatalf("get dcs: %v", err)
 	}

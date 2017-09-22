@@ -9,7 +9,7 @@ import (
 type mockDataStore struct {
 	events []*Event
 
-	dcs    []Dc
+	dcs    []DC
 	topics []Topic
 }
 
@@ -18,7 +18,7 @@ func (mds *mockDataStore) AddEvent(e *Event) error {
 	return nil
 }
 
-func (mds *MockDataStore) Find(q *proto.Query, topicIds []string, dcIds []string) (Events, error) {
+func (mds *mockDataStore) Find(q *proto.Query, topicIds []string, DCIDs []string) (Events, error) {
 	// for some reason we convert to ms randomly throughout the code
 	q.StartEventTime *= 1000
 	q.EndEventTime *= 1000
@@ -28,7 +28,7 @@ func (mds *MockDataStore) Find(q *proto.Query, topicIds []string, dcIds []string
 	for _, tid := range topicIds {
 		ts[tid] = true
 	}
-	for _, dc := range dcIds {
+	for _, dc := range DCIDs {
 		ds[dc] = true
 	}
 
@@ -42,8 +42,8 @@ func (mds *MockDataStore) Find(q *proto.Query, topicIds []string, dcIds []string
 				continue
 			}
 		}
-		if dcIds != nil {
-			if _, ok := ds[ev.DcID]; !ok {
+		if DCIDs != nil {
+			if _, ok := ds[ev.DCID]; !ok {
 				continue
 			}
 		}
@@ -77,16 +77,16 @@ func (mds *mockDataStore) DeleteTopic(string) error {
 	return errors.New("NYI")
 }
 
-func (mds *MockDataStore) GetDcs() ([]Dc, error) {
+func (mds *mockDataStore) GetDCs() ([]DC, error) {
 	return mds.dcs, nil
 }
 
-func (mds *MockDataStore) AddDc(dc Dc) error {
+func (mds *mockDataStore) AddDC(dc DC) error {
 	mds.dcs = append(mds.dcs, dc)
 	return nil
 }
 
-func (mds *MockDataStore) UpdateDc(id, newName string) error {
+func (mds *mockDataStore) UpdateDC(id, newName string) error {
 	return errors.New("NYI")
 }
 

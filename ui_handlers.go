@@ -92,7 +92,7 @@ func (s *Server) HandleTopicPage(w http.ResponseWriter, r *http.Request, _ httpr
 	executeTemplate(w, t, nil)
 }
 
-func (s *Server) HandleDcPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) HandleDCPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := s.templates.Get("dc_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)

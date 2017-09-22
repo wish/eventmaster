@@ -23,7 +23,7 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
 		q.ParentEventId = query["parent_event_id"]
-		q.Dc = query["dc"]
+		q.DC = query["dc"]
 		q.Host = query["host"]
 		q.TargetHostSet = query["target_host_set"]
 		q.User = query["user"]
@@ -124,7 +124,7 @@ type EventResult struct {
 	EventID       string                 `json:"event_id"`
 	ParentEventID string                 `json:"parent_event_id"`
 	EventTime     int64                  `json:"event_time"`
-	Dc            string                 `json:"dc"`
+	DC            string                 `json:"dc"`
 	TopicName     string                 `json:"topic_name"`
 	Tags          []string               `json:"tag_set"`
 	Host          string                 `json:"host"`
@@ -156,7 +156,7 @@ func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httpro
 			EventID:       ev.EventID,
 			ParentEventID: ev.ParentEventID,
 			EventTime:     ev.EventTime,
-			Dc:            s.store.getDcName(ev.DcID),
+			DC:            s.store.getDCName(ev.DCID),
 			TopicName:     s.store.getTopicName(ev.TopicID),
 			Tags:          ev.Tags,
 			Host:          ev.Host,
@@ -188,7 +188,7 @@ func (s *Server) handleGetEventByID(w http.ResponseWriter, r *http.Request, ps h
 			EventID:       ev.EventID,
 			ParentEventID: ev.ParentEventID,
 			EventTime:     ev.EventTime,
-			Dc:            s.store.getDcName(ev.DcID),
+			DC:            s.store.getDCName(ev.DCID),
 			TopicName:     s.store.getTopicName(ev.TopicID),
 			Tags:          ev.Tags,
 			Host:          ev.Host,
@@ -292,8 +292,8 @@ func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps ht
 	s.sendResp(w, "", "", r.URL.Path)
 }
 
-func (s *Server) handleAddDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var dd Dc
+func (s *Server) handleAddDC(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var dd DC
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -305,8 +305,8 @@ func (s *Server) handleAddDc(w http.ResponseWriter, r *http.Request, _ httproute
 		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
-	id, err := s.store.AddDc(&eventmaster.Dc{
-		DcName: dd.Name,
+	id, err := s.store.AddDC(&eventmaster.DC{
+		DCName: dd.Name,
 	})
 	if err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error adding dc", r.URL.Path)
@@ -315,8 +315,8 @@ func (s *Server) handleAddDc(w http.ResponseWriter, r *http.Request, _ httproute
 	s.sendResp(w, "dc_id", id, r.URL.Path)
 }
 
-func (s *Server) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	var dd Dc
+func (s *Server) handleUpdateDC(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	var dd DC
 	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -333,7 +333,7 @@ func (s *Server) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httpr
 		s.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", r.URL.Path)
 		return
 	}
-	id, err := s.store.UpdateDc(&eventmaster.UpdateDcRequest{
+	id, err := s.store.UpdateDC(&eventmaster.UpdateDCRequest{
 		OldName: dcName,
 		NewName: dd.Name,
 	})
@@ -344,9 +344,9 @@ func (s *Server) handleUpdateDc(w http.ResponseWriter, r *http.Request, ps httpr
 	s.sendResp(w, "dc_id", id, r.URL.Path)
 }
 
-func (s *Server) handleGetDc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	dcSet := make(map[string][]Dc)
-	dcs, err := s.store.GetDcs()
+func (s *Server) handleGetDC(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	dcSet := make(map[string][]DC)
+	dcs, err := s.store.GetDCs()
 	if err != nil {
 		s.sendError(w, http.StatusInternalServerError, err, "Error getting dcs from store", r.URL.Path)
 		return
@@ -375,7 +375,7 @@ func (s *Server) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ htt
 	}
 
 	id, err := s.store.AddEvent(&UnaddedEvent{
-		Dc:        "github",
+		DC:        "github",
 		Host:      "github",
 		TopicName: "github",
 		Data:      info,

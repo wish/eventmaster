@@ -26,9 +26,9 @@ type DataStore interface {
 	AddTopic(RawTopic) error
 	UpdateTopic(RawTopic) error
 	DeleteTopic(string) error
-	GetDcs() ([]Dc, error)
-	AddDc(Dc) error
-	UpdateDc(string, string) error
+	GetDCs() ([]DC, error)
+	AddDC(DC) error
+	UpdateDC(string, string) error
 	CloseSession()
 }
 
@@ -88,7 +88,7 @@ func (event *Event) toCassandra() (string, error) {
     VALUES (%[1]s, %[5]s, %[8]d, %[12]s);
     INSERT INTO event_by_date(event_id, event_time, date)
     VALUES (%[1]s, %[8]d, %[12]s);`,
-		stringify(event.EventID), stringify(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
+		stringify(event.EventID), stringify(event.ParentEventID), stringifyUUID(event.DCID), stringifyUUID(event.TopicID),
 		stringify(strings.ToLower(event.Host)), stringifyArr(event.TargetHosts), stringify(strings.ToLower(event.User)), event.EventTime,
 		stringifyArr(event.Tags), data, event.ReceivedTime, stringify(date))
 	userField := ""
@@ -170,7 +170,7 @@ func (c *CassandraStore) FindByID(id string, includeData bool) (*Event, error) {
 			EventID:       eventID,
 			ParentEventID: parentEventID,
 			EventTime:     eventTime / 1000,
-			DcID:          dcID.String(),
+			DCID:          dcID.String(),
 			TopicID:       topicID.String(),
 			Tags:          tagSet,
 			Host:          host,
@@ -496,14 +496,14 @@ func (c *CassandraStore) DeleteTopic(id string) error {
 		id))
 }
 
-func (c *CassandraStore) GetDcs() ([]Dc, error) {
+func (c *CassandraStore) GetDCs() ([]DC, error) {
 	scanIter, closeIter := c.session.ExecIterQuery("SELECT dc_id, dc FROM event_dc;")
 	var id gocql.UUID
 	var dc string
-	var dcs []Dc
+	var dcs []DC
 	for true {
 		if scanIter(&id, &dc) {
-			dcs = append(dcs, Dc{
+			dcs = append(dcs, DC{
 				ID:   id.String(),
 				Name: dc,
 			})
@@ -517,7 +517,8 @@ func (c *CassandraStore) GetDcs() ([]Dc, error) {
 	return dcs, nil
 }
 
-func (c *CassandraStore) AddDc(dc Dc) error {
+// AddDC inserts dc into the event_dc table.
+func (c *CassandraStore) AddDC(dc DC) error {
 	queryStr := fmt.Sprintf(`INSERT INTO event_dc 
 		(dc_id, dc)
 		VALUES (%[1]s, %[2]s);`,
@@ -526,7 +527,7 @@ func (c *CassandraStore) AddDc(dc Dc) error {
 	return c.session.ExecQuery(queryStr)
 }
 
-func (c *CassandraStore) UpdateDc(id string, newName string) error {
+func (c *CassandraStore) UpdateDC(id string, newName string) error {
 	queryStr := fmt.Sprintf(`UPDATE event_dc SET dc=%s WHERE dc_id=%s;`,
 		stringify(newName), id)
 	return c.session.ExecQuery(queryStr)

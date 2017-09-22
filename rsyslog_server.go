@@ -38,7 +38,7 @@ func parseAuditd(timestamp int64, dc string, host string, topic string, msg stri
 	return &UnaddedEvent{
 		EventTime: timestamp,
 		TopicName: topic,
-		Dc:        dc,
+		DC:        dc,
 		Tags:      tags,
 		Host:      host,
 		User:      user,

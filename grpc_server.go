@@ -55,7 +55,7 @@ func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 		return s.store.AddEvent(&UnaddedEvent{
 			ParentEventID: evt.ParentEventId,
 			EventTime:     evt.EventTime,
-			Dc:            evt.Dc,
+			DC:            evt.DC,
 			TopicName:     evt.TopicName,
 			Tags:          evt.TagSet,
 			Host:          evt.Host,
@@ -90,7 +90,7 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 		EventId:       ev.EventID,
 		ParentEventId: ev.ParentEventID,
 		EventTime:     ev.EventTime,
-		Dc:            s.store.getDcName(ev.DcID),
+		DC:            s.store.getDCName(ev.DCID),
 		TopicName:     s.store.getTopicName(ev.TopicID),
 		TagSet:        ev.Tags,
 		Host:          ev.Host,
@@ -125,7 +125,7 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 			EventId:       ev.EventID,
 			ParentEventId: ev.ParentEventID,
 			EventTime:     ev.EventTime,
-			Dc:            s.store.getDcName(ev.DcID),
+			DC:            s.store.getDCName(ev.DCID),
 			TopicName:     s.store.getTopicName(ev.TopicID),
 			TagSet:        ev.Tags,
 			Host:          ev.Host,
@@ -245,43 +245,43 @@ func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 	}, nil
 }
 
-func (s *grpcServer) AddDc(ctx context.Context, d *eventmaster.Dc) (*eventmaster.WriteResponse, error) {
-	return s.performOperation("AddDc", func() (string, error) {
-		return s.store.AddDc(d)
+func (s *GRPCServer) AddDC(ctx context.Context, d *eventmaster.DC) (*eventmaster.WriteResponse, error) {
+	return s.performOperation("AddDC", func() (string, error) {
+		return s.store.AddDC(d)
 	})
 }
 
-func (s *grpcServer) UpdateDc(ctx context.Context, t *eventmaster.UpdateDcRequest) (*eventmaster.WriteResponse, error) {
-	return s.performOperation("UpdateDc", func() (string, error) {
-		return s.store.UpdateDc(t)
+func (s *GRPCServer) UpdateDC(ctx context.Context, t *eventmaster.UpdateDCRequest) (*eventmaster.WriteResponse, error) {
+	return s.performOperation("UpdateDC", func() (string, error) {
+		return s.store.UpdateDC(t)
 	})
 }
 
-func (s *grpcServer) GetDcs(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.DcResult, error) {
-	name := "GetDcs"
+func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.DCResult, error) {
+	name := "GetDCs"
 	start := time.Now()
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
 	}()
 	grpcReqCounter.WithLabelValues(name).Inc()
 
-	dcs, err := s.store.GetDcs()
+	dcs, err := s.store.GetDCs()
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error getting topics: ", err)
 		return nil, err
 	}
 
-	var dcResults []*eventmaster.Dc
+	var dcResults []*eventmaster.DC
 
 	for _, dc := range dcs {
-		dcResults = append(dcResults, &eventmaster.Dc{
-			Id:     dc.ID,
-			DcName: dc.Name,
+		dcResults = append(dcResults, &eventmaster.DC{
+			ID:     dc.ID,
+			DCName: dc.Name,
 		})
 	}
 	grpcRespCounter.WithLabelValues(name, "0").Inc()
-	return &eventmaster.DcResult{
+	return &eventmaster.DCResult{
 		Results: dcResults,
 	}, nil
 }

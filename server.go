@@ -80,9 +80,9 @@ func registerRoutes(srv *Server) http.Handler {
 	r.PUT("/v1/topic/:name", wrapHandler(srv.handleUpdateTopic))
 	r.GET("/v1/topic", wrapHandler(srv.handleGetTopic))
 	r.DELETE("/v1/topic/:name", wrapHandler(srv.handleDeleteTopic))
-	r.POST("/v1/dc", wrapHandler(srv.handleAddDc))
-	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDc))
-	r.GET("/v1/dc", wrapHandler(srv.handleGetDc))
+	r.POST("/v1/dc", wrapHandler(srv.handleAddDC))
+	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDC))
+	r.GET("/v1/dc", wrapHandler(srv.handleGetDC))
 
 	r.GET("/v1/health", wrapHandler(srv.handleHealthCheck))
 
@@ -93,7 +93,7 @@ func registerRoutes(srv *Server) http.Handler {
 	r.GET("/", srv.HandleMainPage)
 	r.GET("/add_event", srv.HandleCreatePage)
 	r.GET("/topic", srv.HandleTopicPage)
-	r.GET("/dc", srv.HandleDcPage)
+	r.GET("/dc", srv.HandleDCPage)
 	r.GET("/event", srv.HandleGetEventPage)
 
 	// grafana datasource endpoints
