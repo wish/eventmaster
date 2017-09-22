@@ -6,14 +6,14 @@ import (
 	proto "github.com/ContextLogic/eventmaster/proto"
 )
 
-type MockDataStore struct {
+type mockDataStore struct {
 	events []*Event
 
 	dcs    []Dc
 	topics []Topic
 }
 
-func (mds *MockDataStore) AddEvent(e *Event) error {
+func (mds *mockDataStore) AddEvent(e *Event) error {
 	mds.events = append(mds.events, e)
 	return nil
 }
@@ -90,4 +90,4 @@ func (mds *MockDataStore) UpdateDc(id, newName string) error {
 	return errors.New("NYI")
 }
 
-func (mds *MockDataStore) CloseSession() {}
+func (mds *mockDataStore) CloseSession() {}

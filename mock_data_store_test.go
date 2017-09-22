@@ -5,7 +5,7 @@ import (
 )
 
 func TestPopulateTestData(t *testing.T) {
-	mds := &MockDataStore{}
+	mds := &mockDataStore{}
 	store, err := GetTestEventStore(mds)
 	if err != nil {
 		t.Fatalf("creating event store: %v", err)
