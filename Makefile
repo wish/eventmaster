@@ -6,7 +6,7 @@ GBD     := $(BIN_DIR)/go-bindata
 PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
-$(BINARY): deps $(wildcard **/*.go) proto vendor ui.go templates/templates.go
+$(BINARY): deps $(wildcard **/*.go) proto vendor ui/ui.go templates/templates.go
 	@go install -v github.com/ContextLogic/eventmaster/cmd/eventmaster
 
 .PHONY: proto
@@ -47,8 +47,11 @@ deps: vendor/gopkg.in
 vendor/gopkg.in: $(GLIDE)
 	glide --quiet install
 
-ui.go: $(GBD) $(wildcard static/ui/**/*)
-	go-bindata -prefix="static/" -o ui.go -pkg=eventmaster static/ui/...
+ui:
+	@mkdir ui
+
+ui/ui.go: $(GBD) $(wildcard static/ui/**/*) ui
+	go-bindata -prefix="static/" -o ui/ui.go -pkg=ui static/ui/...
 
 templates:
 	@mkdir templates

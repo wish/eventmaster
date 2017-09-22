@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	tmpl "github.com/ContextLogic/eventmaster/templates"
+	"github.com/ContextLogic/eventmaster/ui"
 )
 
 // Server implements http.Handler for the eventmaster http server.
@@ -38,9 +39,9 @@ func NewServer(store *EventStore, static, templates string) *Server {
 	switch static {
 	case "":
 		fs = &assetfs.AssetFS{
-			Asset:     Asset,
-			AssetDir:  AssetDir,
-			AssetInfo: AssetInfo,
+			Asset:     ui.Asset,
+			AssetDir:  ui.AssetDir,
+			AssetInfo: ui.AssetInfo,
 		}
 	default:
 		if p, d := filepath.Split(static); d == "ui" {
