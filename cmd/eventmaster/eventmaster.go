@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	var config em.Config
+	var config em.Flags
 	parser := flags.NewParser(&config, flags.Default)
 	if _, err := parser.Parse(); err != nil {
 		os.Exit(1)

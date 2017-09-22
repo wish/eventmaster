@@ -1,18 +1,14 @@
 package eventmaster
 
-// Configuration struct for the eventmaster
-type Config struct {
-	Port int `long:"port" default:"50052" description:"Port for EventMaster gRPC + HTTP API"` // What port for the API to listen on
+// Flags is parsed to populate the flags for command eventmaster.
+type Flags struct {
+	Port int `long:"port" default:"50052" description:"Port for EventMaster gRPC + HTTP API"`
 
 	CassandraServiceName string `long:"cassandra_servicename" description:"name of cassandra service to talk to"`
-
-	CassandraPort string `long:"cassandra_port" default:"9201" description:"port of cassandra service"`
 
 	RsyslogServer bool `short:"r" long:"rsyslog_server" description:"Flag to start TCP rsyslog server"`
 
 	RsyslogPort int `long:"rsyslog_port" default:"50053" description:"Port for rsyslog clients to send logs to"`
-
-	PromPort int `long:"prom_port" default:"9000" description:"Port for Prometheus client"`
 
 	CAFile string `long:"ca_file" description:"PEM encoded CA's certificate file path"`
 

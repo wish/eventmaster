@@ -10,7 +10,7 @@ import (
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
-func NewGRPCServer(config *Config, s *EventStore) (*grpcServer, error) {
+func NewGRPCServer(config *Flags, s *EventStore) (*grpcServer, error) {
 	return &grpcServer{
 		config: config,
 		store:  s,
@@ -18,7 +18,7 @@ func NewGRPCServer(config *Config, s *EventStore) (*grpcServer, error) {
 }
 
 type grpcServer struct {
-	config *Config
+	config *Flags
 	store  *EventStore
 }
 
