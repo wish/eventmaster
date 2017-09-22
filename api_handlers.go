@@ -176,10 +176,10 @@ func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httpro
 	s.sendResp(w, "", string(jsonSr), r.URL.Path)
 }
 
-func (s *Server) handleGetEventById(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	eventId := ps.ByName("id")
-	if eventId != "" {
-		ev, err := s.store.FindById(eventId)
+func (s *Server) handleGetEventByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	eventID := ps.ByName("id")
+	if eventID != "" {
+		ev, err := s.store.FindByID(eventID)
 		if err != nil {
 			s.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
 			return

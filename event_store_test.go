@@ -104,12 +104,12 @@ func GetTestEventStore(ds DataStore) (*EventStore, error) {
 		topicMutex:               &sync.RWMutex{},
 		dcMutex:                  &sync.RWMutex{},
 		indexMutex:               &sync.RWMutex{},
-		topicNameToId:            make(map[string]string),
-		topicIdToName:            make(map[string]string),
+		topicNameToID:            make(map[string]string),
+		topicIDToName:            make(map[string]string),
 		topicSchemaMap:           make(map[string]*gojsonschema.Schema),
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
-		dcNameToId:               make(map[string]string),
-		dcIdToName:               make(map[string]string),
+		dcNameToID:               make(map[string]string),
+		dcIDToName:               make(map[string]string),
 	}
 	return ev, nil
 }
@@ -193,11 +193,11 @@ func TestDeleteTopic(t *testing.T) {
 	assert.Nil(t, err)
 
 	for _, test := range deleteTopicTests {
-		id := s.topicNameToId[test.DeleteReq.TopicName]
+		id := s.topicNameToID[test.DeleteReq.TopicName]
 
 		err := s.DeleteTopic(test.DeleteReq)
 		assert.Equal(t, test.ErrExpected, err != nil)
-		assert.Equal(t, test.NumTopics, len(s.topicNameToId))
+		assert.Equal(t, test.NumTopics, len(s.topicNameToID))
 
 		if !test.ErrExpected {
 			assert.True(t, checkDeleteTopicQuery(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery(), id))

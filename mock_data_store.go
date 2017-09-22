@@ -52,28 +52,28 @@ func (mds *MockDataStore) Find(q *proto.Query, topicIds []string, dcIds []string
 	return r, nil
 }
 
-func (mds *MockDataStore) FindById(id string, data bool) (*Event, error) {
+func (mds *mockDataStore) FindByID(id string, data bool) (*Event, error) {
 	return nil, errors.New("NYI")
 }
 
-func (mds *MockDataStore) FindIds(*proto.TimeQuery, streamFn) error {
+func (mds *mockDataStore) FindIDs(*proto.TimeQuery, streamFn) error {
 	return errors.New("NYI")
 }
 
-func (mds *MockDataStore) GetTopics() ([]Topic, error) {
+func (mds *mockDataStore) GetTopics() ([]Topic, error) {
 	return mds.topics, nil
 }
 
-func (mds *MockDataStore) AddTopic(rt RawTopic) error {
+func (mds *mockDataStore) AddTopic(rt RawTopic) error {
 	mds.topics = append(mds.topics, Topic{ID: rt.ID, Name: rt.Name})
 	return nil
 }
 
-func (mds *MockDataStore) UpdateTopic(rt RawTopic) error {
+func (mds *mockDataStore) UpdateTopic(rt RawTopic) error {
 	return errors.New("NYI")
 }
 
-func (mds *MockDataStore) DeleteTopic(string) error {
+func (mds *mockDataStore) DeleteTopic(string) error {
 	return errors.New("NYI")
 }
 

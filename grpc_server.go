@@ -66,15 +66,15 @@ func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 	})
 }
 
-func (s *grpcServer) GetEventById(ctx context.Context, id *eventmaster.EventId) (*eventmaster.Event, error) {
-	name := "GetEventById"
+func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) (*eventmaster.Event, error) {
+	name := "GetEventByID"
 	start := time.Now()
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
 	}()
 	grpcReqCounter.WithLabelValues(name).Inc()
 
-	ev, err := s.store.FindById(id.EventId)
+	ev, err := s.store.FindByID(id.EventID)
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error performing event store find", err)
@@ -142,17 +142,17 @@ func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 	return nil
 }
 
-func (s *grpcServer) GetEventIds(q *eventmaster.TimeQuery, stream eventmaster.EventMaster_GetEventIdsServer) error {
-	name := "GetEventByIds"
+func (s *GRPCServer) GetEventIDs(q *eventmaster.TimeQuery, stream eventmaster.EventMaster_GetEventIDsServer) error {
+	name := "GetEventByIDs"
 	start := time.Now()
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
 	}()
 
-	streamProxy := func(eventId string) error {
-		return stream.Send(&eventmaster.EventId{EventId: eventId})
+	streamProxy := func(eventID string) error {
+		return stream.Send(&eventmaster.EventID{EventID: eventID})
 	}
-	return s.store.FindIds(q, streamProxy)
+	return s.store.FindIDs(q, streamProxy)
 }
 
 func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {

@@ -75,7 +75,7 @@ func registerRoutes(srv *Server) http.Handler {
 	// API endpoints
 	r.POST("/v1/event", wrapHandler(srv.handleAddEvent))
 	r.GET("/v1/event", wrapHandler(srv.handleGetEvent))
-	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventById))
+	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventByID))
 	r.POST("/v1/topic", wrapHandler(srv.handleAddTopic))
 	r.PUT("/v1/topic/:name", wrapHandler(srv.handleUpdateTopic))
 	r.GET("/v1/topic", wrapHandler(srv.handleGetTopic))

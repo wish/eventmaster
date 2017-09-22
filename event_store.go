@@ -77,12 +77,12 @@ type Dc struct {
 
 type EventStore struct {
 	ds                       DataStore
-	topicNameToId            map[string]string                   // map of name to id
-	topicIdToName            map[string]string                   // map of id to name
+	topicNameToID            map[string]string                   // map of name to id
+	topicIDToName            map[string]string                   // map of id to name
 	topicSchemaMap           map[string]*gojsonschema.Schema     // map of topic id to json loader for schema validation
 	topicSchemaPropertiesMap map[string](map[string]interface{}) // map of topic id to properties of topic data
-	dcNameToId               map[string]string                   // map of name to id
-	dcIdToName               map[string]string                   // map of id to name
+	dcNameToID               map[string]string                   // map of name to id
+	dcIDToName               map[string]string                   // map of id to name
 	indexNames               []string                            // list of name of all indices in es cluster
 	topicMutex               *sync.RWMutex
 	dcMutex                  *sync.RWMutex
@@ -95,32 +95,32 @@ func NewEventStore(ds DataStore) (*EventStore, error) {
 		topicMutex:               &sync.RWMutex{},
 		dcMutex:                  &sync.RWMutex{},
 		indexMutex:               &sync.RWMutex{},
-		topicNameToId:            make(map[string]string),
-		topicIdToName:            make(map[string]string),
+		topicNameToID:            make(map[string]string),
+		topicIDToName:            make(map[string]string),
 		topicSchemaMap:           make(map[string]*gojsonschema.Schema),
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
-		dcNameToId:               make(map[string]string),
-		dcIdToName:               make(map[string]string),
+		dcNameToID:               make(map[string]string),
+		dcIDToName:               make(map[string]string),
 	}, nil
 }
 
-func (es *EventStore) getTopicIds() map[string]string {
+func (es *EventStore) getTopicIDs() map[string]string {
 	es.topicMutex.RLock()
-	ids := es.topicIdToName
+	ids := es.topicIDToName
 	es.topicMutex.RUnlock()
 	return ids
 }
 
-func (es *EventStore) getTopicId(topic string) string {
+func (es *EventStore) getTopicID(topic string) string {
 	es.topicMutex.RLock()
-	id := es.topicNameToId[strings.ToLower(topic)]
+	id := es.topicNameToID[strings.ToLower(topic)]
 	es.topicMutex.RUnlock()
 	return id
 }
 
 func (es *EventStore) getTopicName(id string) string {
 	es.topicMutex.RLock()
-	name := es.topicIdToName[id]
+	name := es.topicIDToName[id]
 	es.topicMutex.RUnlock()
 	return name
 }
@@ -141,14 +141,14 @@ func (es *EventStore) getTopicSchemaProperties(id string) map[string]interface{}
 
 func (es *EventStore) getDcId(dc string) string {
 	es.dcMutex.RLock()
-	id := es.dcNameToId[strings.ToLower(dc)]
+	id := es.dcNameToID[strings.ToLower(dc)]
 	es.dcMutex.RUnlock()
 	return id
 }
 
 func (es *EventStore) getDcName(id string) string {
 	es.dcMutex.RLock()
-	name := es.dcIdToName[id]
+	name := es.dcIDToName[id]
 	es.dcMutex.RUnlock()
 	return name
 }
@@ -186,7 +186,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 	if dcID == "" {
 		return nil, errors.New(fmt.Sprintf("Dc '%s' does not exist in dc table", strings.ToLower(event.Dc)))
 	}
-	topicID := es.getTopicId(strings.ToLower(event.TopicName))
+	topicID := es.getTopicID(strings.ToLower(event.TopicName))
 	if topicID == "" {
 		return nil, errors.New(fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName)))
 	}
@@ -243,14 +243,14 @@ func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	if q.StartEventTime == 0 || q.EndEventTime == 0 || q.EndEventTime < q.StartEventTime {
 		return nil, errors.New("Must specify valid start and end event time")
 	}
-	var topicIds, dcIds []string
+	var topicIDs, dcIDs []string
 	for _, topic := range q.TopicName {
-		topicIds = append(topicIds, es.getTopicId(topic))
+		topicIDs = append(topicIDs, es.getTopicID(topic))
 	}
 	for _, dc := range q.Dc {
 		dcIds = append(dcIds, es.getDcId(dc))
 	}
-	evts, err := es.ds.Find(q, topicIds, dcIds)
+	evts, err := es.ds.Find(q, topicIDs, dcIDs)
 	if err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
 		return nil, errors.Wrap(err, "Error executing find in data source")
@@ -259,12 +259,12 @@ func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	return evts, nil
 }
 
-func (es *EventStore) FindById(id string) (*Event, error) {
+func (es *EventStore) FindByID(id string) (*Event, error) {
 	start := time.Now()
 	defer func() {
 		eventStoreTimer.WithLabelValues("Find").Observe(trackTime(start))
 	}()
-	evt, err := es.ds.FindById(id, true)
+	evt, err := es.ds.FindByID(id, true)
 	if err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
 		return nil, errors.Wrap(err, "Error executing find in data source")
@@ -280,10 +280,10 @@ func (es *EventStore) FindById(id string) (*Event, error) {
 	return evt, nil
 }
 
-func (es *EventStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) error {
+func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("FindIds").Observe(trackTime(start))
+		eventStoreTimer.WithLabelValues("FindIDs").Observe(trackTime(start))
 	}()
 	if q.Limit == 0 {
 		q.Limit = 200
@@ -292,7 +292,7 @@ func (es *EventStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) error {
 		return errors.New("Start and end event time must be specified")
 	}
 
-	return es.ds.FindIds(q, stream)
+	return es.ds.FindIDs(q, stream)
 }
 
 func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
@@ -352,7 +352,7 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 
 	if name == "" {
 		return "", errors.New("Topic name cannot be empty")
-	} else if es.getTopicId(name) != "" {
+	} else if es.getTopicID(name) != "" {
 		return "", errors.New("Topic with name already exists")
 	}
 
@@ -381,8 +381,8 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 	}
 
 	es.topicMutex.Lock()
-	es.topicNameToId[name] = id
-	es.topicIdToName[id] = name
+	es.topicNameToID[name] = id
+	es.topicIDToName[id] = name
 	es.topicSchemaPropertiesMap[id] = schema
 	es.topicSchemaMap[id] = jsonSchema
 	es.topicMutex.Unlock()
@@ -403,11 +403,11 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 		newName = oldName
 	}
 
-	id := es.getTopicId(newName)
+	id := es.getTopicID(newName)
 	if oldName != newName && id != "" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s already exists", newName))
 	}
-	id = es.getTopicId(oldName)
+	id = es.getTopicID(oldName)
 	if id == "" {
 		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
 	}
@@ -444,10 +444,10 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 	}
 
 	es.topicMutex.Lock()
-	es.topicNameToId[newName] = es.topicNameToId[oldName]
-	es.topicIdToName[id] = newName
+	es.topicNameToID[newName] = es.topicNameToID[oldName]
+	es.topicIDToName[id] = newName
 	if newName != oldName {
-		delete(es.topicNameToId, oldName)
+		delete(es.topicNameToID, oldName)
 	}
 	es.topicSchemaMap[id] = jsonSchema
 	es.topicSchemaPropertiesMap[id] = schema
@@ -463,7 +463,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	}()
 
 	topicName := strings.ToLower(deleteReq.TopicName)
-	id := es.getTopicId(topicName)
+	id := es.getTopicID(topicName)
 	if id == "" {
 		return errors.New("Couldn't find topic id for topic:" + topicName)
 	}
@@ -474,8 +474,8 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	}
 
 	es.topicMutex.Lock()
-	delete(es.topicNameToId, topicName)
-	delete(es.topicIdToName, id)
+	delete(es.topicNameToID, topicName)
+	delete(es.topicIDToName, id)
 	delete(es.topicSchemaMap, id)
 	delete(es.topicSchemaPropertiesMap, id)
 	es.topicMutex.Unlock()
@@ -508,8 +508,8 @@ func (es *EventStore) AddDc(dc *eventmaster.Dc) (string, error) {
 	}
 
 	es.dcMutex.Lock()
-	es.dcIdToName[id] = name
-	es.dcNameToId[name] = id
+	es.dcIDToName[id] = name
+	es.dcNameToID[name] = id
 	es.dcMutex.Unlock()
 
 	return id, nil
@@ -545,10 +545,10 @@ func (es *EventStore) UpdateDc(updateReq *eventmaster.UpdateDcRequest) (string, 
 	}
 
 	es.dcMutex.Lock()
-	es.dcNameToId[newName] = es.dcNameToId[oldName]
-	es.dcIdToName[id] = newName
+	es.dcNameToID[newName] = es.dcNameToID[oldName]
+	es.dcIDToName[id] = newName
 	if newName != oldName {
-		delete(es.dcNameToId, oldName)
+		delete(es.dcNameToID, oldName)
 	}
 	es.dcMutex.Unlock()
 
@@ -581,8 +581,8 @@ func (es *EventStore) Update() error {
 	}
 
 	// Update Topic maps
-	newTopicNameToId := make(map[string]string)
-	newTopicIdToName := make(map[string]string)
+	newTopicNameToID := make(map[string]string)
+	newTopicIDToName := make(map[string]string)
 	schemaMap := make(map[string]string)
 	newTopicSchemaMap := make(map[string]*gojsonschema.Schema)
 	newTopicSchemaPropertiesMap := make(map[string](map[string]interface{}))
@@ -592,8 +592,8 @@ func (es *EventStore) Update() error {
 		return errors.Wrap(err, "Error closing topic iter")
 	}
 	for _, t := range topics {
-		newTopicNameToId[t.Name] = t.ID
-		newTopicIdToName[t.ID] = t.Name
+		newTopicNameToID[t.Name] = t.ID
+		newTopicIDToName[t.ID] = t.Name
 		bytes, err := json.Marshal(t.Schema)
 		if err != nil {
 			bytes = []byte("")
@@ -617,8 +617,8 @@ func (es *EventStore) Update() error {
 		}
 	}
 	es.topicMutex.Lock()
-	es.topicNameToId = newTopicNameToId
-	es.topicIdToName = newTopicIdToName
+	es.topicNameToID = newTopicNameToID
+	es.topicIDToName = newTopicIDToName
 	es.topicSchemaMap = newTopicSchemaMap
 	es.topicSchemaPropertiesMap = newTopicSchemaPropertiesMap
 	es.topicMutex.Unlock()

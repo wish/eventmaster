@@ -5,8 +5,8 @@ package eventmaster;
 service EventMaster {
     rpc AddEvent (Event) returns (WriteResponse) {}
     rpc GetEvents (Query) returns (stream Event) {}
-    rpc GetEventById (EventId) returns (Event) {}
-    rpc GetEventIds (TimeQuery) returns (stream EventId) {}
+    rpc GetEventByID (EventID) returns (Event) {}
+    rpc GetEventIDs (TimeQuery) returns (stream EventID) {}
     rpc AddTopic (Topic) returns (WriteResponse) {}
     rpc UpdateTopic (UpdateTopicRequest) returns (WriteResponse) {}
     rpc DeleteTopic (DeleteTopicRequest) returns (WriteResponse) {}
@@ -60,8 +60,8 @@ message TimeQuery {
     bool ascending = 4;
 }
 
-message EventId {
-    string event_id = 1;
+message EventID {
+    string eventID = 1;
 }
  
 message Topic {

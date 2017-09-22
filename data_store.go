@@ -20,8 +20,8 @@ type streamFn func(eventId string) error
 type DataStore interface {
 	AddEvent(*Event) error
 	Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error)
-	FindById(string, bool) (*Event, error)
-	FindIds(*eventmaster.TimeQuery, streamFn) error
+	FindByID(string, bool) (*Event, error)
+	FindIDs(*eventmaster.TimeQuery, streamFn) error
 	GetTopics() ([]Topic, error)
 	AddTopic(RawTopic) error
 	UpdateTopic(RawTopic) error
@@ -92,13 +92,13 @@ func (event *Event) toCassandra() (string, error) {
 		stringify(strings.ToLower(event.Host)), stringifyArr(event.TargetHosts), stringify(strings.ToLower(event.User)), event.EventTime,
 		stringifyArr(event.Tags), data, event.ReceivedTime, stringify(date))
 	userField := ""
-	parentEventIdField := ""
+	parentEventIDField := ""
 	if event.User != "" {
 		userField = fmt.Sprintf(`INSERT INTO event_by_user(event_id, user, event_time, date)
 		VALUES (%s, %s, %d, %s);`, stringify(event.EventID), stringify(event.User), event.EventTime, stringify(date))
 	}
 	if event.ParentEventID != "" {
-		parentEventIdField = fmt.Sprintf(`INSERT INTO event_by_parent_event_id(event_id, parent_event_id, event_time, date)
+		parentEventIDField = fmt.Sprintf(`INSERT INTO event_by_parent_event_id(event_id, parent_event_id, event_time, date)
 		VALUES (%s, %s, %d, %s);`, stringify(event.EventID), stringify(event.ParentEventID), event.EventTime, stringify(date))
 	}
 
@@ -107,7 +107,7 @@ func (event *Event) toCassandra() (string, error) {
 		%s
 		%s
 		%s
-		APPLY BATCH;`, coreFields, userField, parentEventIdField), nil
+		APPLY BATCH;`, coreFields, userField, parentEventIDField), nil
 }
 
 func (c *CassandraStore) AddEvent(evt *Event) error {
@@ -156,7 +156,7 @@ func (c *CassandraStore) joinEvents(evts map[string]struct{}, newEvts map[string
 	}
 }
 
-func (c *CassandraStore) FindById(id string, includeData bool) (*Event, error) {
+func (c *CassandraStore) FindByID(id string, includeData bool) (*Event, error) {
 	var topicID, dcID gocql.UUID
 	var eventTime, receivedTime int64
 	var eventID, parentEventID, host, user string
@@ -250,14 +250,14 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	}
 	if len(q.ParentEventId) > 0 {
 		var parentEventIds []string
-		for _, peId := range q.ParentEventId {
-			parentEventIds = append(parentEventIds, stringify(peId))
+		for _, peID := range q.ParentEventId {
+			parentEventIds = append(parentEventIds, stringify(peID))
 		}
-		peIdEvts, err := c.getFromTable("event_by_parent_event_id", "parent_event_id", dates, timeFilter, parentEventIds)
+		peIDEvts, err := c.getFromTable("event_by_parent_event_id", "parent_event_id", dates, timeFilter, parentEventIds)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error getting event ids from cassandra table")
 		}
-		evts = c.joinEvents(evts, peIdEvts, needsIntersection)
+		evts = c.joinEvents(evts, peIDEvts, needsIntersection)
 		if len(evts) == 0 {
 			return nil, nil
 		}
@@ -323,7 +323,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	ch := make(chan *Event, len(evts))
 	for eID, _ := range evts {
 		go func(eID string) {
-			evt, err := c.FindById(eID, false)
+			evt, err := c.FindByID(eID, false)
 			if err != nil {
 				fmt.Println("Error closing cassandra iter on read:", err)
 				ch <- nil
@@ -418,7 +418,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	return events, nil
 }
 
-func (c *CassandraStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) error {
+func (c *CassandraStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
 		return errors.Wrap(err, "Error getting dates from start and end time")
@@ -449,18 +449,18 @@ func (c *CassandraStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) erro
 
 func (c *CassandraStore) GetTopics() ([]Topic, error) {
 	scanIter, closeIter := c.session.ExecIterQuery("SELECT topic_id, topic_name, data_schema FROM event_topic;")
-	var topicId gocql.UUID
+	var topicID gocql.UUID
 	var name, schema string
 	var topics []Topic
 	for {
-		if scanIter(&topicId, &name, &schema) {
+		if scanIter(&topicID, &name, &schema) {
 			var s map[string]interface{}
 			err := json.Unmarshal([]byte(schema), &s)
 			if err != nil {
 				return nil, errors.Wrap(err, "Error unmarshalling schema")
 			}
 			topics = append(topics, Topic{
-				ID:     topicId.String(),
+				ID:     topicID.String(),
 				Name:   name,
 				Schema: s,
 			})
