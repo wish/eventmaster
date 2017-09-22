@@ -94,11 +94,7 @@ func main() {
 		TLSConfig: tlsConfig,
 	}
 
-	// Create the EventMaster grpc server
-	grpcServer, err := em.NewGRPCServer(&config, store)
-	if err != nil {
-		log.Fatalf("Unable to start server: %v", err)
-	}
+	grpcServer := em.NewGRPCServer(&config, store)
 
 	maxMsgSizeOpt := grpc.MaxMsgSize(1024 * 1024 * 100)
 	// Create the gRPC server and register our service

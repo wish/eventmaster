@@ -10,19 +10,21 @@ import (
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
-func NewGRPCServer(config *Flags, s *EventStore) (*grpcServer, error) {
-	return &grpcServer{
+// NewGRPCServer returns a populated
+func NewGRPCServer(config *Flags, s *EventStore) *GRPCServer {
+	return &GRPCServer{
 		config: config,
 		store:  s,
-	}, nil
+	}
 }
 
-type grpcServer struct {
+// GRPCServer implements gRPC endpoints.
+type GRPCServer struct {
 	config *Flags
 	store  *EventStore
 }
 
-func (s *grpcServer) performOperation(method string, op func() (string, error)) (*eventmaster.WriteResponse, error) {
+func (s *GRPCServer) performOperation(method string, op func() (string, error)) (*eventmaster.WriteResponse, error) {
 	start := time.Now()
 	defer func() {
 		grpcReqLatencies.WithLabelValues(method).Observe(trackTime(start))
@@ -42,7 +44,7 @@ func (s *grpcServer) performOperation(method string, op func() (string, error)) 
 	}, nil
 }
 
-func (s *grpcServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
+func (s *GRPCServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddEvent", func() (string, error) {
 		if evt.Data == nil {
 			evt.Data = []byte("{}")
@@ -100,7 +102,7 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 	}, nil
 }
 
-func (s *grpcServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
+func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
 	name := "GetEvents"
 	start := time.Now()
 	defer func() {
@@ -155,7 +157,7 @@ func (s *GRPCServer) GetEventIDs(q *eventmaster.TimeQuery, stream eventmaster.Ev
 	return s.store.FindIDs(q, streamProxy)
 }
 
-func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {
+func (s *GRPCServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddTopic", func() (string, error) {
 		if t.DataSchema == nil {
 			t.DataSchema = []byte("{}")
@@ -172,7 +174,7 @@ func (s *grpcServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*event
 	})
 }
 
-func (s *grpcServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopicRequest) (*eventmaster.WriteResponse, error) {
+func (s *GRPCServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopicRequest) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("UpdateTopic", func() (string, error) {
 		var schema map[string]interface{}
 		err := json.Unmarshal(t.DataSchema, &schema)
@@ -186,7 +188,7 @@ func (s *grpcServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopic
 	})
 }
 
-func (s *grpcServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopicRequest) (*eventmaster.WriteResponse, error) {
+func (s *GRPCServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopicRequest) (*eventmaster.WriteResponse, error) {
 	name := "DeleteTopic"
 	start := time.Now()
 	defer func() {
@@ -204,7 +206,7 @@ func (s *grpcServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopic
 	return &eventmaster.WriteResponse{}, nil
 }
 
-func (s *grpcServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.TopicResult, error) {
+func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.TopicResult, error) {
 	name := "GetTopics"
 	start := time.Now()
 	defer func() {
@@ -286,6 +288,6 @@ func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 	}, nil
 }
 
-func (s *grpcServer) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {
+func (s *GRPCServer) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {
 	return &eventmaster.HealthcheckResponse{Response: "OK"}, nil
 }
