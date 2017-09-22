@@ -139,7 +139,7 @@ func (c *CassandraStore) getFromTable(tableName string, columnName string, dates
 		scanIter, closeIter := c.session.ExecIterQuery(query)
 		for true {
 			if scanIter(&eventID) {
-				events[eventID] = v
+				events[eventID] = struct{}{}
 			} else {
 				break
 			}
@@ -157,7 +157,7 @@ func (c *CassandraStore) joinEvents(evts map[string]struct{}, newEvts map[string
 		intersection := make(map[string]struct{})
 		for eID, _ := range newEvts {
 			if _, ok := evts[eID]; ok {
-				intersection[eID] = v
+				intersection[eID] = struct{}{}
 			}
 		}
 		return intersection
@@ -325,7 +325,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 			scanIter, closeIter := c.session.ExecIterQuery(query)
 			for true {
 				if scanIter(&eventID) {
-					evts[eventID] = v
+					evts[eventID] = struct{}{}
 				} else {
 					break
 				}
@@ -360,7 +360,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	if len(q.TargetHostSet) > 0 {
 		targetHosts := make(map[string]struct{})
 		for _, thost := range q.TargetHostSet {
-			targetHosts[thost] = v
+			targetHosts[thost] = struct{}{}
 		}
 		for eID, evtData := range eventMap {
 			exists := false
@@ -378,11 +378,11 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	if len(q.TagSet) > 0 || len(q.ExcludeTagSet) > 0 {
 		tags := make(map[string]struct{})
 		for _, tag := range q.TagSet {
-			tags[tag] = v
+			tags[tag] = struct{}{}
 		}
 		excludeTags := make(map[string]struct{})
 		for _, tag := range q.ExcludeTagSet {
-			excludeTags[tag] = v
+			excludeTags[tag] = struct{}{}
 		}
 		andOp := q.TagAndOperator
 		for eID, evtData := range eventMap {

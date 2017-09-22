@@ -61,8 +61,6 @@ type UnaddedEvent struct {
 	Data          map[string]interface{} `json:"data"`
 }
 
-var v struct{}
-
 // RawTopic is a Topic but with an unparsed Schema.
 type RawTopic struct {
 	ID     string
