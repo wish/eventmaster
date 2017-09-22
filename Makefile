@@ -21,8 +21,8 @@ test:
 
 .PHONY: lint
 lint: $(GOLINT)
-	go vet .
-	golint -set_exit_status .
+	@go vet .
+	@golint -set_exit_status .
 
 $(GOLINT):
 	go get -u github.com/golang/lint/golint
