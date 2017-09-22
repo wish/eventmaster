@@ -10,3 +10,5 @@ vendor/
 # the generated template/static files
 ui.go
 templates
+
+coverage.html

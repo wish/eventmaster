@@ -55,3 +55,9 @@ templates:
 
 templates/templates.go: $(GBD) $(wildcard static/templates/*) templates
 	go-bindata -prefix="static/" -o templates/templates.go -pkg=templates static/templates/...
+
+.PHONY: coverage
+coverage: 
+	@go test -coverprofile=/tmp/cover github.com/ContextLogic/eventmaster 
+	@go tool cover -html=/tmp/cover -o coverage.html
+	@rm /tmp/cover
