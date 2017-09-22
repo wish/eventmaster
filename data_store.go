@@ -155,7 +155,7 @@ func (c *CassandraStore) getFromTable(tableName string, columnName string, dates
 func (c *CassandraStore) joinEvents(evts map[string]struct{}, newEvts map[string]struct{}, needsIntersection bool) map[string]struct{} {
 	if needsIntersection {
 		intersection := make(map[string]struct{})
-		for eID, _ := range newEvts {
+		for eID := range newEvts {
 			if _, ok := evts[eID]; ok {
 				intersection[eID] = struct{}{}
 			}
@@ -337,7 +337,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	}
 
 	ch := make(chan *Event, len(evts))
-	for eID, _ := range evts {
+	for eID := range evts {
 		go func(eID string) {
 			evt, err := c.FindByID(eID, false)
 			if err != nil {
@@ -350,7 +350,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	}
 
 	eventMap := make(map[string]*Event)
-	for _, _ = range evts {
+	for _ = range evts {
 		if evt := <-ch; evt != nil {
 			eventMap[evt.EventID] = evt
 		}
@@ -388,7 +388,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 		for eID, evtData := range eventMap {
 			deleteEvt := false
 			if andOp {
-				for tag, _ := range tags {
+				for tag := range tags {
 					tagExists := false
 					for _, t := range evtData.Tags {
 						if tag == t {
