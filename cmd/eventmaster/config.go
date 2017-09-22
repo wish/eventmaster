@@ -8,7 +8,7 @@ import (
 	em "github.com/ContextLogic/eventmaster"
 )
 
-// EMConfig are settings used ... XXX
+// EMConfig is eventmaster config that comes from the parsing of a config file.
 type EMConfig struct {
 	DataStore      string             `json:"data_store"`
 	CassConfig     em.CassandraConfig `json:"cassandra_config"`

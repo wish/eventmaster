@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// Pair represents a single string key to empty interface value mapping.
 type Pair struct {
 	a string
 	b interface{}

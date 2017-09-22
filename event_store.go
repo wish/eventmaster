@@ -16,6 +16,7 @@ import (
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
+// Event is the representation of an event across the DataStore boundary.
 type Event struct {
 	EventID       string                 `json:"event_id"`
 	ParentEventID string                 `json:"parent_event_id"`
@@ -30,6 +31,7 @@ type Event struct {
 	ReceivedTime  int64                  `json:"received_time"`
 }
 
+// Events is shorthand for a sortable slice of events.
 type Events []*Event
 
 func (evts Events) Len() int {
@@ -44,6 +46,9 @@ func (evts Events) Swap(i, j int) {
 	evts[i], evts[j] = evts[j], evts[i]
 }
 
+// UnaddedEvent is an internal structrue that hasn't yet been augmented.
+//
+// See augmentEvent below.
 type UnaddedEvent struct {
 	ParentEventID string                 `json:"parent_event_id"`
 	EventTime     int64                  `json:"event_time"`
@@ -58,23 +63,28 @@ type UnaddedEvent struct {
 
 var v struct{}
 
+// RawTopic is a Topic but with an unparsed Schema.
 type RawTopic struct {
 	ID     string
 	Name   string
 	Schema string
 }
 
+// Topic represents a topic.
 type Topic struct {
 	ID     string                 `json:"topic_id"`
 	Name   string                 `json:"topic_name"`
 	Schema map[string]interface{} `json:"data_schema"`
 }
 
+// DC represents a datacenter.
 type DC struct {
 	ID   string `json:"dc_id"`
 	Name string `json:"dc_name"`
 }
 
+// EventStore is the in-memory cache of lookups between various pieces of
+// information, such as topic id <-> topic name.
 type EventStore struct {
 	ds                       DataStore
 	topicNameToID            map[string]string                   // map of name to id
@@ -89,6 +99,7 @@ type EventStore struct {
 	indexMutex               *sync.RWMutex
 }
 
+// NewEventStore initializes an EventStore.
 func NewEventStore(ds DataStore) (*EventStore, error) {
 	return &EventStore{
 		ds:                       ds,
@@ -235,6 +246,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 	}, nil
 }
 
+// Find performs validation and sorting around calling the underlying DataStore.
 func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	start := time.Now()
 	defer func() {
@@ -259,6 +271,7 @@ func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	return evts, nil
 }
 
+// FindByID gets an Event from the DataStore an updates defaults.
 func (es *EventStore) FindByID(id string) (*Event, error) {
 	start := time.Now()
 	defer func() {
@@ -280,6 +293,8 @@ func (es *EventStore) FindByID(id string) (*Event, error) {
 	return evt, nil
 }
 
+// FindIDs validates input and calls stream on all found Events using the
+// underlying DataStore.
 func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 	start := time.Now()
 	defer func() {
@@ -295,6 +310,7 @@ func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 	return es.ds.FindIDs(q, stream)
 }
 
+// AddEvent stores event in the DataStore.
 func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 	start := time.Now()
 	defer func() {
@@ -314,6 +330,7 @@ func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 	return evt.EventID, nil
 }
 
+// GetTopics retrieves all topics from the DataStore.
 func (es *EventStore) GetTopics() ([]Topic, error) {
 	start := time.Now()
 	defer func() {
@@ -327,6 +344,7 @@ func (es *EventStore) GetTopics() ([]Topic, error) {
 	return topics, nil
 }
 
+// GetDCs returns all stored datacenters.
 func (es *EventStore) GetDCs() ([]DC, error) {
 	start := time.Now()
 	defer func() {
@@ -341,6 +359,7 @@ func (es *EventStore) GetDCs() ([]DC, error) {
 	return dcs, nil
 }
 
+// AddTopic adds topic to the DataStore.
 func (es *EventStore) AddTopic(topic Topic) (string, error) {
 	start := time.Now()
 	defer func() {
@@ -390,6 +409,7 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 	return id, nil
 }
 
+// UpdateTopic stores
 func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 	start := time.Now()
 	defer func() {
@@ -456,6 +476,7 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 	return id, nil
 }
 
+// DeleteTopic removes the Topic with the name in deletereq
 func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) error {
 	start := time.Now()
 	defer func() {
@@ -483,6 +504,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	return nil
 }
 
+// AddDC stores dc, returning the ID and an error if there was one.
 func (es *EventStore) AddDC(dc *eventmaster.DC) (string, error) {
 	start := time.Now()
 	defer func() {
@@ -515,6 +537,8 @@ func (es *EventStore) AddDC(dc *eventmaster.DC) (string, error) {
 	return id, nil
 }
 
+// UpdateDC validates updateReq, stores in both the DataStore and in-memory
+// cache.
 func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, error) {
 	start := time.Now()
 	defer func() {
@@ -555,6 +579,7 @@ func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, 
 	return id, nil
 }
 
+// Update reconstitutes internal memory caches with information in the DataStore.
 func (es *EventStore) Update() error {
 	start := time.Now()
 	defer func() {
@@ -625,6 +650,7 @@ func (es *EventStore) Update() error {
 	return nil
 }
 
+// CloseSession closes the underlying DataStore session.
 func (es *EventStore) CloseSession() {
 	es.ds.CloseSession()
 }

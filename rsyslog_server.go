@@ -10,11 +10,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+// RsyslogServer implements an rsyslog endpoint.
 type RsyslogServer struct {
 	lis   net.Listener
 	store *EventStore
 }
 
+// LogParser defines a function that can be used to log an event.
+//
+// It allows us to key on event topic and provide custom implementations.
 type LogParser func(int64, string, string, string, string) *UnaddedEvent
 
 var logParserMap = map[string]LogParser{
@@ -46,6 +50,7 @@ func parseAuditd(timestamp int64, dc string, host string, topic string, msg stri
 	}
 }
 
+// NewRsyslogServer returns a populated rsyslog server.
 func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*RsyslogServer, error) {
 	var lis net.Listener
 	var err error
@@ -108,6 +113,8 @@ func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 	}
 }
 
+// AcceptLogs kickss off a goroutine that listens for connections and
+// dispatches log requests.
 func (s *RsyslogServer) AcceptLogs() {
 	go func() {
 		for {
@@ -122,6 +129,7 @@ func (s *RsyslogServer) AcceptLogs() {
 	}()
 }
 
+// Stop terminates the underlying network connection.
 func (s *RsyslogServer) Stop() error {
 	return s.lis.Close()
 }

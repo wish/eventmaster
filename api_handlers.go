@@ -120,6 +120,7 @@ func (s *Server) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httpro
 	s.sendResp(w, "event_id", id, r.URL.Path)
 }
 
+// EventResult is the json-serializable version of an Event.
 type EventResult struct {
 	EventID       string                 `json:"event_id"`
 	ParentEventID string                 `json:"parent_event_id"`
@@ -134,6 +135,7 @@ type EventResult struct {
 	ReceivedTime  int64                  `json:"received_time"`
 }
 
+// SearchResult groups a slice of EventResult for http responses.
 type SearchResult struct {
 	Results []*EventResult `json:"results"`
 }

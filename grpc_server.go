@@ -44,6 +44,7 @@ func (s *GRPCServer) performOperation(method string, op func() (string, error)) 
 	}, nil
 }
 
+// AddEvent adds an event to the datastore.
 func (s *GRPCServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddEvent", func() (string, error) {
 		if evt.Data == nil {
@@ -68,6 +69,7 @@ func (s *GRPCServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 	})
 }
 
+// GetEventByID returns an event by id.
 func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) (*eventmaster.Event, error) {
 	name := "GetEventByID"
 	start := time.Now()
@@ -102,6 +104,7 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 	}, nil
 }
 
+// GetEvents returns all Events.
 func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMaster_GetEventsServer) error {
 	name := "GetEvents"
 	start := time.Now()
@@ -144,6 +147,7 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 	return nil
 }
 
+// GetEventIDs returns all event ids.
 func (s *GRPCServer) GetEventIDs(q *eventmaster.TimeQuery, stream eventmaster.EventMaster_GetEventIDsServer) error {
 	name := "GetEventByIDs"
 	start := time.Now()
@@ -157,6 +161,7 @@ func (s *GRPCServer) GetEventIDs(q *eventmaster.TimeQuery, stream eventmaster.Ev
 	return s.store.FindIDs(q, streamProxy)
 }
 
+// AddTopic is the gRPC verison of AddTopic.
 func (s *GRPCServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddTopic", func() (string, error) {
 		if t.DataSchema == nil {
@@ -174,6 +179,7 @@ func (s *GRPCServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*event
 	})
 }
 
+// UpdateTopic is the gRPC version of updating a topic.
 func (s *GRPCServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopicRequest) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("UpdateTopic", func() (string, error) {
 		var schema map[string]interface{}
@@ -188,6 +194,7 @@ func (s *GRPCServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopic
 	})
 }
 
+// DeleteTopic is the gRPC version of DeleteTopic.
 func (s *GRPCServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopicRequest) (*eventmaster.WriteResponse, error) {
 	name := "DeleteTopic"
 	start := time.Now()
@@ -206,6 +213,7 @@ func (s *GRPCServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopic
 	return &eventmaster.WriteResponse{}, nil
 }
 
+// GetTopics is the gRPC call that returns all topics.
 func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.TopicResult, error) {
 	name := "GetTopics"
 	start := time.Now()
@@ -247,18 +255,21 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 	}, nil
 }
 
+// AddDC is the gPRC version of adding a datacenter.
 func (s *GRPCServer) AddDC(ctx context.Context, d *eventmaster.DC) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("AddDC", func() (string, error) {
 		return s.store.AddDC(d)
 	})
 }
 
+// UpdateDC is the gRPC version of updating a datacenter.
 func (s *GRPCServer) UpdateDC(ctx context.Context, t *eventmaster.UpdateDCRequest) (*eventmaster.WriteResponse, error) {
 	return s.performOperation("UpdateDC", func() (string, error) {
 		return s.store.UpdateDC(t)
 	})
 }
 
+// GetDCs is the gRPC version of getting all datacenters.
 func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*eventmaster.DCResult, error) {
 	name := "GetDCs"
 	start := time.Now()
@@ -288,6 +299,7 @@ func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 	}, nil
 }
 
+// Healthcheck is the gRPC health endpoint.
 func (s *GRPCServer) Healthcheck(ctx context.Context, in *eventmaster.HealthcheckRequest) (*eventmaster.HealthcheckResponse, error) {
 	return &eventmaster.HealthcheckResponse{Response: "OK"}, nil
 }

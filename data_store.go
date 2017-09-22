@@ -17,6 +17,10 @@ import (
 
 type streamFn func(eventId string) error
 
+// DataStore defines the interface needed to be used as a backing store for
+// eventmaster.
+//
+// A few examples include CassandraStore and MockDataStore.
 type DataStore interface {
 	AddEvent(*Event) error
 	Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error)
@@ -32,6 +36,8 @@ type DataStore interface {
 	CloseSession()
 }
 
+// CassandraConfig defines the Cassandra-specific section of the eventmaster
+// configuration file.
 type CassandraConfig struct {
 	Addrs       []string `json:"addrs"`
 	Keyspace    string   `json:"keyspace"`
@@ -40,10 +46,13 @@ type CassandraConfig struct {
 	ServiceName string   `json:"service_name"`
 }
 
+// CassandraStore is an implementation of DataStore that is backed by
+// Cassandra.
 type CassandraStore struct {
 	session cass.Session
 }
 
+// NewCassandraStore returns a working CassandraStore, or an error.
 func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 	var cassandraIps []string
 
@@ -110,6 +119,7 @@ func (event *Event) toCassandra() (string, error) {
 		APPLY BATCH;`, coreFields, userField, parentEventIDField), nil
 }
 
+// AddEvent takes an *Event and stores it in Cassandra.
 func (c *CassandraStore) AddEvent(evt *Event) error {
 	query, err := evt.toCassandra()
 	if err != nil {
@@ -156,6 +166,9 @@ func (c *CassandraStore) joinEvents(evts map[string]struct{}, newEvts map[string
 	}
 }
 
+// FindByID searches cassandra for an event by its id.
+//
+// If includeData is true
 func (c *CassandraStore) FindByID(id string, includeData bool) (*Event, error) {
 	var topicID, dcID gocql.UUID
 	var eventTime, receivedTime int64
@@ -203,6 +216,8 @@ func (c *CassandraStore) FindByID(id string, includeData bool) (*Event, error) {
 	return evt, nil
 }
 
+// getDates returns a slice of strings of YYYY-MM-DD for all days between
+// startEventTime and endEventTime.
 func getDates(startEventTime int64, endEventTime int64) ([]string, error) {
 	var dates []string
 	startDate := getDate(startEventTime)
@@ -224,6 +239,7 @@ func getDates(startEventTime int64, endEventTime int64) ([]string, error) {
 	return dates, nil
 }
 
+// Find searches using the Query, and filters topicIds and dcIds.
 func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error) {
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
@@ -418,6 +434,8 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	return events, nil
 }
 
+// FindIDs traverses the temporal space defined by q day by day and calls
+// stream function with each event ID found.
 func (c *CassandraStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
@@ -447,6 +465,7 @@ func (c *CassandraStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) erro
 	return nil
 }
 
+// GetTopics returns all topics.
 func (c *CassandraStore) GetTopics() ([]Topic, error) {
 	scanIter, closeIter := c.session.ExecIterQuery("SELECT topic_id, topic_name, data_schema FROM event_topic;")
 	var topicID gocql.UUID
@@ -474,6 +493,7 @@ func (c *CassandraStore) GetTopics() ([]Topic, error) {
 	return topics, nil
 }
 
+// AddTopic inserts t into event_topic.
 func (c *CassandraStore) AddTopic(t RawTopic) error {
 	queryStr := fmt.Sprintf(`INSERT INTO event_topic
 		(topic_id, topic_name, data_schema)
@@ -483,6 +503,7 @@ func (c *CassandraStore) AddTopic(t RawTopic) error {
 	return c.session.ExecQuery(queryStr)
 }
 
+// UpdateTopic performs a cql update with t aginst event_topic table.
 func (c *CassandraStore) UpdateTopic(t RawTopic) error {
 	queryStr := fmt.Sprintf(`UPDATE event_topic SET
 		topic_name=%s,
@@ -491,11 +512,13 @@ func (c *CassandraStore) UpdateTopic(t RawTopic) error {
 	return c.session.ExecQuery(queryStr)
 }
 
+// DeleteTopic removes the topic with the given id.
 func (c *CassandraStore) DeleteTopic(id string) error {
 	return c.session.ExecQuery(fmt.Sprintf(`DELETE FROM event_topic WHERE topic_id=%[1]s;`,
 		id))
 }
 
+// GetDCs returns all entries from the event_dc table.
 func (c *CassandraStore) GetDCs() ([]DC, error) {
 	scanIter, closeIter := c.session.ExecIterQuery("SELECT dc_id, dc FROM event_dc;")
 	var id gocql.UUID
@@ -527,12 +550,14 @@ func (c *CassandraStore) AddDC(dc DC) error {
 	return c.session.ExecQuery(queryStr)
 }
 
+// UpdateDC replaces the name for a given DC by id.
 func (c *CassandraStore) UpdateDC(id string, newName string) error {
 	queryStr := fmt.Sprintf(`UPDATE event_dc SET dc=%s WHERE dc_id=%s;`,
 		stringify(newName), id)
 	return c.session.ExecQuery(queryStr)
 }
 
+// CloseSession closes the underlying session.
 func (c *CassandraStore) CloseSession() {
 	c.session.Close()
 }

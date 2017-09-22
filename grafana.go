@@ -74,6 +74,9 @@ type AnnotationQuery struct {
 	DC    string `json:"dc"`
 }
 
+// TemplateRequest is used for parsing Grafana requests for template variable names.
+//
+// For example at the current time Target can be either "dc" or "topic".
 type TemplateRequest struct {
 	Target string `json:"target"`
 }
@@ -199,6 +202,7 @@ type topicNamer interface {
 	getDCName(string) string
 }
 
+// FromEvent creates an AnnotationResponse formatted text from an Event.
 func FromEvent(store topicNamer, ev *Event) (AnnotationResponse, error) {
 	fm := template.FuncMap{
 		"trim": strings.TrimSpace,
