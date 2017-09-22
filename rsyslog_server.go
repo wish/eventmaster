@@ -124,6 +124,7 @@ func (s *RsyslogServer) AcceptLogs() {
 				fmt.Println("Error accepting logs:", err.Error())
 			}
 
+			// TODO: gate how many outstanding requests can be launched?
 			go s.handleLogRequest(conn)
 		}
 	}()

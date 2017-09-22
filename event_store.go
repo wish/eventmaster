@@ -145,6 +145,7 @@ func (es *EventStore) getTopicSchemaProperties(id string) map[string]interface{}
 	es.topicMutex.RLock()
 	schema := es.topicSchemaPropertiesMap[id]
 	es.topicMutex.RUnlock()
+	// TODO: could simplify call sites by making the map schema is nil.
 	return schema
 }
 

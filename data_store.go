@@ -121,6 +121,7 @@ func (event *Event) toCassandra() (string, error) {
 
 // AddEvent takes an *Event and stores it in Cassandra.
 func (c *CassandraStore) AddEvent(evt *Event) error {
+	// TODO: move eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc() here
 	query, err := evt.toCassandra()
 	if err != nil {
 		return errors.Wrap(err, "Error converting event to cassandra event")
