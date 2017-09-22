@@ -197,7 +197,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 	}
 	topicID := es.getTopicID(strings.ToLower(event.TopicName))
 	if topicID == "" {
-		return nil, errors.New(fmt.Sprintf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName)))
+		return nil, fmt.Errorf("Topic '%s' does not exist in topic table", strings.ToLower(event.TopicName))
 	}
 	topicSchema := es.getTopicSchema(topicID)
 	data := "{}"
@@ -423,11 +423,11 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 
 	id := es.getTopicID(newName)
 	if oldName != newName && id != "" {
-		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s already exists", newName))
+		return "", fmt.Errorf("Error updating topic - topic with name %s already exists", newName)
 	}
 	id = es.getTopicID(oldName)
 	if id == "" {
-		return "", errors.New(fmt.Sprintf("Error updating topic - topic with name %s doesn't exist", oldName))
+		return "", fmt.Errorf("Error updating topic - topic with name %s doesn't exist", oldName)
 	}
 
 	var jsonSchema *gojsonschema.Schema
@@ -555,11 +555,11 @@ func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, 
 
 	id := es.getDCID(newName)
 	if id != "" {
-		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s already exists", newName))
+		return "", fmt.Errorf("Error updating dc - dc with name %s already exists", newName)
 	}
 	id = es.getDCID(oldName)
 	if id == "" {
-		return "", errors.New(fmt.Sprintf("Error updating dc - dc with name %s doesn't exist", oldName))
+		return "", fmt.Errorf("Error updating dc - dc with name %s doesn't exist", oldName)
 	}
 	if err := es.ds.UpdateDC(id, newName); err != nil {
 		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
