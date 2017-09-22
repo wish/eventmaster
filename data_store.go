@@ -161,9 +161,8 @@ func (c *CassandraStore) joinEvents(evts map[string]struct{}, newEvts map[string
 			}
 		}
 		return intersection
-	} else {
-		return newEvts
 	}
+	return newEvts
 }
 
 // FindByID searches cassandra for an event by its id.
