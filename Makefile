@@ -16,7 +16,7 @@ proto/eventmaster.pb.go: $(PGG) proto/eventmaster.proto
 	protoc --plugin=${PGG} -I proto/ proto/eventmaster.proto --go_out=plugins=grpc:proto
 
 .PHONY: test
-test:
+test: deps proto/eventmaster.pb.go ui/ui.go templates/templates.go
 	@go test ${PGKS}
 
 .PHONY: lint
