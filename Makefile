@@ -1,6 +1,5 @@
 BIN_DIR := $(GOPATH)/bin
 GOLINT  := $(BIN_DIR)/golint
-GLIDE   := $(BIN_DIR)/glide
 PGG     := $(BIN_DIR)/protoc-gen-go
 GBD     := $(BIN_DIR)/go-bindata
 PKGS    := $(shell go list ./... | grep -v vendor)
@@ -24,6 +23,7 @@ lint: $(GOLINT)
 	@go vet .
 	@golint -set_exit_status .
 
+# TODO: golint and protoc-gen-go are fetched from master still; should pin them down.
 $(GOLINT):
 	go get -u github.com/golang/lint/golint
 
@@ -37,15 +37,10 @@ $(GBD):
 run: $(BINARY)
 	eventmaster -r
 
-$(GLIDE):
-	go install ./vendor/github.com/Masterminds/glide
-
-
 .PHONY: deps
-deps: vendor/gopkg.in
-# here we randomly choose something I *know* glide will fetch
-vendor/gopkg.in: $(GLIDE)
-	glide --quiet install
+deps: Gopkg.lock
+Gopkg.lock: Gopkg.toml
+	dep ensure
 
 ui:
 	@mkdir ui
