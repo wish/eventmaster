@@ -54,10 +54,10 @@ var testTopics = []Topic{
 	Topic{Name: "test3", Schema: dataSchema},
 }
 
-var testDcs = []*eventmaster.Dc{
-	&eventmaster.Dc{DcName: "dc1"},
-	&eventmaster.Dc{DcName: "dc2"},
-	&eventmaster.Dc{DcName: "dc3"},
+var testDCs = []*eventmaster.DC{
+	&eventmaster.DC{DCName: "dc1"},
+	&eventmaster.DC{DCName: "dc2"},
+	&eventmaster.DC{DCName: "dc3"},
 }
 
 func populateTopics(s *EventStore) error {
@@ -70,9 +70,9 @@ func populateTopics(s *EventStore) error {
 	return nil
 }
 
-func populateDcs(s *EventStore) error {
-	for _, dc := range testDcs {
-		_, err := s.AddDc(dc)
+func populateDCs(s *EventStore) error {
+	for _, dc := range testDCs {
+		_, err := s.AddDC(dc)
 		if err != nil {
 			return err
 		}
@@ -104,12 +104,12 @@ func GetTestEventStore(ds DataStore) (*EventStore, error) {
 		topicMutex:               &sync.RWMutex{},
 		dcMutex:                  &sync.RWMutex{},
 		indexMutex:               &sync.RWMutex{},
-		topicNameToId:            make(map[string]string),
-		topicIdToName:            make(map[string]string),
+		topicNameToID:            make(map[string]string),
+		topicIDToName:            make(map[string]string),
 		topicSchemaMap:           make(map[string]*gojsonschema.Schema),
 		topicSchemaPropertiesMap: make(map[string](map[string]interface{})),
-		dcNameToId:               make(map[string]string),
-		dcIdToName:               make(map[string]string),
+		dcNameToID:               make(map[string]string),
+		dcIDToName:               make(map[string]string),
 	}
 	return ev, nil
 }
@@ -193,11 +193,11 @@ func TestDeleteTopic(t *testing.T) {
 	assert.Nil(t, err)
 
 	for _, test := range deleteTopicTests {
-		id := s.topicNameToId[test.DeleteReq.TopicName]
+		id := s.topicNameToID[test.DeleteReq.TopicName]
 
 		err := s.DeleteTopic(test.DeleteReq)
 		assert.Equal(t, test.ErrExpected, err != nil)
-		assert.Equal(t, test.NumTopics, len(s.topicNameToId))
+		assert.Equal(t, test.NumTopics, len(s.topicNameToID))
 
 		if !test.ErrExpected {
 			assert.True(t, checkDeleteTopicQuery(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery(), id))
@@ -280,57 +280,57 @@ func TestUpdateTopic(t *testing.T) {
 	DC TESTS BEGIN
 ******************************************/
 
-var addDcTests = []struct {
-	Dc          *eventmaster.Dc
+var addDCTests = []struct {
+	DC          *eventmaster.DC
 	ErrExpected bool
 }{
-	{&eventmaster.Dc{DcName: "dc1"}, false},
-	{&eventmaster.Dc{DcName: "dc2"}, false},
-	{&eventmaster.Dc{DcName: "dc1"}, true},
+	{&eventmaster.DC{DCName: "dc1"}, false},
+	{&eventmaster.DC{DCName: "dc2"}, false},
+	{&eventmaster.DC{DCName: "dc1"}, true},
 }
 
-func TestAddDc(t *testing.T) {
+func TestAddDC(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
 	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
-	for _, test := range addDcTests {
-		id, err := s.AddDc(test.Dc)
+	for _, test := range addDCTests {
+		id, err := s.AddDC(test.DC)
 		assert.Equal(t, test.ErrExpected, err != nil)
 
 		if !test.ErrExpected {
 			assert.True(t, isUUID(id))
 			exp := fmt.Sprintf(`^INSERT INTO event_dc[\s\S]*\(dc_id, dc\)[\s\S]*VALUES \(%s, %s\);$`,
-				id, stringify(test.Dc.DcName))
+				id, stringify(test.DC.DCName))
 			assert.True(t, regexp.MustCompile(exp).MatchString(s.ds.(*CassandraStore).session.(*cassandra.MockCassSession).LastQuery()))
 		}
 	}
 }
 
-var updateDcTests = []struct {
-	Req         *eventmaster.UpdateDcRequest
+var updateDCTests = []struct {
+	Req         *eventmaster.UpdateDCRequest
 	ErrExpected bool
 }{
-	{&eventmaster.UpdateDcRequest{OldName: "dc2", NewName: "dc4"}, false},
-	{&eventmaster.UpdateDcRequest{OldName: "dc1", NewName: ""}, true},
-	{&eventmaster.UpdateDcRequest{OldName: "dc9", NewName: "hello"}, true},
-	{&eventmaster.UpdateDcRequest{OldName: "dc1", NewName: "dc3"}, true},
+	{&eventmaster.UpdateDCRequest{OldName: "dc2", NewName: "dc4"}, false},
+	{&eventmaster.UpdateDCRequest{OldName: "dc1", NewName: ""}, true},
+	{&eventmaster.UpdateDCRequest{OldName: "dc9", NewName: "hello"}, true},
+	{&eventmaster.UpdateDCRequest{OldName: "dc1", NewName: "dc3"}, true},
 }
 
-func TestUpdateDc(t *testing.T) {
+func TestUpdateDC(t *testing.T) {
 	testESServer := NewMockESServer()
 	defer testESServer.Close()
 
 	s, err := GetTestEventStore(NewNoOpDataStore())
 	assert.Nil(t, err)
 
-	err = populateDcs(s)
+	err = populateDCs(s)
 	assert.Nil(t, err)
 
-	for _, test := range updateDcTests {
-		id, err := s.UpdateDc(test.Req)
+	for _, test := range updateDCTests {
+		id, err := s.UpdateDC(test.Req)
 		assert.Equal(t, test.ErrExpected, err != nil)
 
 		if !test.ErrExpected {
@@ -352,7 +352,7 @@ var addEventTests = []struct {
 }{
 	{&UnaddedEvent{
 		ParentEventID: "0ra0GxvIDmaFkVr0pqx6EVYcuzD",
-		Dc:            "dc1",
+		DC:            "dc1",
 		TopicName:     "test1",
 		Tags:          []string{"tag1", "tag2"},
 		Host:          "host1",
@@ -364,14 +364,14 @@ var addEventTests = []struct {
 		},
 	}, false},
 	{&UnaddedEvent{
-		Dc:        "dc2",
+		DC:        "dc2",
 		TopicName: "test2",
 		Tags:      []string{"tag1", "tag2"},
 		Host:      "host1",
 		User:      "user",
 	}, false},
 	{&UnaddedEvent{
-		Dc:        "dc2",
+		DC:        "dc2",
 		TopicName: "test3",
 		Tags:      []string{"tag1", "tag2"},
 		User:      "user",
@@ -383,27 +383,27 @@ var addEventTests = []struct {
 		User:      "user",
 	}, true},
 	{&UnaddedEvent{
-		Dc:        "nope",
+		DC:        "nope",
 		TopicName: "test3",
 		Tags:      []string{"tag1", "tag2"},
 		Host:      "host1",
 		User:      "user",
 	}, true},
 	{&UnaddedEvent{
-		Dc:        "dc2",
+		DC:        "dc2",
 		TopicName: "nope",
 		Tags:      []string{"tag1", "tag2"},
 		Host:      "host1",
 		User:      "user",
 	}, true},
 	{&UnaddedEvent{
-		Dc:   "dc2",
+		DC:   "dc2",
 		Tags: []string{"tag1", "tag2"},
 		Host: "host1",
 		User: "user",
 	}, true},
 	{&UnaddedEvent{
-		Dc:        "dc2",
+		DC:        "dc2",
 		TopicName: "test3",
 		Tags:      []string{"tag1", "tag2"},
 		Host:      "host1",
@@ -413,7 +413,7 @@ var addEventTests = []struct {
 		},
 	}, false},
 	{&UnaddedEvent{
-		Dc:        "dc2",
+		DC:        "dc2",
 		TopicName: "test3",
 		Tags:      []string{"tag1", "tag2"},
 		Host:      "host1",
@@ -422,7 +422,7 @@ var addEventTests = []struct {
 		},
 	}, true},
 	{&UnaddedEvent{
-		Dc:        "dc2",
+		DC:        "dc2",
 		TopicName: "test3",
 		Tags:      []string{"tag1", "tag2"},
 		Host:      "host1",
@@ -459,7 +459,7 @@ func TestAddEvent(t *testing.T) {
 	err = populateTopics(s)
 	assert.Nil(t, err)
 
-	err = populateDcs(s)
+	err = populateDCs(s)
 	assert.Nil(t, err)
 
 	for _, test := range addEventTests {
@@ -475,11 +475,11 @@ func TestAddEvent(t *testing.T) {
 
 func PopulateTestData(es *EventStore) error {
 	for i := 0; i < 5; i++ {
-		dc := &eventmaster.Dc{
-			Id:     uuid.NewV4().String(),
-			DcName: fmt.Sprintf("dc%04d", i),
+		dc := &eventmaster.DC{
+			ID:     uuid.NewV4().String(),
+			DCName: fmt.Sprintf("dc%04d", i),
 		}
-		if _, err := es.AddDc(dc); err != nil {
+		if _, err := es.AddDC(dc); err != nil {
 			return errors.Wrapf(err, "adding dc: %v", dc)
 		}
 		t := Topic{

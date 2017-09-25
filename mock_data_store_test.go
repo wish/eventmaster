@@ -5,7 +5,7 @@ import (
 )
 
 func TestPopulateTestData(t *testing.T) {
-	mds := &MockDataStore{}
+	mds := &mockDataStore{}
 	store, err := GetTestEventStore(mds)
 	if err != nil {
 		t.Fatalf("creating event store: %v", err)
@@ -15,7 +15,7 @@ func TestPopulateTestData(t *testing.T) {
 		t.Fatalf("populating test data: %v", err)
 	}
 
-	dcs, err := store.GetDcs()
+	dcs, err := store.GetDCs()
 	if err != nil {
 		t.Fatalf("get dcs: %v", err)
 	}

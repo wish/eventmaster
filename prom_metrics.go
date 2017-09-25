@@ -78,6 +78,7 @@ var (
 	}, []string{"db_name", "operation"})
 )
 
+// RegisterPromMetrics registers all the metrics that eventmanger uses.
 func RegisterPromMetrics() error {
 	regErr := prometheus.Register(httpReqLatencies)
 	if regErr != nil {

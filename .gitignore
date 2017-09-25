@@ -8,5 +8,7 @@ vendor/
 *.pb.go
 
 # the generated template/static files
-ui.go
+ui
 templates
+
+coverage.html

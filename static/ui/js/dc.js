@@ -8,7 +8,7 @@ function getFormData(data) {
     return formData;
 }
 
-function submitDc(form) {
+function submitDC(form) {
 	var data = $(form).serializeArray();
 	var formData = getFormData(data);
 	$.ajax({
@@ -17,7 +17,7 @@ function submitDc(form) {
 		data: JSON.stringify(formData),
 		dataType: "json",
 		success: function(data) {
-			alert("Dc added: " + data["dc_id"]);
+			alert("DC added: " + data["dc_id"]);
 			window.location.reload();
 		},
 		error: function(data) {
@@ -27,16 +27,16 @@ function submitDc(form) {
 	return false;
 }
 
-function updateDc(form, oldDc) {
+function updateDC(form, oldDC) {
     var data = $(form).serializeArray();
     var formData = getFormData(data);
     $.ajax({
         type: 'PUT',
-        url: '/v1/dc/' + oldDc,
+        url: '/v1/dc/' + oldDC,
         data: JSON.stringify(formData),
         dataType: "json",
         success: function(data) {
-            alert("Dc updated: " + data["dc_id"]);
+            alert("DC updated: " + data["dc_id"]);
             window.location.reload();
         },
         error: function(data) {
@@ -64,7 +64,7 @@ $(document).ready(function() {
                         name, '</a></h4></div>',
                     `<div id="updateForm`, i, `" class="collapse">
                         <label>ID:`, dcId, `</label>
-                        <form onsubmit="return updateDc(this,'`, name, `')">
+                        <form onsubmit="return updateDC(this,'`, name, `')">
                             <div class="form-group">
                                 <label for="dc">New DC name</label>
                                 <input type="text" class="form-control" name="dc">

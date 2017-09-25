@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	tmpl "github.com/ContextLogic/eventmaster/templates"
+	"github.com/ContextLogic/eventmaster/ui"
 )
 
 // Server implements http.Handler for the eventmaster http server.
@@ -38,9 +39,9 @@ func NewServer(store *EventStore, static, templates string) *Server {
 	switch static {
 	case "":
 		fs = &assetfs.AssetFS{
-			Asset:     Asset,
-			AssetDir:  AssetDir,
-			AssetInfo: AssetInfo,
+			Asset:     ui.Asset,
+			AssetDir:  ui.AssetDir,
+			AssetInfo: ui.AssetInfo,
 		}
 	default:
 		if p, d := filepath.Split(static); d == "ui" {
@@ -74,14 +75,14 @@ func registerRoutes(srv *Server) http.Handler {
 	// API endpoints
 	r.POST("/v1/event", wrapHandler(srv.handleAddEvent))
 	r.GET("/v1/event", wrapHandler(srv.handleGetEvent))
-	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventById))
+	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventByID))
 	r.POST("/v1/topic", wrapHandler(srv.handleAddTopic))
 	r.PUT("/v1/topic/:name", wrapHandler(srv.handleUpdateTopic))
 	r.GET("/v1/topic", wrapHandler(srv.handleGetTopic))
 	r.DELETE("/v1/topic/:name", wrapHandler(srv.handleDeleteTopic))
-	r.POST("/v1/dc", wrapHandler(srv.handleAddDc))
-	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDc))
-	r.GET("/v1/dc", wrapHandler(srv.handleGetDc))
+	r.POST("/v1/dc", wrapHandler(srv.handleAddDC))
+	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDC))
+	r.GET("/v1/dc", wrapHandler(srv.handleGetDC))
 
 	r.GET("/v1/health", wrapHandler(srv.handleHealthCheck))
 
@@ -92,7 +93,7 @@ func registerRoutes(srv *Server) http.Handler {
 	r.GET("/", srv.HandleMainPage)
 	r.GET("/add_event", srv.HandleCreatePage)
 	r.GET("/topic", srv.HandleTopicPage)
-	r.GET("/dc", srv.HandleDcPage)
+	r.GET("/dc", srv.HandleDCPage)
 	r.GET("/event", srv.HandleGetEventPage)
 
 	// grafana datasource endpoints

@@ -33,7 +33,7 @@ func TestGrafanaAddDataSource(t *testing.T) {
 }
 
 func TestGrafanaSearch(t *testing.T) {
-	mds := &MockDataStore{}
+	mds := &mockDataStore{}
 	store, err := GetTestEventStore(mds)
 	if err != nil {
 		t.Fatalf("creating event store: %v", err)
@@ -105,7 +105,7 @@ func grafSearch(url, target string) ([]string, error) {
 }
 
 func TestGrafanaAnnotations(t *testing.T) {
-	mds := &MockDataStore{}
+	mds := &mockDataStore{}
 	store, err := GetTestEventStore(mds)
 	if err != nil {
 		t.Fatalf("creating event store: %v", err)
@@ -121,7 +121,7 @@ func TestGrafanaAnnotations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get topics: %v", err)
 	}
-	dcs, err := mds.GetDcs()
+	dcs, err := mds.GetDCs()
 	if err != nil {
 		t.Fatalf("get dcs: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestGrafanaAnnotations(t *testing.T) {
 			et := n.Unix() + i
 			e := &UnaddedEvent{
 				Host:      host,
-				Dc:        dc.Name,
+				DC:        dc.Name,
 				TopicName: topic.Name,
 				EventTime: et,
 			}

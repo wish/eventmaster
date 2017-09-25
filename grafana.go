@@ -74,6 +74,9 @@ type AnnotationQuery struct {
 	DC    string `json:"dc"`
 }
 
+// TemplateRequest is used for parsing Grafana requests for template variable names.
+//
+// For example at the current time Target can be either "dc" or "topic".
 type TemplateRequest struct {
 	Target string `json:"target"`
 }
@@ -123,7 +126,7 @@ func (h *Server) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p ht
 				return
 			}
 			if aq.DC != "" && aq.DC != "all" {
-				q.Dc = []string{aq.DC}
+				q.DC = []string{aq.DC}
 			}
 			if aq.Topic != "" && aq.Topic != "all" {
 				q.TopicName = []string{aq.Topic}
@@ -166,7 +169,7 @@ func (h *Server) grafanaSearch(w http.ResponseWriter, r *http.Request, p httprou
 	tags := []string{"all"}
 	switch req.Target {
 	case "dc":
-		dcs, err := h.store.GetDcs()
+		dcs, err := h.store.GetDCs()
 		if err != nil {
 			http.Error(w, errors.Wrap(err, "get dcs").Error(), http.StatusInternalServerError)
 			return
@@ -196,9 +199,10 @@ func (h *Server) grafanaSearch(w http.ResponseWriter, r *http.Request, p httprou
 
 type topicNamer interface {
 	getTopicName(string) string
-	getDcName(string) string
+	getDCName(string) string
 }
 
+// FromEvent creates an AnnotationResponse formatted text from an Event.
 func FromEvent(store topicNamer, ev *Event) (AnnotationResponse, error) {
 	fm := template.FuncMap{
 		"trim": strings.TrimSpace,
@@ -221,7 +225,7 @@ Data: {{ .Data }}
 	tmpl.Execute(buf, ev)
 	r := AnnotationResponse{
 		Time:  ev.EventTime * 1000,
-		Title: fmt.Sprintf("%v in %v", store.getTopicName(ev.TopicID), store.getDcName(ev.DcID)),
+		Title: fmt.Sprintf("%v in %v", store.getTopicName(ev.TopicID), store.getDCName(ev.DCID)),
 		Text:  buf.String(),
 		Tags:  strings.Join(ev.Tags, ","),
 	}

@@ -5,15 +5,15 @@ package eventmaster;
 service EventMaster {
     rpc AddEvent (Event) returns (WriteResponse) {}
     rpc GetEvents (Query) returns (stream Event) {}
-    rpc GetEventById (EventId) returns (Event) {}
-    rpc GetEventIds (TimeQuery) returns (stream EventId) {}
+    rpc GetEventByID (EventID) returns (Event) {}
+    rpc GetEventIDs (TimeQuery) returns (stream EventID) {}
     rpc AddTopic (Topic) returns (WriteResponse) {}
     rpc UpdateTopic (UpdateTopicRequest) returns (WriteResponse) {}
     rpc DeleteTopic (DeleteTopicRequest) returns (WriteResponse) {}
     rpc GetTopics (EmptyRequest) returns (TopicResult) {}
-    rpc AddDc (Dc) returns (WriteResponse) {}
-    rpc UpdateDc (UpdateDcRequest) returns (WriteResponse) {}
-    rpc GetDcs (EmptyRequest) returns (DcResult) {}
+    rpc AddDC (DC) returns (WriteResponse) {}
+    rpc UpdateDC (UpdateDCRequest) returns (WriteResponse) {}
+    rpc GetDCs (EmptyRequest) returns (DCResult) {}
     
     rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {}
 }
@@ -22,7 +22,7 @@ message Event {
     string event_id = 1;
     string parent_event_id = 2;
     int64 event_time = 3;
-    string dc = 4;
+    string DC = 4;
     string topic_name = 5;
     repeated string tag_set = 6;
     string host = 7;
@@ -32,7 +32,7 @@ message Event {
 }
  
 message Query {
-    repeated string dc = 1;
+    repeated string DC = 1;
     repeated string host = 2;
     repeated string target_host_set = 3;
     repeated string user = 4;
@@ -60,8 +60,8 @@ message TimeQuery {
     bool ascending = 4;
 }
 
-message EventId {
-    string event_id = 1;
+message EventID {
+    string eventID = 1;
 }
  
 message Topic {
@@ -84,16 +84,16 @@ message DeleteTopicRequest {
     string topic_name = 1;
 }
  
-message Dc {
-    string id = 1;
-    string dc_name = 2;
+message DC {
+    string ID = 1;
+    string DC_name = 2;
 }
 
-message DcResult {
-    repeated Dc results = 1;
+message DCResult {
+    repeated DC results = 1;
 }
  
-message UpdateDcRequest {
+message UpdateDCRequest {
     string old_name = 1;
     string new_name = 2;
 }

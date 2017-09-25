@@ -31,6 +31,7 @@ var funcMap = template.FuncMap{
 	},
 }
 
+// GetEventPageData stores information renderd in the query form template.
 type GetEventPageData struct {
 	Topics []Topic
 	Query  *eventmaster.Query
@@ -42,6 +43,7 @@ func executeTemplate(w http.ResponseWriter, t *template.Template, data interface
 	}
 }
 
+// HandleMainPage redirects to /event.
 func (s *Server) HandleMainPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if r.URL.RawQuery == "" {
 		http.Redirect(w, r, "/event", 301)
@@ -50,6 +52,7 @@ func (s *Server) HandleMainPage(w http.ResponseWriter, r *http.Request, _ httpro
 	}
 }
 
+// HandleGetEventPage renders all recent events to html.
 func (s *Server) HandleGetEventPage(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	q, err := getQueryFromRequest(r)
 	if err != nil {
@@ -74,6 +77,7 @@ func (s *Server) HandleGetEventPage(w http.ResponseWriter, r *http.Request, ps h
 	executeTemplate(w, t, getEventQuery)
 }
 
+// HandleCreatePage deals with creating an event.
 func (s *Server) HandleCreatePage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := s.templates.Get("create_form.html")
 	if err != nil {
@@ -83,6 +87,7 @@ func (s *Server) HandleCreatePage(w http.ResponseWriter, r *http.Request, _ http
 	executeTemplate(w, t, nil)
 }
 
+// HandleTopicPage renders the topic page.
 func (s *Server) HandleTopicPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := s.templates.Get("topic_form.html")
 	if err != nil {
@@ -92,7 +97,8 @@ func (s *Server) HandleTopicPage(w http.ResponseWriter, r *http.Request, _ httpr
 	executeTemplate(w, t, nil)
 }
 
-func (s *Server) HandleDcPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// HandleDCPage renders the datacenter page.
+func (s *Server) HandleDCPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	t, err := s.templates.Get("dc_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)

@@ -17,21 +17,27 @@ import (
 
 type streamFn func(eventId string) error
 
+// DataStore defines the interface needed to be used as a backing store for
+// eventmaster.
+//
+// A few examples include CassandraStore and MockDataStore.
 type DataStore interface {
 	AddEvent(*Event) error
 	Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error)
-	FindById(string, bool) (*Event, error)
-	FindIds(*eventmaster.TimeQuery, streamFn) error
+	FindByID(string, bool) (*Event, error)
+	FindIDs(*eventmaster.TimeQuery, streamFn) error
 	GetTopics() ([]Topic, error)
 	AddTopic(RawTopic) error
 	UpdateTopic(RawTopic) error
 	DeleteTopic(string) error
-	GetDcs() ([]Dc, error)
-	AddDc(Dc) error
-	UpdateDc(string, string) error
+	GetDCs() ([]DC, error)
+	AddDC(DC) error
+	UpdateDC(string, string) error
 	CloseSession()
 }
 
+// CassandraConfig defines the Cassandra-specific section of the eventmaster
+// configuration file.
 type CassandraConfig struct {
 	Addrs       []string `json:"addrs"`
 	Keyspace    string   `json:"keyspace"`
@@ -40,10 +46,13 @@ type CassandraConfig struct {
 	ServiceName string   `json:"service_name"`
 }
 
+// CassandraStore is an implementation of DataStore that is backed by
+// Cassandra.
 type CassandraStore struct {
 	session cass.Session
 }
 
+// NewCassandraStore returns a working CassandraStore, or an error.
 func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 	var cassandraIps []string
 
@@ -88,17 +97,17 @@ func (event *Event) toCassandra() (string, error) {
     VALUES (%[1]s, %[5]s, %[8]d, %[12]s);
     INSERT INTO event_by_date(event_id, event_time, date)
     VALUES (%[1]s, %[8]d, %[12]s);`,
-		stringify(event.EventID), stringify(event.ParentEventID), stringifyUUID(event.DcID), stringifyUUID(event.TopicID),
+		stringify(event.EventID), stringify(event.ParentEventID), stringifyUUID(event.DCID), stringifyUUID(event.TopicID),
 		stringify(strings.ToLower(event.Host)), stringifyArr(event.TargetHosts), stringify(strings.ToLower(event.User)), event.EventTime,
 		stringifyArr(event.Tags), data, event.ReceivedTime, stringify(date))
 	userField := ""
-	parentEventIdField := ""
+	parentEventIDField := ""
 	if event.User != "" {
 		userField = fmt.Sprintf(`INSERT INTO event_by_user(event_id, user, event_time, date)
 		VALUES (%s, %s, %d, %s);`, stringify(event.EventID), stringify(event.User), event.EventTime, stringify(date))
 	}
 	if event.ParentEventID != "" {
-		parentEventIdField = fmt.Sprintf(`INSERT INTO event_by_parent_event_id(event_id, parent_event_id, event_time, date)
+		parentEventIDField = fmt.Sprintf(`INSERT INTO event_by_parent_event_id(event_id, parent_event_id, event_time, date)
 		VALUES (%s, %s, %d, %s);`, stringify(event.EventID), stringify(event.ParentEventID), event.EventTime, stringify(date))
 	}
 
@@ -107,10 +116,12 @@ func (event *Event) toCassandra() (string, error) {
 		%s
 		%s
 		%s
-		APPLY BATCH;`, coreFields, userField, parentEventIdField), nil
+		APPLY BATCH;`, coreFields, userField, parentEventIDField), nil
 }
 
+// AddEvent takes an *Event and stores it in Cassandra.
 func (c *CassandraStore) AddEvent(evt *Event) error {
+	// TODO: move eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc() here
 	query, err := evt.toCassandra()
 	if err != nil {
 		return errors.Wrap(err, "Error converting event to cassandra event")
@@ -129,7 +140,7 @@ func (c *CassandraStore) getFromTable(tableName string, columnName string, dates
 		scanIter, closeIter := c.session.ExecIterQuery(query)
 		for true {
 			if scanIter(&eventID) {
-				events[eventID] = v
+				events[eventID] = struct{}{}
 			} else {
 				break
 			}
@@ -145,18 +156,20 @@ func (c *CassandraStore) getFromTable(tableName string, columnName string, dates
 func (c *CassandraStore) joinEvents(evts map[string]struct{}, newEvts map[string]struct{}, needsIntersection bool) map[string]struct{} {
 	if needsIntersection {
 		intersection := make(map[string]struct{})
-		for eID, _ := range newEvts {
+		for eID := range newEvts {
 			if _, ok := evts[eID]; ok {
-				intersection[eID] = v
+				intersection[eID] = struct{}{}
 			}
 		}
 		return intersection
-	} else {
-		return newEvts
 	}
+	return newEvts
 }
 
-func (c *CassandraStore) FindById(id string, includeData bool) (*Event, error) {
+// FindByID searches cassandra for an event by its id.
+//
+// If includeData is true
+func (c *CassandraStore) FindByID(id string, includeData bool) (*Event, error) {
 	var topicID, dcID gocql.UUID
 	var eventTime, receivedTime int64
 	var eventID, parentEventID, host, user string
@@ -170,7 +183,7 @@ func (c *CassandraStore) FindById(id string, includeData bool) (*Event, error) {
 			EventID:       eventID,
 			ParentEventID: parentEventID,
 			EventTime:     eventTime / 1000,
-			DcID:          dcID.String(),
+			DCID:          dcID.String(),
 			TopicID:       topicID.String(),
 			Tags:          tagSet,
 			Host:          host,
@@ -203,6 +216,8 @@ func (c *CassandraStore) FindById(id string, includeData bool) (*Event, error) {
 	return evt, nil
 }
 
+// getDates returns a slice of strings of YYYY-MM-DD for all days between
+// startEventTime and endEventTime.
 func getDates(startEventTime int64, endEventTime int64) ([]string, error) {
 	var dates []string
 	startDate := getDate(startEventTime)
@@ -224,6 +239,7 @@ func getDates(startEventTime int64, endEventTime int64) ([]string, error) {
 	return dates, nil
 }
 
+// Find searches using the Query, and filters topicIds and dcIds.
 func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error) {
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
@@ -250,14 +266,14 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	}
 	if len(q.ParentEventId) > 0 {
 		var parentEventIds []string
-		for _, peId := range q.ParentEventId {
-			parentEventIds = append(parentEventIds, stringify(peId))
+		for _, peID := range q.ParentEventId {
+			parentEventIds = append(parentEventIds, stringify(peID))
 		}
-		peIdEvts, err := c.getFromTable("event_by_parent_event_id", "parent_event_id", dates, timeFilter, parentEventIds)
+		peIDEvts, err := c.getFromTable("event_by_parent_event_id", "parent_event_id", dates, timeFilter, parentEventIds)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error getting event ids from cassandra table")
 		}
-		evts = c.joinEvents(evts, peIdEvts, needsIntersection)
+		evts = c.joinEvents(evts, peIDEvts, needsIntersection)
 		if len(evts) == 0 {
 			return nil, nil
 		}
@@ -309,7 +325,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 			scanIter, closeIter := c.session.ExecIterQuery(query)
 			for true {
 				if scanIter(&eventID) {
-					evts[eventID] = v
+					evts[eventID] = struct{}{}
 				} else {
 					break
 				}
@@ -321,9 +337,9 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	}
 
 	ch := make(chan *Event, len(evts))
-	for eID, _ := range evts {
+	for eID := range evts {
 		go func(eID string) {
-			evt, err := c.FindById(eID, false)
+			evt, err := c.FindByID(eID, false)
 			if err != nil {
 				fmt.Println("Error closing cassandra iter on read:", err)
 				ch <- nil
@@ -334,7 +350,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	}
 
 	eventMap := make(map[string]*Event)
-	for _, _ = range evts {
+	for _ = range evts {
 		if evt := <-ch; evt != nil {
 			eventMap[evt.EventID] = evt
 		}
@@ -344,7 +360,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	if len(q.TargetHostSet) > 0 {
 		targetHosts := make(map[string]struct{})
 		for _, thost := range q.TargetHostSet {
-			targetHosts[thost] = v
+			targetHosts[thost] = struct{}{}
 		}
 		for eID, evtData := range eventMap {
 			exists := false
@@ -362,17 +378,17 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	if len(q.TagSet) > 0 || len(q.ExcludeTagSet) > 0 {
 		tags := make(map[string]struct{})
 		for _, tag := range q.TagSet {
-			tags[tag] = v
+			tags[tag] = struct{}{}
 		}
 		excludeTags := make(map[string]struct{})
 		for _, tag := range q.ExcludeTagSet {
-			excludeTags[tag] = v
+			excludeTags[tag] = struct{}{}
 		}
 		andOp := q.TagAndOperator
 		for eID, evtData := range eventMap {
 			deleteEvt := false
 			if andOp {
-				for tag, _ := range tags {
+				for tag := range tags {
 					tagExists := false
 					for _, t := range evtData.Tags {
 						if tag == t {
@@ -418,7 +434,9 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 	return events, nil
 }
 
-func (c *CassandraStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) error {
+// FindIDs traverses the temporal space defined by q day by day and calls
+// stream function with each event ID found.
+func (c *CassandraStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
 		return errors.Wrap(err, "Error getting dates from start and end time")
@@ -447,20 +465,21 @@ func (c *CassandraStore) FindIds(q *eventmaster.TimeQuery, stream streamFn) erro
 	return nil
 }
 
+// GetTopics returns all topics.
 func (c *CassandraStore) GetTopics() ([]Topic, error) {
 	scanIter, closeIter := c.session.ExecIterQuery("SELECT topic_id, topic_name, data_schema FROM event_topic;")
-	var topicId gocql.UUID
+	var topicID gocql.UUID
 	var name, schema string
 	var topics []Topic
 	for {
-		if scanIter(&topicId, &name, &schema) {
+		if scanIter(&topicID, &name, &schema) {
 			var s map[string]interface{}
 			err := json.Unmarshal([]byte(schema), &s)
 			if err != nil {
 				return nil, errors.Wrap(err, "Error unmarshalling schema")
 			}
 			topics = append(topics, Topic{
-				ID:     topicId.String(),
+				ID:     topicID.String(),
 				Name:   name,
 				Schema: s,
 			})
@@ -474,6 +493,7 @@ func (c *CassandraStore) GetTopics() ([]Topic, error) {
 	return topics, nil
 }
 
+// AddTopic inserts t into event_topic.
 func (c *CassandraStore) AddTopic(t RawTopic) error {
 	queryStr := fmt.Sprintf(`INSERT INTO event_topic
 		(topic_id, topic_name, data_schema)
@@ -483,6 +503,7 @@ func (c *CassandraStore) AddTopic(t RawTopic) error {
 	return c.session.ExecQuery(queryStr)
 }
 
+// UpdateTopic performs a cql update with t aginst event_topic table.
 func (c *CassandraStore) UpdateTopic(t RawTopic) error {
 	queryStr := fmt.Sprintf(`UPDATE event_topic SET
 		topic_name=%s,
@@ -491,19 +512,21 @@ func (c *CassandraStore) UpdateTopic(t RawTopic) error {
 	return c.session.ExecQuery(queryStr)
 }
 
+// DeleteTopic removes the topic with the given id.
 func (c *CassandraStore) DeleteTopic(id string) error {
 	return c.session.ExecQuery(fmt.Sprintf(`DELETE FROM event_topic WHERE topic_id=%[1]s;`,
 		id))
 }
 
-func (c *CassandraStore) GetDcs() ([]Dc, error) {
+// GetDCs returns all entries from the event_dc table.
+func (c *CassandraStore) GetDCs() ([]DC, error) {
 	scanIter, closeIter := c.session.ExecIterQuery("SELECT dc_id, dc FROM event_dc;")
 	var id gocql.UUID
 	var dc string
-	var dcs []Dc
+	var dcs []DC
 	for true {
 		if scanIter(&id, &dc) {
-			dcs = append(dcs, Dc{
+			dcs = append(dcs, DC{
 				ID:   id.String(),
 				Name: dc,
 			})
@@ -517,7 +540,8 @@ func (c *CassandraStore) GetDcs() ([]Dc, error) {
 	return dcs, nil
 }
 
-func (c *CassandraStore) AddDc(dc Dc) error {
+// AddDC inserts dc into the event_dc table.
+func (c *CassandraStore) AddDC(dc DC) error {
 	queryStr := fmt.Sprintf(`INSERT INTO event_dc 
 		(dc_id, dc)
 		VALUES (%[1]s, %[2]s);`,
@@ -526,12 +550,14 @@ func (c *CassandraStore) AddDc(dc Dc) error {
 	return c.session.ExecQuery(queryStr)
 }
 
-func (c *CassandraStore) UpdateDc(id string, newName string) error {
+// UpdateDC replaces the name for a given DC by id.
+func (c *CassandraStore) UpdateDC(id string, newName string) error {
 	queryStr := fmt.Sprintf(`UPDATE event_dc SET dc=%s WHERE dc_id=%s;`,
 		stringify(newName), id)
 	return c.session.ExecQuery(queryStr)
 }
 
+// CloseSession closes the underlying session.
 func (c *CassandraStore) CloseSession() {
 	c.session.Close()
 }
