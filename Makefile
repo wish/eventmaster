@@ -7,7 +7,7 @@ PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
 $(BINARY): deps $(wildcard **/*.go) proto vendor ui.go templates/templates.go
-	@go install github.com/ContextLogic/eventmaster/cmd/eventmaster
+	@go install -v github.com/ContextLogic/eventmaster/cmd/eventmaster
 
 .PHONY: proto
 proto: proto/eventmaster.pb.go

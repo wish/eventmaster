@@ -42,7 +42,7 @@ func executeTemplate(w http.ResponseWriter, t *template.Template, data interface
 	}
 }
 
-func (h *httpHandler) HandleMainPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *Server) HandleMainPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if r.URL.RawQuery == "" {
 		http.Redirect(w, r, "/event", 301)
 	} else {
@@ -50,15 +50,15 @@ func (h *httpHandler) HandleMainPage(w http.ResponseWriter, r *http.Request, _ h
 	}
 }
 
-func (h *httpHandler) HandleGetEventPage(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *Server) HandleGetEventPage(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	q, err := getQueryFromRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	topics, err := h.store.GetTopics()
+	topics, err := s.store.GetTopics()
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store, r.URL.Path", r.URL.Path)
+		s.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store, r.URL.Path", r.URL.Path)
 		return
 	}
 	getEventQuery := GetEventPageData{
@@ -66,7 +66,7 @@ func (h *httpHandler) HandleGetEventPage(w http.ResponseWriter, r *http.Request,
 		Query:  q,
 	}
 
-	t, err := h.templates.Get("query_form.html")
+	t, err := s.templates.Get("query_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
@@ -74,8 +74,8 @@ func (h *httpHandler) HandleGetEventPage(w http.ResponseWriter, r *http.Request,
 	executeTemplate(w, t, getEventQuery)
 }
 
-func (h *httpHandler) HandleCreatePage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	t, err := h.templates.Get("create_form.html")
+func (s *Server) HandleCreatePage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	t, err := s.templates.Get("create_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
@@ -83,8 +83,8 @@ func (h *httpHandler) HandleCreatePage(w http.ResponseWriter, r *http.Request, _
 	executeTemplate(w, t, nil)
 }
 
-func (h *httpHandler) HandleTopicPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	t, err := h.templates.Get("topic_form.html")
+func (s *Server) HandleTopicPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	t, err := s.templates.Get("topic_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
@@ -92,8 +92,8 @@ func (h *httpHandler) HandleTopicPage(w http.ResponseWriter, r *http.Request, _ 
 	executeTemplate(w, t, nil)
 }
 
-func (h *httpHandler) HandleDcPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	t, err := h.templates.Get("dc_form.html")
+func (s *Server) HandleDcPage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	t, err := s.templates.Get("dc_form.html")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error parsing template main.html: %v", err), http.StatusInternalServerError)
 		return
