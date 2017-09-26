@@ -5,11 +5,11 @@ GBD     := $(BIN_DIR)/go-bindata
 PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
-$(BINARY): deps $(wildcard **/*.go) proto vendor ui/ui.go templates/templates.go
+$(BINARY): deps $(wildcard **/*.go) proto ui/ui.go templates/templates.go
 	@go install -v github.com/ContextLogic/eventmaster/cmd/eventmaster
 
 .PHONY: proto
-proto: proto/eventmaster.pb.go
+proto: deps proto/eventmaster.pb.go
 
 proto/eventmaster.pb.go: $(PGG) proto/eventmaster.proto
 	protoc --plugin=${PGG} -I proto/ proto/eventmaster.proto --go_out=plugins=grpc:proto
@@ -19,7 +19,7 @@ test: deps proto/eventmaster.pb.go ui/ui.go templates/templates.go
 	@go test ${PGKS}
 
 .PHONY: lint
-lint: $(GOLINT)
+lint: deps $(GOLINT)
 	@go vet .
 	@golint -set_exit_status .
 
@@ -30,7 +30,7 @@ $(GOLINT):
 $(PGG):
 	go get -u github.com/golang/protobuf/protoc-gen-go
 
-$(GBD):
+$(GBD): vendor
 	go install ./vendor/github.com/jteeuwen/go-bindata/go-bindata
 
 .PHONY: run
@@ -38,8 +38,8 @@ run: $(BINARY)
 	eventmaster -r
 
 .PHONY: deps
-deps: Gopkg.lock
-Gopkg.lock: Gopkg.toml
+deps: vendor
+vendor: Gopkg.toml Gopkg.lock
 	dep ensure
 
 ui:
