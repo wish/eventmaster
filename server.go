@@ -76,21 +76,21 @@ func registerRoutes(srv *Server) http.Handler {
 	r := httprouter.New()
 
 	// API endpoints
-	r.POST("/v1/event", wrapHandler(srv.handleAddEvent))
-	r.GET("/v1/event", wrapHandler(srv.handleGetEvent))
-	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventByID))
-	r.POST("/v1/topic", wrapHandler(srv.handleAddTopic))
-	r.PUT("/v1/topic/:name", wrapHandler(srv.handleUpdateTopic))
-	r.GET("/v1/topic", wrapHandler(srv.handleGetTopic))
-	r.DELETE("/v1/topic/:name", wrapHandler(srv.handleDeleteTopic))
-	r.POST("/v1/dc", wrapHandler(srv.handleAddDC))
-	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDC))
-	r.GET("/v1/dc", wrapHandler(srv.handleGetDC))
+	r.POST("/v1/event", srv.handleAddEvent)
+	r.GET("/v1/event", srv.handleGetEvent)
+	r.GET("/v1/event/:id", srv.handleGetEventByID)
+	r.POST("/v1/topic", srv.handleAddTopic)
+	r.PUT("/v1/topic/:name", srv.handleUpdateTopic)
+	r.GET("/v1/topic", srv.handleGetTopic)
+	r.DELETE("/v1/topic/:name", srv.handleDeleteTopic)
+	r.POST("/v1/dc", srv.handleAddDC)
+	r.PUT("/v1/dc/:name", srv.handleUpdateDC)
+	r.GET("/v1/dc", srv.handleGetDC)
 
-	r.GET("/v1/health", wrapHandler(srv.handleHealthCheck))
+	r.GET("/v1/health", srv.handleHealthCheck)
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(srv.handleGitHubEvent))
+	r.POST("/v1/github_event", srv.handleGitHubEvent)
 
 	// UI endpoints
 	r.GET("/", srv.HandleMainPage)

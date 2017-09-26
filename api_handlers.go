@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
@@ -61,17 +60,6 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 		}
 	}
 	return &q, nil
-}
-
-func wrapHandler(h httprouter.Handle) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		start := time.Now()
-		defer func() {
-			httpReqLatencies.WithLabelValues(r.URL.Path).Observe(trackTime(start))
-		}()
-		httpReqCounter.WithLabelValues(r.URL.Path).Inc()
-		h(w, r, ps)
-	}
 }
 
 func (s *Server) sendError(w http.ResponseWriter, code int, err error, message string, path string) {
