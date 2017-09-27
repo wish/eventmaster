@@ -27,7 +27,7 @@ type GRPCServer struct {
 func (s *GRPCServer) performOperation(method string, op func() (string, error)) (*eventmaster.WriteResponse, error) {
 	start := time.Now()
 	defer func() {
-		grpcReqLatencies.WithLabelValues(method).Observe(trackTime(start))
+		grpcReqLatencies.WithLabelValues(method).Observe(msSince(start))
 	}()
 	grpcReqCounter.WithLabelValues(method).Inc()
 
@@ -74,7 +74,7 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 	name := "GetEventByID"
 	start := time.Now()
 	defer func() {
-		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
 	grpcReqCounter.WithLabelValues(name).Inc()
 
@@ -109,7 +109,7 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 	name := "GetEvents"
 	start := time.Now()
 	defer func() {
-		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
 	grpcReqCounter.WithLabelValues(name).Inc()
 
@@ -152,7 +152,7 @@ func (s *GRPCServer) GetEventIDs(q *eventmaster.TimeQuery, stream eventmaster.Ev
 	name := "GetEventByIDs"
 	start := time.Now()
 	defer func() {
-		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
 
 	streamProxy := func(eventID string) error {
@@ -199,7 +199,7 @@ func (s *GRPCServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopic
 	name := "DeleteTopic"
 	start := time.Now()
 	defer func() {
-		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
 	grpcReqCounter.WithLabelValues(name).Inc()
 
@@ -218,7 +218,7 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 	name := "GetTopics"
 	start := time.Now()
 	defer func() {
-		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
 	grpcReqCounter.WithLabelValues(name).Inc()
 
@@ -274,7 +274,7 @@ func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 	name := "GetDCs"
 	start := time.Now()
 	defer func() {
-		grpcReqLatencies.WithLabelValues(name).Observe(trackTime(start))
+		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
 	grpcReqCounter.WithLabelValues(name).Inc()
 
