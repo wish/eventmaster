@@ -73,7 +73,7 @@ func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*RsyslogS
 func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 	start := time.Now()
 	defer func() {
-		rsyslogReqLatencies.WithLabelValues().Observe(trackTime(start))
+		rsyslogReqLatencies.WithLabelValues().Observe(msSince(start))
 	}()
 	rsyslogReqCounter.WithLabelValues().Inc()
 

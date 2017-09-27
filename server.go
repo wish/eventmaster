@@ -120,8 +120,8 @@ type timer struct {
 func (t timer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	start := time.Now()
 	defer func() {
-		httpReqLatencies.WithLabelValues(req.URL.Path).Observe(float64(time.Since(start) / time.Microsecond))
-		reqLatency.WithLabelValues(req.URL.Path).Observe(float64(time.Since(start) / time.Microsecond))
+		httpReqLatencies.WithLabelValues(req.URL.Path).Observe(msSince(start))
+		reqLatency.WithLabelValues(req.URL.Path).Observe(msSince(start))
 	}()
 
 	lw := NewStatusRecorder(w)

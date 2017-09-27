@@ -182,6 +182,7 @@ func RegisterPromMetrics() error {
 	return nil
 }
 
-func trackTime(start time.Time) float64 {
-	return float64(time.Since(start).Nanoseconds()) / float64(1000000)
+// msSince returns milliseconds since start.
+func msSince(start time.Time) float64 {
+	return float64(time.Since(start) / time.Millisecond)
 }
