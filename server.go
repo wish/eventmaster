@@ -121,6 +121,7 @@ func (t timer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	start := time.Now()
 	defer func() {
 		httpReqLatencies.WithLabelValues(req.URL.Path).Observe(float64(time.Since(start) / time.Microsecond))
+		reqLatency.WithLabelValues(req.URL.Path).Observe(float64(time.Since(start) / time.Microsecond))
 	}()
 
 	lw := NewStatusRecorder(w)

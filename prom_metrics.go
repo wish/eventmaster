@@ -3,6 +3,7 @@ package eventmaster
 import (
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -12,6 +13,11 @@ var (
 		Subsystem: "http_server",
 		Name:      "request_latency",
 		Help:      "Latency of http requests grouped by req path",
+	}, []string{"path"})
+
+	reqLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name: "http_request_latency_microseconds",
+		Help: "http request duration (microseconds).",
 	}, []string{"path"})
 
 	httpReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -87,6 +93,10 @@ func RegisterPromMetrics() error {
 		} else {
 			return regErr
 		}
+	}
+
+	if err := prometheus.Register(reqLatency); err != nil {
+		return errors.Wrap(err, "registering request latency")
 	}
 
 	regErr = prometheus.Register(httpReqCounter)
