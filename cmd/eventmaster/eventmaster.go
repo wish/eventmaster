@@ -25,12 +25,21 @@ import (
 func main() {
 	var config em.Flags
 	parser := flags.NewParser(&config, flags.Default)
-	if _, err := parser.Parse(); err != nil {
+	a, err := parser.Parse()
+	if err != nil {
 		os.Exit(1)
 	}
 
-	err := em.RegisterPromMetrics()
-	if err != nil {
+	if len(a) > 0 {
+		switch a[0] {
+		case "v", "version":
+			fmt.Printf("version: %v\n", em.Version)
+			fmt.Printf("git@%v\n", em.Git)
+			os.Exit(0)
+		}
+	}
+
+	if err := em.RegisterPromMetrics(); err != nil {
 		log.Fatalf("Unable to register prometheus metrics: %v", err)
 	}
 
