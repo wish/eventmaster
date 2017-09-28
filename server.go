@@ -66,8 +66,7 @@ func NewServer(store *EventStore, static, templates string) *Server {
 		templates: t,
 	}
 
-	hndlr := registerRoutes(srv)
-	srv.handler = timer{hndlr}
+	srv.handler = registerRoutes(srv)
 
 	return srv
 }
@@ -76,35 +75,35 @@ func registerRoutes(srv *Server) http.Handler {
 	r := httprouter.New()
 
 	// API endpoints
-	r.POST("/v1/event", srv.handleAddEvent)
-	r.GET("/v1/event", srv.handleGetEvent)
-	r.GET("/v1/event/:id", srv.handleGetEventByID)
-	r.POST("/v1/topic", srv.handleAddTopic)
-	r.PUT("/v1/topic/:name", srv.handleUpdateTopic)
-	r.GET("/v1/topic", srv.handleGetTopic)
-	r.DELETE("/v1/topic/:name", srv.handleDeleteTopic)
-	r.POST("/v1/dc", srv.handleAddDC)
-	r.PUT("/v1/dc/:name", srv.handleUpdateDC)
-	r.GET("/v1/dc", srv.handleGetDC)
+	r.POST("/v1/event", latency("/v1/event", srv.handleAddEvent))
+	r.GET("/v1/event", latency("/v1/event", srv.handleGetEvent))
+	r.GET("/v1/event/:id", latency("/v1/event", srv.handleGetEventByID))
+	r.POST("/v1/topic", latency("/v1/topic", srv.handleAddTopic))
+	r.PUT("/v1/topic/:name", latency("/v1/topic", srv.handleUpdateTopic))
+	r.GET("/v1/topic", latency("/v1/topic", srv.handleGetTopic))
+	r.DELETE("/v1/topic/:name", latency("/v1/topic", srv.handleDeleteTopic))
+	r.POST("/v1/dc", latency("/v1/dc", srv.handleAddDC))
+	r.PUT("/v1/dc/:name", latency("/v1/dc", srv.handleUpdateDC))
+	r.GET("/v1/dc", latency("/v1/dc", srv.handleGetDC))
 
-	r.GET("/v1/health", srv.handleHealthCheck)
+	r.GET("/v1/health", latency("/v1/health", srv.handleHealthCheck))
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", srv.handleGitHubEvent)
+	r.POST("/v1/github_event", latency("/v1/github_event", srv.handleGitHubEvent))
 
 	// UI endpoints
-	r.GET("/", srv.HandleMainPage)
-	r.GET("/add_event", srv.HandleCreatePage)
-	r.GET("/topic", srv.HandleTopicPage)
-	r.GET("/dc", srv.HandleDCPage)
-	r.GET("/event", srv.HandleGetEventPage)
+	r.GET("/", latency("/", srv.HandleMainPage))
+	r.GET("/add_event", latency("/add_event", srv.HandleCreatePage))
+	r.GET("/topic", latency("/topic", srv.HandleTopicPage))
+	r.GET("/dc", latency("/dc", srv.HandleDCPage))
+	r.GET("/event", latency("/event", srv.HandleGetEventPage))
 
 	// grafana datasource endpoints
-	r.GET("/grafana", cors(srv.grafanaOK))
-	r.GET("/grafana/", cors(srv.grafanaOK))
-	r.OPTIONS("/grafana/:route", cors(srv.grafanaOK))
-	r.POST("/grafana/annotations", cors(srv.grafanaAnnotations))
-	r.POST("/grafana/search", cors(srv.grafanaSearch))
+	r.GET("/grafana", latency("/grafana", cors(srv.grafanaOK)))
+	r.GET("/grafana/", latency("/grafana/", cors(srv.grafanaOK)))
+	r.OPTIONS("/grafana/:route", latency("/grafana", cors(srv.grafanaOK)))
+	r.POST("/grafana/annotations", latency("/grafana/annotations", cors(srv.grafanaAnnotations)))
+	r.POST("/grafana/search", latency("/grafana/search", cors(srv.grafanaSearch)))
 
 	r.Handler("GET", "/metrics", promhttp.Handler())
 
@@ -113,24 +112,22 @@ func registerRoutes(srv *Server) http.Handler {
 	return r
 }
 
-type timer struct {
-	http.Handler
+func latency(prefix string, h httprouter.Handle) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+		start := time.Now()
+		defer func() {
+			httpReqLatencies.WithLabelValues(prefix).Observe(msSince(start))
+			reqLatency.WithLabelValues(prefix).Observe(msSince(start))
+		}()
+
+		lw := NewStatusRecorder(w)
+		h(lw, req, ps)
+
+		httpRespCounter.WithLabelValues(prefix, fmt.Sprintf("%d", bucketHttpStatus(lw.Status()))).Inc()
+	}
 }
 
-func (t timer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	start := time.Now()
-	defer func() {
-		httpReqLatencies.WithLabelValues(req.URL.Path).Observe(msSince(start))
-		reqLatency.WithLabelValues(req.URL.Path).Observe(msSince(start))
-	}()
-
-	lw := NewStatusRecorder(w)
-	t.Handler.ServeHTTP(lw, req)
-
-	httpReqCounter.WithLabelValues(req.URL.Path).Inc()
-	httpRespCounter.WithLabelValues(req.URL.Path, fmt.Sprintf("%d", round(lw.Status()))).Inc()
-}
-
-func round(i int) int {
+// bucketHttpStatus rounds down to the nearest hundred to facilitate categorizing http statuses.
+func bucketHttpStatus(i int) int {
 	return i - i%100
 }
