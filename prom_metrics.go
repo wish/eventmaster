@@ -21,13 +21,6 @@ var (
 		Help: "http request duration (ms).",
 	}, []string{"path"})
 
-	httpReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "eventmaster",
-		Subsystem: "http_server",
-		Name:      "request_total",
-		Help:      "The count of http requests received grouped by req path",
-	}, []string{"path"})
-
 	httpRespCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "eventmaster",
 		Subsystem: "http_server",
@@ -98,15 +91,6 @@ func RegisterPromMetrics() error {
 
 	if err := prometheus.Register(reqLatency); err != nil {
 		return errors.Wrap(err, "registering request latency")
-	}
-
-	regErr = prometheus.Register(httpReqCounter)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			httpReqCounter = c.ExistingCollector.(*prometheus.CounterVec)
-		} else {
-			return regErr
-		}
 	}
 
 	regErr = prometheus.Register(httpRespCounter)
