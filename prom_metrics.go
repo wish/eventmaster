@@ -13,6 +13,7 @@ var (
 		Subsystem: "http_server",
 		Name:      "request_latency",
 		Help:      "Latency of http requests grouped by req path",
+		Buckets:   prometheus.ExponentialBuckets(1, 10, 10),
 	}, []string{"path"})
 
 	reqLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
