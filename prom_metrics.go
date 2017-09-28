@@ -11,14 +11,14 @@ var (
 	httpReqLatencies = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "eventmaster",
 		Subsystem: "http_server",
-		Name:      "request_latency",
-		Help:      "Latency of http requests grouped by req path",
+		Name:      "request_latency_ms",
+		Help:      "Latency in ms of http requests grouped by req path",
 		Buckets:   prometheus.ExponentialBuckets(1, 10, 10),
 	}, []string{"path"})
 
 	reqLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Name: "http_request_latency_microseconds",
-		Help: "http request duration (microseconds).",
+		Name: "http_request_latency_ms",
+		Help: "http request duration (ms).",
 	}, []string{"path"})
 
 	httpReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
