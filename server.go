@@ -1,8 +1,10 @@
 package eventmaster
 
 import (
+	"fmt"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/julienschmidt/httprouter"
@@ -64,7 +66,8 @@ func NewServer(store *EventStore, static, templates string) *Server {
 		templates: t,
 	}
 
-	srv.handler = registerRoutes(srv)
+	hndlr := registerRoutes(srv)
+	srv.handler = timer{hndlr}
 
 	return srv
 }
@@ -108,4 +111,25 @@ func registerRoutes(srv *Server) http.Handler {
 	r.Handler("GET", "/ui/*filepath", http.FileServer(srv.ui))
 
 	return r
+}
+
+type timer struct {
+	http.Handler
+}
+
+func (t timer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	start := time.Now()
+	defer func() {
+		httpReqLatencies.WithLabelValues(req.URL.Path).Observe(float64(time.Since(start) / time.Microsecond))
+	}()
+
+	lw := NewStatusRecorder(w)
+	t.Handler.ServeHTTP(lw, req)
+
+	httpReqCounter.WithLabelValues(req.URL.Path).Inc()
+	httpRespCounter.WithLabelValues(req.URL.Path, fmt.Sprintf("%d", round(lw.Status()))).Inc()
+}
+
+func round(i int) int {
+	return i - i%100
 }
