@@ -109,6 +109,8 @@ func registerRoutes(srv *Server) http.Handler {
 
 	r.Handler("GET", "/ui/*filepath", http.FileServer(srv.ui))
 
+	r.GET("/version/", latency("/version/", srv.version))
+
 	return r
 }
 
