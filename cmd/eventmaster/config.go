@@ -24,6 +24,7 @@ func DefaultEMConfig() EMConfig {
 			Keyspace:    "event_master",
 			Consistency: "one",
 			Timeout:     "5s",
+			ServiceName: "cassandra-client",
 		},
 		UpdateInterval: 10,
 	}
