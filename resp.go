@@ -11,15 +11,19 @@ type StatusRecorder struct {
 	status int
 }
 
+// NewStatusRecorder returns an initialized StatusRecorder, with 200 as the
+// default status.
 func NewStatusRecorder(w http.ResponseWriter) *StatusRecorder {
 	return &StatusRecorder{ResponseWriter: w, status: http.StatusOK}
 }
 
+// Status returns the cached http status value.
 func (sr *StatusRecorder) Status() int {
 	return sr.status
 }
 
-func (sw *StatusRecorder) WriteHeader(status int) {
-	sw.status = status
-	sw.ResponseWriter.WriteHeader(status)
+// WriteHeader caches the status, then calls the underlying ResponseWriter.
+func (sr *StatusRecorder) WriteHeader(status int) {
+	sr.status = status
+	sr.ResponseWriter.WriteHeader(status)
 }
