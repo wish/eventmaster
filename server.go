@@ -125,11 +125,11 @@ func latency(prefix string, h httprouter.Handle) httprouter.Handle {
 		lw := NewStatusRecorder(w)
 		h(lw, req, ps)
 
-		httpRespCounter.WithLabelValues(prefix, fmt.Sprintf("%d", bucketHttpStatus(lw.Status()))).Inc()
+		httpRespCounter.WithLabelValues(prefix, fmt.Sprintf("%d", bucketHTTPStatus(lw.Status()))).Inc()
 	}
 }
 
-// bucketHttpStatus rounds down to the nearest hundred to facilitate categorizing http statuses.
-func bucketHttpStatus(i int) int {
+// bucketHTTPStatus rounds down to the nearest hundred to facilitate categorizing http statuses.
+func bucketHTTPStatus(i int) int {
 	return i - i%100
 }

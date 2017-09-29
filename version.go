@@ -8,7 +8,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// Version maps to tagged releases of the software.
 var Version = "unset"
+
+// Git stores the commit used during build.
 var Git = "unset"
 
 func (h *Server) version(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
