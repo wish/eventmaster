@@ -1,16 +1,15 @@
 BIN_DIR := $(GOPATH)/bin
 GOLINT  := $(BIN_DIR)/golint
-GLIDE   := $(BIN_DIR)/glide
 PGG     := $(BIN_DIR)/protoc-gen-go
 GBD     := $(BIN_DIR)/go-bindata
 PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
-$(BINARY): deps $(wildcard **/*.go) proto vendor ui/ui.go templates/templates.go
+$(BINARY): deps $(wildcard **/*.go) proto ui/ui.go templates/templates.go
 	@go install -v github.com/ContextLogic/eventmaster/cmd/eventmaster
 
 .PHONY: proto
-proto: proto/eventmaster.pb.go
+proto: deps proto/eventmaster.pb.go
 
 proto/eventmaster.pb.go: $(PGG) proto/eventmaster.proto
 	protoc --plugin=${PGG} -I proto/ proto/eventmaster.proto --go_out=plugins=grpc:proto
@@ -20,32 +19,28 @@ test: deps proto/eventmaster.pb.go ui/ui.go templates/templates.go
 	@go test ${PGKS}
 
 .PHONY: lint
-lint: $(GOLINT)
+lint: deps $(GOLINT)
 	@go vet .
 	@golint -set_exit_status .
 
+# TODO: golint and protoc-gen-go are fetched from master still; should pin them down.
 $(GOLINT):
 	go get -u github.com/golang/lint/golint
 
 $(PGG):
 	go get -u github.com/golang/protobuf/protoc-gen-go
 
-$(GBD):
+$(GBD): vendor
 	go install ./vendor/github.com/jteeuwen/go-bindata/go-bindata
 
 .PHONY: run
 run: $(BINARY)
 	eventmaster -r
 
-$(GLIDE):
-	go install ./vendor/github.com/Masterminds/glide
-
-
 .PHONY: deps
-deps: vendor/gopkg.in
-# here we randomly choose something I *know* glide will fetch
-vendor/gopkg.in: $(GLIDE)
-	glide --quiet install
+deps: vendor
+vendor: Gopkg.toml Gopkg.lock
+	dep ensure
 
 ui:
 	@mkdir ui
