@@ -3,6 +3,7 @@ package eventmaster
 import (
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -10,15 +11,14 @@ var (
 	httpReqLatencies = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "eventmaster",
 		Subsystem: "http_server",
-		Name:      "request_latency",
-		Help:      "Latency of http requests grouped by req path",
+		Name:      "request_latency_ms",
+		Help:      "Latency in ms of http requests grouped by req path",
+		Buckets:   prometheus.ExponentialBuckets(1, 10, 10),
 	}, []string{"path"})
 
-	httpReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "eventmaster",
-		Subsystem: "http_server",
-		Name:      "request_total",
-		Help:      "The count of http requests received grouped by req path",
+	reqLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name: "http_request_latency_ms",
+		Help: "http request duration (ms).",
 	}, []string{"path"})
 
 	httpRespCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -89,13 +89,8 @@ func RegisterPromMetrics() error {
 		}
 	}
 
-	regErr = prometheus.Register(httpReqCounter)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			httpReqCounter = c.ExistingCollector.(*prometheus.CounterVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(reqLatency); err != nil {
+		return errors.Wrap(err, "registering request latency")
 	}
 
 	regErr = prometheus.Register(httpRespCounter)
@@ -172,6 +167,7 @@ func RegisterPromMetrics() error {
 	return nil
 }
 
-func trackTime(start time.Time) float64 {
-	return float64(time.Since(start).Nanoseconds()) / float64(1000000)
+// msSince returns milliseconds since start.
+func msSince(start time.Time) float64 {
+	return float64(time.Since(start) / time.Millisecond)
 }

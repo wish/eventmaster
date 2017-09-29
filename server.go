@@ -1,8 +1,10 @@
 package eventmaster
 
 import (
+	"fmt"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/julienschmidt/httprouter"
@@ -73,39 +75,59 @@ func registerRoutes(srv *Server) http.Handler {
 	r := httprouter.New()
 
 	// API endpoints
-	r.POST("/v1/event", wrapHandler(srv.handleAddEvent))
-	r.GET("/v1/event", wrapHandler(srv.handleGetEvent))
-	r.GET("/v1/event/:id", wrapHandler(srv.handleGetEventByID))
-	r.POST("/v1/topic", wrapHandler(srv.handleAddTopic))
-	r.PUT("/v1/topic/:name", wrapHandler(srv.handleUpdateTopic))
-	r.GET("/v1/topic", wrapHandler(srv.handleGetTopic))
-	r.DELETE("/v1/topic/:name", wrapHandler(srv.handleDeleteTopic))
-	r.POST("/v1/dc", wrapHandler(srv.handleAddDC))
-	r.PUT("/v1/dc/:name", wrapHandler(srv.handleUpdateDC))
-	r.GET("/v1/dc", wrapHandler(srv.handleGetDC))
+	r.POST("/v1/event", latency("/v1/event", srv.handleAddEvent))
+	r.GET("/v1/event", latency("/v1/event", srv.handleGetEvent))
+	r.GET("/v1/event/:id", latency("/v1/event", srv.handleGetEventByID))
+	r.POST("/v1/topic", latency("/v1/topic", srv.handleAddTopic))
+	r.PUT("/v1/topic/:name", latency("/v1/topic", srv.handleUpdateTopic))
+	r.GET("/v1/topic", latency("/v1/topic", srv.handleGetTopic))
+	r.DELETE("/v1/topic/:name", latency("/v1/topic", srv.handleDeleteTopic))
+	r.POST("/v1/dc", latency("/v1/dc", srv.handleAddDC))
+	r.PUT("/v1/dc/:name", latency("/v1/dc", srv.handleUpdateDC))
+	r.GET("/v1/dc", latency("/v1/dc", srv.handleGetDC))
 
-	r.GET("/v1/health", wrapHandler(srv.handleHealthCheck))
+	r.GET("/v1/health", latency("/v1/health", srv.handleHealthCheck))
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", wrapHandler(srv.handleGitHubEvent))
+	r.POST("/v1/github_event", latency("/v1/github_event", srv.handleGitHubEvent))
 
 	// UI endpoints
-	r.GET("/", srv.HandleMainPage)
-	r.GET("/add_event", srv.HandleCreatePage)
-	r.GET("/topic", srv.HandleTopicPage)
-	r.GET("/dc", srv.HandleDCPage)
-	r.GET("/event", srv.HandleGetEventPage)
+	r.GET("/", latency("/", srv.HandleMainPage))
+	r.GET("/add_event", latency("/add_event", srv.HandleCreatePage))
+	r.GET("/topic", latency("/topic", srv.HandleTopicPage))
+	r.GET("/dc", latency("/dc", srv.HandleDCPage))
+	r.GET("/event", latency("/event", srv.HandleGetEventPage))
 
 	// grafana datasource endpoints
-	r.GET("/grafana", cors(srv.grafanaOK))
-	r.GET("/grafana/", cors(srv.grafanaOK))
-	r.OPTIONS("/grafana/:route", cors(srv.grafanaOK))
-	r.POST("/grafana/annotations", cors(srv.grafanaAnnotations))
-	r.POST("/grafana/search", cors(srv.grafanaSearch))
+	r.GET("/grafana", latency("/grafana", cors(srv.grafanaOK)))
+	r.GET("/grafana/", latency("/grafana/", cors(srv.grafanaOK)))
+	r.OPTIONS("/grafana/:route", latency("/grafana", cors(srv.grafanaOK)))
+	r.POST("/grafana/annotations", latency("/grafana/annotations", cors(srv.grafanaAnnotations)))
+	r.POST("/grafana/search", latency("/grafana/search", cors(srv.grafanaSearch)))
 
 	r.Handler("GET", "/metrics", promhttp.Handler())
 
 	r.Handler("GET", "/ui/*filepath", http.FileServer(srv.ui))
 
 	return r
+}
+
+func latency(prefix string, h httprouter.Handle) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+		start := time.Now()
+		defer func() {
+			httpReqLatencies.WithLabelValues(prefix).Observe(msSince(start))
+			reqLatency.WithLabelValues(prefix).Observe(msSince(start))
+		}()
+
+		lw := NewStatusRecorder(w)
+		h(lw, req, ps)
+
+		httpRespCounter.WithLabelValues(prefix, fmt.Sprintf("%d", bucketHttpStatus(lw.Status()))).Inc()
+	}
+}
+
+// bucketHttpStatus rounds down to the nearest hundred to facilitate categorizing http statuses.
+func bucketHttpStatus(i int) int {
+	return i - i%100
 }
