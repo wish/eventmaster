@@ -63,7 +63,6 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 }
 
 func (s *Server) sendError(w http.ResponseWriter, code int, err error, message string, path string) {
-	httpRespCounter.WithLabelValues(path, fmt.Sprintf("%d", code)).Inc()
 	errMsg := fmt.Sprintf("%s: %s", message, err.Error())
 	fmt.Println(errMsg)
 	w.WriteHeader(code)
@@ -84,7 +83,6 @@ func (s *Server) sendResp(w http.ResponseWriter, key string, val string, path st
 			return
 		}
 	}
-	httpRespCounter.WithLabelValues(path, "200").Inc()
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
