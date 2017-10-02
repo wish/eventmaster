@@ -4,8 +4,6 @@ package eventmaster
 type Flags struct {
 	Port int `long:"port" default:"50052" description:"Port for EventMaster gRPC + HTTP API"`
 
-	CassandraServiceName string `long:"cassandra_servicename" description:"name of cassandra service to talk to"`
-
 	RsyslogServer bool `short:"r" long:"rsyslog_server" description:"Flag to start TCP rsyslog server"`
 
 	RsyslogPort int `long:"rsyslog_port" default:"50053" description:"Port for rsyslog clients to send logs to"`
