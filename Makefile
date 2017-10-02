@@ -6,7 +6,7 @@ PKGS    := $(shell go list ./... | grep -v vendor)
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
 VERSION := $(shell git describe --tags 2> /dev/null || echo "unreleased")
-V_DIRTY := $(shell git describe --exact-match HEAD 2> /dev/null > /dev/null || echo "-dirty")
+V_DIRTY := $(shell git describe --exact-match HEAD 2> /dev/null > /dev/null || echo "-unreleased")
 GIT     := $(shell git rev-parse --short HEAD)
 DIRTY   := $(shell git diff-index --quiet HEAD 2> /dev/null > /dev/null || echo "-dirty")
 
