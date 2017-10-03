@@ -64,7 +64,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/jteeuwen/go-bindata"
-  packages = ["."]
+  packages = [".","go-bindata"]
   revision = "a0ff2567cfb70903282db057e799fd826784d41d"
 
 [[projects]]
@@ -202,6 +202,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "58a56e505c2c650a1a62e4a6df5038948f1970d3ae15c90dc6e4f6ed25803d64"
+  inputs-digest = "3663c510930df1b446efa4d5fa324269ceea06afb3ded58887d49dd2a7b1c190"
   solver-name = "gps-cdcl"
   solver-version = 1
