@@ -15,7 +15,7 @@ $(BINARY): deps $(wildcard **/*.go) proto ui/ui.go templates/templates.go
 	@go install -v -ldflags \
 		"-X github.com/ContextLogic/eventmaster.Version=$(VERSION)$(V_DIRTY) \
 		 -X github.com/ContextLogic/eventmaster.Git=$(GIT)$(DIRTY)" \
-		github.com/ContextLogic/eventmaster/cmd/eventmaster
+		github.com/ContextLogic/eventmaster/cmd/...
 
 .PHONY: proto
 proto: deps proto/eventmaster.pb.go

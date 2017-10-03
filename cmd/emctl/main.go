@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/ContextLogic/eventmaster"
 	pb "github.com/ContextLogic/eventmaster/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -76,6 +77,9 @@ func main() {
 			fmt.Fprintf(os.Stderr, "load: %v\n", err)
 			os.Exit(1)
 		}
+	case "v", "version":
+		eventmaster.PrintVersions()
+		os.Exit(0)
 	default:
 		fmt.Fprintf(os.Stderr, "usage: %v\n", usage)
 		os.Exit(1)

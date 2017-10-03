@@ -33,8 +33,7 @@ func main() {
 	if len(a) > 0 {
 		switch a[0] {
 		case "v", "version":
-			fmt.Printf("version: %v\n", em.Version)
-			fmt.Printf("git@%v\n", em.Git)
+			em.PrintVersions()
 			os.Exit(0)
 		}
 	}
