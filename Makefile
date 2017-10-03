@@ -42,10 +42,6 @@ $(PGG):
 $(GBD): vendor
 	go install ./vendor/github.com/jteeuwen/go-bindata/go-bindata
 
-.PHONY: run
-run: $(BINARY)
-	eventmaster -r
-
 .PHONY: deps
 deps: vendor
 vendor: Gopkg.toml Gopkg.lock
