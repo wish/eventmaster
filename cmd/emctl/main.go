@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 
 	"google.golang.org/grpc"
 
@@ -24,19 +23,9 @@ func init() {
 const usage = `emctl [(in)ject|(l)oad]`
 
 func main() {
-	host := "localhost:50052"
-	if h := os.Getenv("EM_HOST"); h != "" {
-		host = h
-	}
-
-	conc := 16
-	if w := os.Getenv("EM_CONCURRENCY"); w != "" {
-		i, err := strconv.Atoi(w)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "parsing width: %v\n", err)
-			os.Exit(1)
-		}
-		conc = i
+	cfg, err := parseConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parsing config: %v\n", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -49,7 +38,7 @@ func main() {
 		cancel()
 	}()
 
-	conn, err := grpc.Dial(host, grpc.WithInsecure())
+	conn, err := grpc.Dial(cfg.Host, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -62,6 +51,9 @@ func main() {
 	}
 
 	switch cmd {
+	case "env":
+		fmt.Printf(cfg.String())
+		os.Exit(1)
 	case "in", "inject":
 		if err := inject(ctx, c); err != nil {
 			fmt.Fprintf(os.Stderr, "injection: %v\n", err)
@@ -73,7 +65,7 @@ func main() {
 		go func() {
 			log.Fatal(http.ListenAndServe(":8080", nil))
 		}()
-		if err := load(ctx, c, conc); err != nil {
+		if err := load(ctx, c, cfg.Concurrency); err != nil {
 			fmt.Fprintf(os.Stderr, "load: %v\n", err)
 			os.Exit(1)
 		}
