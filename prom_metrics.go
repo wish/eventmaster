@@ -13,7 +13,7 @@ var (
 		Subsystem: "http_server",
 		Name:      "request_latency_ms",
 		Help:      "Latency in ms of http requests grouped by req path",
-		Buckets:   prometheus.ExponentialBuckets(1, 10, 10),
+		Buckets:   buckets(),
 	}, []string{"path"})
 
 	reqLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
@@ -33,6 +33,7 @@ var (
 		Subsystem: "grpc_server",
 		Name:      "request_latency",
 		Help:      "Latency of grpc requests grouped by method name",
+		Buckets:   buckets(),
 	}, []string{"method"})
 
 	grpcReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -54,6 +55,7 @@ var (
 		Subsystem: "rsyslog_server",
 		Name:      "request_latency",
 		Help:      "Latency of rsyslog requests",
+		Buckets:   buckets(),
 	}, []string{})
 
 	rsyslogReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -68,6 +70,7 @@ var (
 		Subsystem: "event_store",
 		Name:      "method_time",
 		Help:      "Time of event store methods by method name",
+		Buckets:   buckets(),
 	}, []string{"method"})
 
 	eventStoreDbErrCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -170,4 +173,14 @@ func RegisterPromMetrics() error {
 // msSince returns milliseconds since start.
 func msSince(start time.Time) float64 {
 	return float64(time.Since(start) / time.Millisecond)
+}
+
+// buckets returns the default prometheus buckets scaled to milliseconds.
+func buckets() []float64 {
+	r := []float64{}
+
+	for _, v := range prometheus.DefBuckets {
+		r = append(r, v*float64(time.Second/time.Millisecond))
+	}
+	return r
 }
