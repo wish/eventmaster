@@ -124,7 +124,7 @@ func latency(prefix string, h httprouter.Handle) httprouter.Handle {
 		lw := NewStatusRecorder(w)
 		h(lw, req, ps)
 
-		httpRespCounter.WithLabelValues(prefix, fmt.Sprintf("%d", bucketHTTPStatus(lw.Status()))).Inc()
+		httpStatus.WithLabelValues(prefix, fmt.Sprintf("%d", bucketHTTPStatus(lw.Status()))).Inc()
 	}
 }
 

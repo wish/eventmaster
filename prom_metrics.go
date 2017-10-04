@@ -16,11 +16,11 @@ var (
 		Buckets:   buckets(),
 	}, []string{"path"})
 
-	httpRespCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+	httpStatus = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "eventmaster",
 		Subsystem: "http_server",
-		Name:      "response_count",
-		Help:      "The count of http responses issued classified by code and api endpoint",
+		Name:      "status_count",
+		Help:      "The count of http responses issued classified by status and api endpoint",
 	}, []string{"path", "code"})
 
 	grpcReqLatencies = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -68,7 +68,7 @@ func RegisterPromMetrics() error {
 		return errors.Wrap(err, "registering http request latency")
 	}
 
-	if err := prometheus.Register(httpRespCounter); err != nil {
+	if err := prometheus.Register(httpStatus); err != nil {
 		return errors.Wrap(err, "registering http response counter")
 	}
 
