@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	context "golang.org/x/net/context"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
@@ -34,7 +35,7 @@ func (s *GRPCServer) performOperation(method string, op func() (string, error)) 
 	if err != nil {
 		grpcRespCounter.WithLabelValues(method, "1").Inc()
 		fmt.Println("Error performing operation", method, err)
-		return nil, err
+		return nil, errors.Wrapf(err, "operation %v", method)
 	}
 
 	grpcRespCounter.WithLabelValues(method, "0").Inc()
@@ -52,7 +53,7 @@ func (s *GRPCServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 		var data map[string]interface{}
 		err := json.Unmarshal(evt.Data, &data)
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "json decode of data")
 		}
 		return s.store.AddEvent(&UnaddedEvent{
 			ParentEventID: evt.ParentEventId,
@@ -80,13 +81,13 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error performing event store find", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find by id", id.EventID)
 	}
 	d, err := json.Marshal(ev.Data)
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error marshalling event data into JSON", err)
-		return nil, err
+		return nil, errors.Wrap(err, "data json marshal")
 	}
 	return &eventmaster.Event{
 		EventId:       ev.EventID,
@@ -114,14 +115,14 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error performing event store find", err)
-		return err
+		return errors.Wrapf(err, "unable to find %v", q)
 	}
 	for _, ev := range events {
 		d, err := json.Marshal(ev.Data)
 		if err != nil {
 			grpcRespCounter.WithLabelValues(name, "1").Inc()
 			fmt.Println("Error marshalling event data into JSON", err)
-			return err
+			return errors.Wrap(err, "json marshal of data")
 		}
 		if err := stream.Send(&eventmaster.Event{
 			EventId:       ev.EventID,
@@ -137,7 +138,7 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 		}); err != nil {
 			grpcRespCounter.WithLabelValues(name, "1").Inc()
 			fmt.Println("Error streaming event to grpc client", err)
-			return err
+			return errors.Wrap(err, "stream send")
 		}
 	}
 	grpcRespCounter.WithLabelValues(name, "0").Inc()
@@ -167,7 +168,7 @@ func (s *GRPCServer) AddTopic(ctx context.Context, t *eventmaster.Topic) (*event
 		var schema map[string]interface{}
 		err := json.Unmarshal(t.DataSchema, &schema)
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "json unmarshal of data schema")
 		}
 		return s.store.AddTopic(Topic{
 			Name:   t.TopicName,
@@ -182,7 +183,7 @@ func (s *GRPCServer) UpdateTopic(ctx context.Context, t *eventmaster.UpdateTopic
 		var schema map[string]interface{}
 		err := json.Unmarshal(t.DataSchema, &schema)
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "json unmarshal of data schema")
 		}
 		return s.store.UpdateTopic(t.OldName, Topic{
 			Name:   t.NewName,
@@ -203,7 +204,7 @@ func (s *GRPCServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopic
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error deleting topic: ", err)
-		return nil, err
+		return nil, errors.Wrap(err, "delete topic")
 	}
 	grpcRespCounter.WithLabelValues(name, "0").Inc()
 	return &eventmaster.WriteResponse{}, nil
@@ -221,7 +222,7 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error getting topics: ", err)
-		return nil, err
+		return nil, errors.Wrap(err, "get topics")
 	}
 
 	var topicResults []*eventmaster.Topic
@@ -235,7 +236,7 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 			if err != nil {
 				grpcRespCounter.WithLabelValues(name, "1").Inc()
 				fmt.Println("Error marshalling topic schema: ", err)
-				return nil, err
+				return nil, errors.Wrap(err, "json marshal of schema")
 			}
 		}
 		topicResults = append(topicResults, &eventmaster.Topic{
@@ -276,7 +277,7 @@ func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 	if err != nil {
 		grpcRespCounter.WithLabelValues(name, "1").Inc()
 		fmt.Println("Error getting topics: ", err)
-		return nil, err
+		return nil, errors.Wrap(err, "get dcs")
 	}
 
 	var dcResults []*eventmaster.DC
