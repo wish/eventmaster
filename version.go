@@ -30,6 +30,7 @@ func (h *Server) version(w http.ResponseWriter, req *http.Request, p httprouter.
 	}
 }
 
+// PrintVersions writes version information for the running binary to stdout.
 func PrintVersions() {
 	cmd := os.Args[0]
 	fmt.Printf("%v\n", cmd)
