@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ContextLogic/eventmaster/metrics"
 	"github.com/pkg/errors"
 )
 
@@ -73,7 +74,7 @@ func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*RsyslogS
 func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 	start := time.Now()
 	defer func() {
-		rsyslogReqLatencies.WithLabelValues().Observe(msSince(start))
+		metrics.RsyslogLatency(start)
 	}()
 
 	buf := make([]byte, 20000)

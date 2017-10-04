@@ -13,6 +13,7 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/ContextLogic/eventmaster/metrics"
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
@@ -249,7 +250,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("Find").Observe(msSince(start))
+		metrics.EventStoreLatency("Find", start)
 	}()
 	if q.StartEventTime == 0 || q.EndEventTime == 0 || q.EndEventTime < q.StartEventTime {
 		return nil, errors.New("Must specify valid start and end event time")
@@ -263,7 +264,7 @@ func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	}
 	evts, err := es.ds.Find(q, topicIDs, dcIDs)
 	if err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+		metrics.DBError("read")
 		return nil, errors.Wrap(err, "Error executing find in data source")
 	}
 	sort.Sort(evts)
@@ -274,11 +275,11 @@ func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 func (es *EventStore) FindByID(id string) (*Event, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("Find").Observe(msSince(start))
+		metrics.EventStoreLatency("Find", start)
 	}()
 	evt, err := es.ds.FindByID(id, true)
 	if err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+		metrics.DBError("read")
 		return nil, errors.Wrap(err, "Error executing find in data source")
 	}
 	if evt == nil {
@@ -297,7 +298,7 @@ func (es *EventStore) FindByID(id string) (*Event, error) {
 func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("FindIDs").Observe(msSince(start))
+		metrics.EventStoreLatency("FindIDs", start)
 	}()
 	if q.Limit == 0 {
 		q.Limit = 200
@@ -313,7 +314,7 @@ func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("AddEvent").Observe(msSince(start))
+		metrics.EventStoreLatency("AddEvent", start)
 	}()
 
 	evt, err := es.augmentEvent(event)
@@ -322,7 +323,7 @@ func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 	}
 
 	if err = es.ds.AddEvent(evt); err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
+		metrics.DBError("write")
 		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
 	}
 
@@ -333,11 +334,11 @@ func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 func (es *EventStore) GetTopics() ([]Topic, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("GetTopics").Observe(msSince(start))
+		metrics.EventStoreLatency("GetTopics", start)
 	}()
 	topics, err := es.ds.GetTopics()
 	if err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+		metrics.DBError("read")
 		return nil, errors.Wrap(err, "Error getting topics from data source")
 	}
 	return topics, nil
@@ -347,12 +348,12 @@ func (es *EventStore) GetTopics() ([]Topic, error) {
 func (es *EventStore) GetDCs() ([]DC, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("GetDCs").Observe(msSince(start))
+		metrics.EventStoreLatency("GetDCs", start)
 	}()
 
 	dcs, err := es.ds.GetDCs()
 	if err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+		metrics.DBError("read")
 		return nil, errors.Wrap(err, "Error deleting topic from data source")
 	}
 	return dcs, nil
@@ -362,7 +363,7 @@ func (es *EventStore) GetDCs() ([]DC, error) {
 func (es *EventStore) AddTopic(topic Topic) (string, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("AddTopic").Observe(msSince(start))
+		metrics.EventStoreLatency("AddTopic", start)
 	}()
 
 	name := topic.Name
@@ -394,7 +395,7 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 		Name:   name,
 		Schema: schemaStr,
 	}); err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
+		metrics.DBError("write")
 		return "", errors.Wrap(err, "Error adding topic to data source")
 	}
 
@@ -412,7 +413,7 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("UpdateTopic").Observe(msSince(start))
+		metrics.EventStoreLatency("UpdateTopic", start)
 	}()
 
 	newName := td.Name
@@ -458,7 +459,7 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 		Name:   newName,
 		Schema: schemaStr,
 	}); err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
+		metrics.DBError("write")
 		return "", errors.Wrap(err, "Error executing update query in Cassandra")
 	}
 
@@ -479,7 +480,7 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) error {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("DeleteTopic").Observe(msSince(start))
+		metrics.EventStoreLatency("DeleteTopic", start)
 	}()
 
 	topicName := strings.ToLower(deleteReq.TopicName)
@@ -489,7 +490,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	}
 
 	if err := es.ds.DeleteTopic(id); err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
+		metrics.DBError("write")
 		return errors.Wrap(err, "Error executing delete query in Cassandra")
 	}
 
@@ -507,7 +508,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 func (es *EventStore) AddDC(dc *eventmaster.DC) (string, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("AddDC").Observe(msSince(start))
+		metrics.EventStoreLatency("AddDC", start)
 	}()
 
 	name := strings.ToLower(dc.DCName)
@@ -524,7 +525,7 @@ func (es *EventStore) AddDC(dc *eventmaster.DC) (string, error) {
 		ID:   id,
 		Name: name,
 	}); err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
+		metrics.DBError("write")
 		return "", errors.Wrap(err, "Error adding dc to data source")
 	}
 
@@ -541,7 +542,7 @@ func (es *EventStore) AddDC(dc *eventmaster.DC) (string, error) {
 func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, error) {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("UpdateDC").Observe(msSince(start))
+		metrics.EventStoreLatency("UpdateDC", start)
 	}()
 
 	oldName := updateReq.OldName
@@ -563,7 +564,7 @@ func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, 
 		return "", fmt.Errorf("Error updating dc - dc with name %s doesn't exist", oldName)
 	}
 	if err := es.ds.UpdateDC(id, newName); err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "write").Inc()
+		metrics.DBError("write")
 		return "", errors.Wrap(err, "Error executing update query in data source")
 	}
 
@@ -582,7 +583,7 @@ func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, 
 func (es *EventStore) Update() error {
 	start := time.Now()
 	defer func() {
-		eventStoreTimer.WithLabelValues("Update").Observe(msSince(start))
+		metrics.EventStoreLatency("Update", start)
 	}()
 
 	// Update DC maps
@@ -590,7 +591,7 @@ func (es *EventStore) Update() error {
 	newDCIDToName := make(map[string]string)
 	dcs, err := es.ds.GetDCs()
 	if err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+		metrics.DBError("read")
 		return errors.Wrap(err, "Error closing dc iter")
 	}
 	for _, dc := range dcs {
@@ -612,7 +613,7 @@ func (es *EventStore) Update() error {
 	newTopicSchemaPropertiesMap := make(map[string](map[string]interface{}))
 	topics, err := es.ds.GetTopics()
 	if err != nil {
-		eventStoreDbErrCounter.WithLabelValues("cassandra", "read").Inc()
+		metrics.DBError("read")
 		return errors.Wrap(err, "Error closing topic iter")
 	}
 	for _, t := range topics {

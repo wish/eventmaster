@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	em "github.com/ContextLogic/eventmaster"
+	"github.com/ContextLogic/eventmaster/metrics"
 	emproto "github.com/ContextLogic/eventmaster/proto"
 )
 
@@ -38,7 +39,7 @@ func main() {
 		}
 	}
 
-	if err := em.RegisterPromMetrics(); err != nil {
+	if err := metrics.RegisterPromMetrics(); err != nil {
 		log.Fatalf("Unable to register prometheus metrics: %v", err)
 	}
 

@@ -1,4 +1,4 @@
-package eventmaster
+package metrics
 
 import (
 	"time"
@@ -59,7 +59,7 @@ var (
 		Subsystem: "event_store",
 		Name:      "db_error",
 		Help:      "The count of db errors by db name and type of operation",
-	}, []string{"db_name", "operation"})
+	}, []string{"operation"})
 )
 
 // RegisterPromMetrics registers all the metrics that eventmanger uses.
