@@ -75,7 +75,6 @@ func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 	defer func() {
 		rsyslogReqLatencies.WithLabelValues().Observe(msSince(start))
 	}()
-	rsyslogReqCounter.WithLabelValues().Inc()
 
 	buf := make([]byte, 20000)
 	_, err := conn.Read(buf)

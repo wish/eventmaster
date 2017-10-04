@@ -29,7 +29,6 @@ func (s *GRPCServer) performOperation(method string, op func() (string, error)) 
 	defer func() {
 		grpcReqLatencies.WithLabelValues(method).Observe(msSince(start))
 	}()
-	grpcReqCounter.WithLabelValues(method).Inc()
 
 	id, err := op()
 	if err != nil {
@@ -76,7 +75,6 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
-	grpcReqCounter.WithLabelValues(name).Inc()
 
 	ev, err := s.store.FindByID(id.EventID)
 	if err != nil {
@@ -111,7 +109,6 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
-	grpcReqCounter.WithLabelValues(name).Inc()
 
 	events, err := s.store.Find(q)
 	if err != nil {
@@ -201,7 +198,6 @@ func (s *GRPCServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopic
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
-	grpcReqCounter.WithLabelValues(name).Inc()
 
 	err := s.store.DeleteTopic(t)
 	if err != nil {
@@ -220,7 +216,6 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
-	grpcReqCounter.WithLabelValues(name).Inc()
 
 	topics, err := s.store.GetTopics()
 	if err != nil {
@@ -276,7 +271,6 @@ func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 	defer func() {
 		grpcReqLatencies.WithLabelValues(name).Observe(msSince(start))
 	}()
-	grpcReqCounter.WithLabelValues(name).Inc()
 
 	dcs, err := s.store.GetDCs()
 	if err != nil {

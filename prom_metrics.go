@@ -31,13 +31,6 @@ var (
 		Buckets:   buckets(),
 	}, []string{"method"})
 
-	grpcReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "eventmaster",
-		Subsystem: "grpc_server",
-		Name:      "request_total",
-		Help:      "The count of grpc requests received grouped by method name",
-	}, []string{"method"})
-
 	grpcRespCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "eventmaster",
 		Subsystem: "grpc_server",
@@ -51,13 +44,6 @@ var (
 		Name:      "request_latency",
 		Help:      "Latency of rsyslog requests",
 		Buckets:   buckets(),
-	}, []string{})
-
-	rsyslogReqCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "eventmaster",
-		Subsystem: "rsyslog_server",
-		Name:      "request_total",
-		Help:      "The count of rsyslog requests received",
 	}, []string{})
 
 	eventStoreTimer = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -90,20 +76,12 @@ func RegisterPromMetrics() error {
 		return errors.Wrap(err, "registering gRPC request latency")
 	}
 
-	if err := prometheus.Register(grpcReqCounter); err != nil {
-		return errors.Wrap(err, "registering gRPC request counter")
-	}
-
 	if err := prometheus.Register(grpcRespCounter); err != nil {
 		return errors.Wrap(err, "registering gRPC response counter")
 	}
 
 	if err := prometheus.Register(rsyslogReqLatencies); err != nil {
 		return errors.Wrap(err, "registering rsyslog request latency")
-	}
-
-	if err := prometheus.Register(rsyslogReqCounter); err != nil {
-		return errors.Wrap(err, "registering rsyslog request counter")
 	}
 
 	if err := prometheus.Register(eventStoreTimer); err != nil {
