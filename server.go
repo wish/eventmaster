@@ -119,7 +119,6 @@ func latency(prefix string, h httprouter.Handle) httprouter.Handle {
 		start := time.Now()
 		defer func() {
 			httpReqLatencies.WithLabelValues(prefix).Observe(msSince(start))
-			reqLatency.WithLabelValues(prefix).Observe(msSince(start))
 		}()
 
 		lw := NewStatusRecorder(w)

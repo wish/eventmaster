@@ -16,11 +16,6 @@ var (
 		Buckets:   buckets(),
 	}, []string{"path"})
 
-	reqLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Name: "http_request_latency_ms",
-		Help: "http request duration (ms).",
-	}, []string{"path"})
-
 	httpRespCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "eventmaster",
 		Subsystem: "http_server",
@@ -85,10 +80,6 @@ var (
 func RegisterPromMetrics() error {
 	if err := prometheus.Register(httpReqLatencies); err != nil {
 		return errors.Wrap(err, "registering http request latency")
-	}
-
-	if err := prometheus.Register(reqLatency); err != nil {
-		return errors.Wrap(err, "registering request latency")
 	}
 
 	if err := prometheus.Register(httpRespCounter); err != nil {
