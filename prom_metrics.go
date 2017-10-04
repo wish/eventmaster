@@ -83,90 +83,46 @@ var (
 
 // RegisterPromMetrics registers all the metrics that eventmanger uses.
 func RegisterPromMetrics() error {
-	regErr := prometheus.Register(httpReqLatencies)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			httpReqLatencies = c.ExistingCollector.(*prometheus.HistogramVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(httpReqLatencies); err != nil {
+		return errors.Wrap(err, "registering http request latency")
 	}
 
 	if err := prometheus.Register(reqLatency); err != nil {
 		return errors.Wrap(err, "registering request latency")
 	}
 
-	regErr = prometheus.Register(httpRespCounter)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			httpRespCounter = c.ExistingCollector.(*prometheus.CounterVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(httpRespCounter); err != nil {
+		return errors.Wrap(err, "registering http response counter")
 	}
 
-	regErr = prometheus.Register(grpcReqLatencies)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			grpcReqLatencies = c.ExistingCollector.(*prometheus.HistogramVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(grpcReqLatencies); err != nil {
+		return errors.Wrap(err, "registering gRPC request latency")
 	}
 
-	regErr = prometheus.Register(grpcReqCounter)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			grpcReqCounter = c.ExistingCollector.(*prometheus.CounterVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(grpcReqCounter); err != nil {
+		return errors.Wrap(err, "registering gRPC request counter")
 	}
 
-	regErr = prometheus.Register(grpcRespCounter)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			grpcRespCounter = c.ExistingCollector.(*prometheus.CounterVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(grpcRespCounter); err != nil {
+		return errors.Wrap(err, "registering gRPC response counter")
 	}
 
-	regErr = prometheus.Register(rsyslogReqLatencies)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			rsyslogReqLatencies = c.ExistingCollector.(*prometheus.HistogramVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(rsyslogReqLatencies); err != nil {
+		return errors.Wrap(err, "registering rsyslog request latency")
 	}
 
-	regErr = prometheus.Register(rsyslogReqCounter)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			rsyslogReqCounter = c.ExistingCollector.(*prometheus.CounterVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(rsyslogReqCounter); err != nil {
+		return errors.Wrap(err, "registering rsyslog request counter")
 	}
 
-	regErr = prometheus.Register(eventStoreTimer)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			eventStoreTimer = c.ExistingCollector.(*prometheus.HistogramVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(eventStoreTimer); err != nil {
+		return errors.Wrap(err, "registering eventstore timer")
 	}
 
-	regErr = prometheus.Register(eventStoreDbErrCounter)
-	if regErr != nil {
-		if c, ok := regErr.(prometheus.AlreadyRegisteredError); ok {
-			eventStoreDbErrCounter = c.ExistingCollector.(*prometheus.CounterVec)
-		} else {
-			return regErr
-		}
+	if err := prometheus.Register(eventStoreDbErrCounter); err != nil {
+		return errors.Wrap(err, "registering event store errors")
 	}
+
 	return nil
 }
 
