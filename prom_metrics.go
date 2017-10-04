@@ -19,7 +19,7 @@ var (
 	httpRespCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "eventmaster",
 		Subsystem: "http_server",
-		Name:      "response_total",
+		Name:      "response_count",
 		Help:      "The count of http responses issued classified by code and api endpoint",
 	}, []string{"path", "code"})
 
@@ -34,7 +34,7 @@ var (
 	grpcRespCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "eventmaster",
 		Subsystem: "grpc_server",
-		Name:      "response_total",
+		Name:      "response_count",
 		Help:      "The count of grpc responses issued classified by method name and success",
 	}, []string{"method", "success"})
 
