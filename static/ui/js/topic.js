@@ -56,6 +56,7 @@ function updateTopic(form, oldTopicName) {
     }
 
     $.ajax({
+        async: false,
         type: 'PUT',
         url: 'v1/topic/' + oldTopicName,
         data: JSON.stringify(formData),
