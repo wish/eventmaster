@@ -17,7 +17,6 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	var q eventmaster.Query
 
 	// read from request body first - if there's an error, read from query params
-	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&q); err != nil {
 		query := r.URL.Query()
@@ -90,7 +89,6 @@ func (s *Server) sendResp(w http.ResponseWriter, key string, val string, path st
 func (s *Server) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var evt UnaddedEvent
 
-	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
 	if err := json.Unmarshal(body, &evt); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
@@ -199,7 +197,6 @@ func (s *Server) handleGetEventByID(w http.ResponseWriter, r *http.Request, ps h
 func (s *Server) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	td := Topic{}
 
-	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&td); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
@@ -281,7 +278,6 @@ func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps ht
 
 func (s *Server) handleAddDC(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dd DC
-	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
@@ -304,7 +300,6 @@ func (s *Server) handleAddDC(w http.ResponseWriter, r *http.Request, _ httproute
 
 func (s *Server) handleUpdateDC(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var dd DC
-	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
@@ -350,7 +345,6 @@ func (s *Server) handleGetDC(w http.ResponseWriter, r *http.Request, _ httproute
 func (s *Server) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var info map[string]interface{}
 
-	defer r.Body.Close()
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
