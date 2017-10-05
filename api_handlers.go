@@ -277,7 +277,7 @@ func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps ht
 		s.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", r.URL.Path)
 		return
 	}
-	s.sendResp(w, "", "", r.URL.Path)
+	s.sendResp(w, "topic", topicName, r.URL.Path)
 }
 
 func (s *Server) handleAddDC(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
