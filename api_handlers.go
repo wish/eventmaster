@@ -160,35 +160,35 @@ func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httpro
 
 func (s *Server) handleGetEventByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	eventID := ps.ByName("id")
-	if eventID != "" {
-		ev, err := s.store.FindByID(eventID)
-		if err != nil {
-			s.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
-			return
-		}
-		result := &EventResult{
-			EventID:       ev.EventID,
-			ParentEventID: ev.ParentEventID,
-			EventTime:     ev.EventTime,
-			DC:            s.store.getDCName(ev.DCID),
-			TopicName:     s.store.getTopicName(ev.TopicID),
-			Tags:          ev.Tags,
-			Host:          ev.Host,
-			TargetHosts:   ev.TargetHosts,
-			User:          ev.User,
-			Data:          ev.Data,
-		}
-		resultMap := make(map[string]*EventResult)
-		resultMap["result"] = result
-		bytes, err := json.Marshal(resultMap)
-		if err != nil {
-			s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
-			return
-		}
-		s.sendResp(w, "", string(bytes), r.URL.Path)
-	} else {
+	if eventID == "" {
 		s.sendError(w, http.StatusBadRequest, errors.New("did not provide event id"), "Did not provide event id", r.URL.Path)
 	}
+
+	ev, err := s.store.FindByID(eventID)
+	if err != nil {
+		s.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
+		return
+	}
+	result := &EventResult{
+		EventID:       ev.EventID,
+		ParentEventID: ev.ParentEventID,
+		EventTime:     ev.EventTime,
+		DC:            s.store.getDCName(ev.DCID),
+		TopicName:     s.store.getTopicName(ev.TopicID),
+		Tags:          ev.Tags,
+		Host:          ev.Host,
+		TargetHosts:   ev.TargetHosts,
+		User:          ev.User,
+		Data:          ev.Data,
+	}
+	resultMap := make(map[string]*EventResult)
+	resultMap["result"] = result
+	bytes, err := json.Marshal(resultMap)
+	if err != nil {
+		s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
+		return
+	}
+	s.sendResp(w, "", string(bytes), r.URL.Path)
 }
 
 func (s *Server) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
