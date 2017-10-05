@@ -86,6 +86,22 @@ func main() {
 			fmt.Fprintf(os.Stderr, "usage: %v\n", topicUsage)
 			os.Exit(1)
 		}
+	case "dc":
+		rest := os.Args[1:]
+		sub := ""
+		if len(rest) > 1 {
+			sub = rest[1]
+		}
+		switch sub {
+		case "ls", "list":
+			if err := listDC(ctx, c); err != nil {
+				fmt.Fprintf(os.Stderr, "topic list: %v\n", err)
+				os.Exit(1)
+			}
+		default:
+			fmt.Fprintf(os.Stderr, "usage: %v\n", topicUsage)
+			os.Exit(1)
+		}
 	case "v", "version":
 		eventmaster.PrintVersions()
 		os.Exit(0)
