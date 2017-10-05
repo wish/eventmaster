@@ -74,6 +74,12 @@
   version = "v1.1"
 
 [[projects]]
+  name = "github.com/kelseyhightower/envconfig"
+  packages = ["."]
+  revision = "f611eb38b3875cc3bd991ca91c51d06446afa14c"
+  version = "v1.3.0"
+
+[[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
   revision = "3247c84500bff8d9fb6d579d800f20b3e091582c"
@@ -202,6 +208,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3663c510930df1b446efa4d5fa324269ceea06afb3ded58887d49dd2a7b1c190"
+  inputs-digest = "20be63567ba8a57f6c244a1863a0741667300685dc5c5801dec534bf353a7f32"
   solver-name = "gps-cdcl"
   solver-version = 1
