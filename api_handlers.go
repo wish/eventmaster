@@ -83,7 +83,6 @@ func (s *Server) sendResp(w http.ResponseWriter, key string, val string, path st
 			return
 		}
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
 }
