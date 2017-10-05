@@ -366,7 +366,7 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 		metrics.EventStoreLatency("AddTopic", start)
 	}()
 
-	name := topic.Name
+	name := strings.ToLower(topic.Name)
 	schema := topic.Schema
 
 	if name == "" {
@@ -546,7 +546,7 @@ func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, 
 	}()
 
 	oldName := updateReq.OldName
-	newName := updateReq.NewName
+	newName := strings.ToLower(updateReq.NewName)
 
 	if newName == "" {
 		return "", errors.New("DC name cannot be empty")
