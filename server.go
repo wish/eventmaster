@@ -1,7 +1,6 @@
 package eventmaster
 
 import (
-	"fmt"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/ContextLogic/eventmaster/metrics"
 	tmpl "github.com/ContextLogic/eventmaster/templates"
 	"github.com/ContextLogic/eventmaster/ui"
 )
@@ -118,18 +118,12 @@ func latency(prefix string, h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 		start := time.Now()
 		defer func() {
-			httpReqLatencies.WithLabelValues(prefix).Observe(msSince(start))
-			reqLatency.WithLabelValues(prefix).Observe(msSince(start))
+			metrics.HTTPLatency(prefix, start)
 		}()
 
 		lw := NewStatusRecorder(w)
 		h(lw, req, ps)
 
-		httpRespCounter.WithLabelValues(prefix, fmt.Sprintf("%d", bucketHTTPStatus(lw.Status()))).Inc()
+		metrics.HTTPStatus(prefix, lw.Status())
 	}
-}
-
-// bucketHTTPStatus rounds down to the nearest hundred to facilitate categorizing http statuses.
-func bucketHTTPStatus(i int) int {
-	return i - i%100
 }
