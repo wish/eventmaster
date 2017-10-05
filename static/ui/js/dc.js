@@ -66,10 +66,10 @@ $(document).ready(function() {
                         <label>ID:`, dcId, `</label>
                         <form onsubmit="return updateDC(this,'`, name, `')">
                             <div class="form-group">
-                                <label for="dc">New DC name</label>
-                                <input type="text" class="form-control" name="dc">
+                                <label for="dc_name">New DC name</label>
+                                <input type="text" class="form-control" name="dc_name">
                             </div>
-                            <span class="input-group-btn"><button class="btn btn-default" type="submit">Update</button></span>
+                            <button class="btn btn-default" type="submit">Update</button>
                         </form>
                     </div>
                     </div>`)

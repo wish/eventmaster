@@ -3,7 +3,6 @@ package eventmaster
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -17,9 +16,7 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 	var q eventmaster.Query
 
 	// read from request body first - if there's an error, read from query params
-	defer r.Body.Close()
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&q); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
 		query := r.URL.Query()
 		q.ParentEventId = query["parent_event_id"]
 		q.DC = query["dc"]
@@ -83,7 +80,6 @@ func (s *Server) sendResp(w http.ResponseWriter, key string, val string, path st
 			return
 		}
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
 }
@@ -91,9 +87,7 @@ func (s *Server) sendResp(w http.ResponseWriter, key string, val string, path st
 func (s *Server) handleAddEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var evt UnaddedEvent
 
-	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
-	if err := json.Unmarshal(body, &evt); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&evt); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
 		return
 	}
@@ -166,43 +160,41 @@ func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request, _ httpro
 
 func (s *Server) handleGetEventByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	eventID := ps.ByName("id")
-	if eventID != "" {
-		ev, err := s.store.FindByID(eventID)
-		if err != nil {
-			s.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
-			return
-		}
-		result := &EventResult{
-			EventID:       ev.EventID,
-			ParentEventID: ev.ParentEventID,
-			EventTime:     ev.EventTime,
-			DC:            s.store.getDCName(ev.DCID),
-			TopicName:     s.store.getTopicName(ev.TopicID),
-			Tags:          ev.Tags,
-			Host:          ev.Host,
-			TargetHosts:   ev.TargetHosts,
-			User:          ev.User,
-			Data:          ev.Data,
-		}
-		resultMap := make(map[string]*EventResult)
-		resultMap["result"] = result
-		bytes, err := json.Marshal(resultMap)
-		if err != nil {
-			s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
-			return
-		}
-		s.sendResp(w, "", string(bytes), r.URL.Path)
-	} else {
+	if eventID == "" {
 		s.sendError(w, http.StatusBadRequest, errors.New("did not provide event id"), "Did not provide event id", r.URL.Path)
 	}
+
+	ev, err := s.store.FindByID(eventID)
+	if err != nil {
+		s.sendError(w, http.StatusInternalServerError, err, "Error getting event", r.URL.Path)
+		return
+	}
+	result := &EventResult{
+		EventID:       ev.EventID,
+		ParentEventID: ev.ParentEventID,
+		EventTime:     ev.EventTime,
+		DC:            s.store.getDCName(ev.DCID),
+		TopicName:     s.store.getTopicName(ev.TopicID),
+		Tags:          ev.Tags,
+		Host:          ev.Host,
+		TargetHosts:   ev.TargetHosts,
+		User:          ev.User,
+		Data:          ev.Data,
+	}
+	resultMap := make(map[string]*EventResult)
+	resultMap["result"] = result
+	bytes, err := json.Marshal(resultMap)
+	if err != nil {
+		s.sendError(w, http.StatusInternalServerError, err, "Error marshalling response into json", r.URL.Path)
+		return
+	}
+	s.sendResp(w, "", string(bytes), r.URL.Path)
 }
 
 func (s *Server) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	td := Topic{}
 
-	defer r.Body.Close()
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&td); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&td); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error decoding JSON event", r.URL.Path)
 		return
 	}
@@ -223,15 +215,8 @@ func (s *Server) handleAddTopic(w http.ResponseWriter, r *http.Request, _ httpro
 func (s *Server) handleUpdateTopic(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var td Topic
 	defer r.Body.Close()
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
-		return
-	}
-	err = json.Unmarshal(reqBody, &td)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&td); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
-		return
 	}
 
 	topicName := ps.ByName("name")
@@ -277,22 +262,16 @@ func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request, ps ht
 		s.sendError(w, http.StatusInternalServerError, err, "Error deleting topic from store", r.URL.Path)
 		return
 	}
-	s.sendResp(w, "", "", r.URL.Path)
+	s.sendResp(w, "topic", topicName, r.URL.Path)
 }
 
 func (s *Server) handleAddDC(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var dd DC
-	defer r.Body.Close()
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
-		return
-	}
-	err = json.Unmarshal(reqBody, &dd)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&dd); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
+
 	id, err := s.store.AddDC(&eventmaster.DC{
 		DCName: dd.Name,
 	})
@@ -305,20 +284,13 @@ func (s *Server) handleAddDC(w http.ResponseWriter, r *http.Request, _ httproute
 
 func (s *Server) handleUpdateDC(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var dd DC
-	defer r.Body.Close()
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
-		return
-	}
-	err = json.Unmarshal(reqBody, &dd)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&dd); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}
 	dcName := ps.ByName("name")
 	if dcName == "" {
-		s.sendError(w, http.StatusBadRequest, err, "Error updating topic, no topic name provided", r.URL.Path)
+		s.sendError(w, http.StatusBadRequest, errors.New("no topic name provided"), "Error updating topic, no topic name provided", r.URL.Path)
 		return
 	}
 	id, err := s.store.UpdateDC(&eventmaster.UpdateDCRequest{
@@ -350,14 +322,7 @@ func (s *Server) handleGetDC(w http.ResponseWriter, r *http.Request, _ httproute
 
 func (s *Server) handleGitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var info map[string]interface{}
-
-	defer r.Body.Close()
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		s.sendError(w, http.StatusBadRequest, err, "Error reading request body", r.URL.Path)
-		return
-	}
-	if err := json.Unmarshal(reqBody, &info); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
 		s.sendError(w, http.StatusBadRequest, err, "Error JSON decoding body of request", r.URL.Path)
 		return
 	}

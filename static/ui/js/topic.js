@@ -56,6 +56,7 @@ function updateTopic(form, oldTopicName) {
     }
 
     $.ajax({
+        async: false,
         type: 'PUT',
         url: 'v1/topic/' + oldTopicName,
         data: JSON.stringify(formData),
@@ -112,11 +113,9 @@ $(document).ready(function() {
                                     <label for="data_schema">Topic Schema</label>
                                     <textarea name="data_schema" class="form-control">`, schema, `</textarea>
                                 </div>
-                                <span class="input-group-btn"><button class="btn btn-default" type="submit">Update</button></span>
+                                <button class="btn btn-default" type="submit">Update</button>
                             </form>
-                            <span class="input-group-btn">
                                 <button class="btn btn-danger" data-toggle="modal" data-target="#confirm-delete" data-topic-name="`, topicName, `">Delete</button>
-                            </span>
                         </div>
 				    </div>`);
 					elem.innerHTML += inner;
