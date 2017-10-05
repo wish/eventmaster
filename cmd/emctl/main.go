@@ -20,7 +20,8 @@ func init() {
 	log.SetFlags(log.Lshortfile)
 }
 
-const usage = `emctl [(in)ject|(l)oad]`
+const usage = `emctl [(in)ject|(l)oad|(t)opic]`
+const topicUsage = `emctl topic [list]`
 
 func main() {
 	cfg, err := parseConfig()
@@ -67,6 +68,22 @@ func main() {
 		}()
 		if err := load(ctx, c, cfg.Concurrency); err != nil {
 			fmt.Fprintf(os.Stderr, "load: %v\n", err)
+			os.Exit(1)
+		}
+	case "t", "topic":
+		rest := os.Args[1:]
+		sub := ""
+		if len(rest) > 1 {
+			sub = rest[1]
+		}
+		switch sub {
+		case "ls", "list":
+			if err := listTopic(ctx, c); err != nil {
+				fmt.Fprintf(os.Stderr, "topic list: %v\n", err)
+				os.Exit(1)
+			}
+		default:
+			fmt.Fprintf(os.Stderr, "usage: %v\n", topicUsage)
 			os.Exit(1)
 		}
 	case "v", "version":
