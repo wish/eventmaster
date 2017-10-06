@@ -37,7 +37,7 @@ func inject(ctx context.Context, c pb.EventMasterClient) error {
 			if err != nil {
 				return errors.Wrap(err, "add event")
 			}
-			log.Printf("%+v", resp.Id)
+			log.Printf("%v %v %v", resp.Id, dc.DCName, topic.TopicName)
 		}
 	}
 	return nil
