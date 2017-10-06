@@ -15,7 +15,9 @@ import (
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
 
-type streamFn func(eventId string) error
+// HandleEvent defines a function for interacting with a stream of events one
+// at a time.
+type HandleEvent func(eventID string) error
 
 // DataStore defines the interface needed to be used as a backing store for
 // eventmaster.
@@ -25,7 +27,7 @@ type DataStore interface {
 	AddEvent(*Event) error
 	Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error)
 	FindByID(string, bool) (*Event, error)
-	FindIDs(*eventmaster.TimeQuery, streamFn) error
+	FindIDs(*eventmaster.TimeQuery, HandleEvent) error
 	GetTopics() ([]Topic, error)
 	AddTopic(RawTopic) error
 	UpdateTopic(RawTopic) error
@@ -436,7 +438,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 
 // FindIDs traverses the temporal space defined by q day by day and calls
 // stream function with each event ID found.
-func (c *CassandraStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
+func (c *CassandraStore) FindIDs(q *eventmaster.TimeQuery, stream HandleEvent) error {
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
 		return errors.Wrap(err, "Error getting dates from start and end time")

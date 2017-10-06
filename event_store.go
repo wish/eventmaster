@@ -295,7 +295,7 @@ func (es *EventStore) FindByID(id string) (*Event, error) {
 
 // FindIDs validates input and calls stream on all found Events using the
 // underlying DataStore.
-func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
+func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, h HandleEvent) error {
 	start := time.Now()
 	defer func() {
 		metrics.EventStoreLatency("FindIDs", start)
@@ -307,7 +307,7 @@ func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 		return errors.New("Start and end event time must be specified")
 	}
 
-	return es.ds.FindIDs(q, stream)
+	return es.ds.FindIDs(q, h)
 }
 
 // AddEvent stores event in the DataStore.

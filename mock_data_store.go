@@ -56,7 +56,7 @@ func (mds *mockDataStore) FindByID(id string, data bool) (*Event, error) {
 	return nil, errors.New("NYI")
 }
 
-func (mds *mockDataStore) FindIDs(*proto.TimeQuery, streamFn) error {
+func (mds *mockDataStore) FindIDs(*proto.TimeQuery, HandleEvent) error {
 	return errors.New("NYI")
 }
 
