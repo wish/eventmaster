@@ -94,4 +94,4 @@ $ make test
 
 ## REST API
 
-This is documented in the [api subdirectory](./api/).
+This is documented in the [documentation subdirectory](./docs/api/).
