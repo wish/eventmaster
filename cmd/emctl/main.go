@@ -20,8 +20,9 @@ func init() {
 	log.SetFlags(log.Lshortfile)
 }
 
-const usage = `emctl [(in)ject|(l)oad|(t)opic]`
+const usage = `emctl [(in)ject|(l)oad|(t)opic|dc]`
 const topicUsage = `emctl topic [list]`
+const dcUsage = `emctl dc [list]`
 
 func main() {
 	cfg, err := parseConfig()
@@ -99,7 +100,7 @@ func main() {
 				os.Exit(1)
 			}
 		default:
-			fmt.Fprintf(os.Stderr, "usage: %v\n", topicUsage)
+			fmt.Fprintf(os.Stderr, "usage: %v\n", dcUsage)
 			os.Exit(1)
 		}
 	case "v", "version":
