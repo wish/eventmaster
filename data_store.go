@@ -10,7 +10,7 @@ import (
 // A few examples include CassandraStore and MockDataStore.
 type DataStore interface {
 	AddEvent(*Event) error
-	Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error)
+	Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error)
 	FindByID(string, bool) (*Event, error)
 	FindIDs(*eventmaster.TimeQuery, HandleEvent) error
 	GetTopics() ([]Topic, error)

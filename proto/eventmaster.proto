@@ -19,8 +19,8 @@ service EventMaster {
 }
  
 message Event {
-    string event_id = 1;
-    string parent_event_id = 2;
+    string eventID = 1;
+    string parent_eventID = 2;
     int64 event_time = 3;
     string DC = 4;
     string topic_name = 5;
@@ -38,7 +38,7 @@ message Query {
     repeated string user = 4;
     repeated string topic_name = 5;
     repeated string tag_set = 6;
-    repeated string parent_event_id = 7;
+    repeated string parent_eventID = 7;
     string data = 8;
     int64 start_event_time = 9;
     int64 end_event_time = 10;
@@ -47,7 +47,7 @@ message Query {
 
     int32 start = 15;
     int32 limit = 16;
-    string event_id = 17;
+    string eventID = 17;
     bool tag_and_operator = 18;
     bool target_host_and_operator = 19;
     repeated string exclude_tag_set = 20;
@@ -65,7 +65,7 @@ message EventID {
 }
  
 message Topic {
-    string id = 1;
+    string ID = 1;
     string topic_name = 2;
     bytes data_schema = 3;
 }
@@ -99,7 +99,7 @@ message UpdateDCRequest {
 }
  
 message WriteResponse {
-    string id = 3;
+    string ID = 3;
 }
 
 message EmptyRequest {}

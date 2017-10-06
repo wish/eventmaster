@@ -41,7 +41,7 @@ func (s *GRPCServer) performOperation(method string, op func() (string, error)) 
 
 	metrics.GRPCSuccess(method)
 	return &eventmaster.WriteResponse{
-		Id: id,
+		ID: id,
 	}, nil
 }
 
@@ -57,7 +57,7 @@ func (s *GRPCServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 			return "", errors.Wrap(err, "json decode of data")
 		}
 		return s.store.AddEvent(&UnaddedEvent{
-			ParentEventID: evt.ParentEventId,
+			ParentEventID: evt.ParentEventID,
 			EventTime:     evt.EventTime,
 			DC:            evt.DC,
 			TopicName:     evt.TopicName,
@@ -91,8 +91,8 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 		return nil, errors.Wrap(err, "data json marshal")
 	}
 	return &eventmaster.Event{
-		EventId:       ev.EventID,
-		ParentEventId: ev.ParentEventID,
+		EventID:       ev.EventID,
+		ParentEventID: ev.ParentEventID,
 		EventTime:     ev.EventTime,
 		DC:            s.store.getDCName(ev.DCID),
 		TopicName:     s.store.getTopicName(ev.TopicID),
@@ -126,8 +126,8 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 			return errors.Wrap(err, "json marshal of data")
 		}
 		if err := stream.Send(&eventmaster.Event{
-			EventId:       ev.EventID,
-			ParentEventId: ev.ParentEventID,
+			EventID:       ev.EventID,
+			ParentEventID: ev.ParentEventID,
 			EventTime:     ev.EventTime,
 			DC:            s.store.getDCName(ev.DCID),
 			TopicName:     s.store.getTopicName(ev.TopicID),
@@ -241,7 +241,7 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 			}
 		}
 		topicResults = append(topicResults, &eventmaster.Topic{
-			Id:         topic.ID,
+			ID:         topic.ID,
 			TopicName:  topic.Name,
 			DataSchema: schemaBytes,
 		})

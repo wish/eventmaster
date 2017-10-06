@@ -50,7 +50,7 @@ func inject(ctx context.Context, c pb.EventMasterClient) error {
 			if err != nil {
 				return errors.Wrap(err, "add event")
 			}
-			log.Printf("%v %v %v", resp.Id, dc, topic)
+			log.Printf("%v %v %v", resp.ID, dc, topic)
 			time.Sleep(2 * time.Second)
 		}
 	}

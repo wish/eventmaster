@@ -218,8 +218,8 @@ func getDates(startEventTime int64, endEventTime int64) ([]string, error) {
 	return dates, nil
 }
 
-// Find searches using the Query, and filters topicIds and dcIds.
-func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []string) (Events, error) {
+// Find searches using the Query, and filters topicIDs and dcIDs.
+func (c *CassandraStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error getting dates from timestamps")
@@ -243,12 +243,12 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 		}
 		needsIntersection = true
 	}
-	if len(q.ParentEventId) > 0 {
-		var parentEventIds []string
-		for _, peID := range q.ParentEventId {
-			parentEventIds = append(parentEventIds, stringify(peID))
+	if len(q.ParentEventID) > 0 {
+		var parentEventIDs []string
+		for _, peID := range q.ParentEventID {
+			parentEventIDs = append(parentEventIDs, stringify(peID))
 		}
-		peIDEvts, err := c.getFromTable("event_by_parent_event_id", "parent_event_id", dates, timeFilter, parentEventIds)
+		peIDEvts, err := c.getFromTable("event_by_parent_event_id", "parent_event_id", dates, timeFilter, parentEventIDs)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error getting event ids from cassandra table")
 		}
@@ -273,8 +273,8 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 		}
 		needsIntersection = true
 	}
-	if len(topicIds) > 0 {
-		topicEvts, err := c.getFromTable("event_by_topic", "topic_id", dates, timeFilter, topicIds)
+	if len(topicIDs) > 0 {
+		topicEvts, err := c.getFromTable("event_by_topic", "topic_id", dates, timeFilter, topicIDs)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error getting event ids from cassandra table")
 		}
@@ -284,8 +284,8 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIds []string, dcIds []s
 		}
 		needsIntersection = true
 	}
-	if len(dcIds) > 0 {
-		dcEvts, err := c.getFromTable("event_by_dc", "dc_id", dates, timeFilter, dcIds)
+	if len(dcIDs) > 0 {
+		dcEvts, err := c.getFromTable("event_by_dc", "dc_id", dates, timeFilter, dcIDs)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error getting event ids from cassandra table")
 		}
