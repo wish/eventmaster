@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
@@ -61,7 +62,7 @@ func (s *Server) HandleGetEventPage(w http.ResponseWriter, r *http.Request, ps h
 	}
 	topics, err := s.store.GetTopics()
 	if err != nil {
-		s.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store, r.URL.Path", r.URL.Path)
+		http.Error(w, errors.Wrap(err, "get topics").Error(), http.StatusInternalServerError)
 		return
 	}
 	getEventQuery := GetEventPageData{

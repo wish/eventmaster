@@ -9,6 +9,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/ContextLogic/eventmaster/jh"
 	"github.com/ContextLogic/eventmaster/metrics"
 	tmpl "github.com/ContextLogic/eventmaster/templates"
 	"github.com/ContextLogic/eventmaster/ui"
@@ -75,21 +76,21 @@ func registerRoutes(srv *Server) http.Handler {
 	r := httprouter.New()
 
 	// API endpoints
-	r.POST("/v1/event", latency("/v1/event", srv.handleAddEvent))
-	r.GET("/v1/event", latency("/v1/event", srv.handleGetEvent))
-	r.GET("/v1/event/:id", latency("/v1/event", srv.handleGetEventByID))
-	r.POST("/v1/topic", latency("/v1/topic", srv.handleAddTopic))
-	r.PUT("/v1/topic/:name", latency("/v1/topic", srv.handleUpdateTopic))
-	r.GET("/v1/topic", latency("/v1/topic", srv.handleGetTopic))
-	r.DELETE("/v1/topic/:name", latency("/v1/topic", srv.handleDeleteTopic))
-	r.POST("/v1/dc", latency("/v1/dc", srv.handleAddDC))
-	r.PUT("/v1/dc/:name", latency("/v1/dc", srv.handleUpdateDC))
-	r.GET("/v1/dc", latency("/v1/dc", srv.handleGetDC))
+	r.POST("/v1/event", latency("/v1/event", jh.Adapter(srv.addEvent)))
+	r.GET("/v1/event", latency("/v1/event", jh.Adapter(srv.getEvent)))
+	r.GET("/v1/event/:id", latency("/v1/event", jh.Adapter(srv.getEventByID)))
+	r.POST("/v1/topic", latency("/v1/topic", jh.Adapter(srv.addTopic)))
+	r.PUT("/v1/topic/:name", latency("/v1/topic", jh.Adapter(srv.updateTopic)))
+	r.GET("/v1/topic", latency("/v1/topic", jh.Adapter(srv.getTopic)))
+	r.DELETE("/v1/topic/:name", latency("/v1/topic", jh.Adapter(srv.deleteTopic)))
+	r.POST("/v1/dc", latency("/v1/dc", jh.Adapter(srv.addDC)))
+	r.PUT("/v1/dc/:name", latency("/v1/dc", jh.Adapter(srv.updateDC)))
+	r.GET("/v1/dc", latency("/v1/dc", jh.Adapter(srv.getDC)))
 
-	r.GET("/v1/health", latency("/v1/health", srv.handleHealthCheck))
+	r.GET("/v1/health", latency("/v1/health", jh.Adapter(srv.healthCheck)))
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", latency("/v1/github_event", srv.handleGitHubEvent))
+	r.POST("/v1/github_event", latency("/v1/github_event", jh.Adapter(srv.gitHubEvent)))
 
 	// UI endpoints
 	r.GET("/", latency("/", srv.HandleMainPage))
@@ -126,4 +127,8 @@ func latency(prefix string, h httprouter.Handle) httprouter.Handle {
 
 		metrics.HTTPStatus(prefix, lw.Status())
 	}
+}
+
+func (srv *Server) healthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) (interface{}, error) {
+	return nil, nil
 }
