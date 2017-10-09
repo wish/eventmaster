@@ -15,7 +15,7 @@ func DBError(op string) {
 	eventStoreDbErrCounter.WithLabelValues(op).Inc()
 }
 
-// GPRC records grpc request latency for a named method.
+// GRPCLatency records grpc request latency for a named method.
 func GRPCLatency(method string, start time.Time) {
 	grpcReqLatencies.WithLabelValues(method).Observe(msSince(start))
 }
@@ -30,16 +30,17 @@ func GRPCFailure(method string) {
 	grpcRespCounter.WithLabelValues(method, "1").Inc()
 }
 
-// Rsyslog records rsyslog latency.
+// RsyslogLatency records rsyslog latency.
 func RsyslogLatency(start time.Time) {
 	rsyslogReqLatencies.WithLabelValues().Observe(msSince(start))
 }
 
-//
+// HTTPLatency records a request latency for a given url path.
 func HTTPLatency(path string, start time.Time) {
 	httpReqLatencies.WithLabelValues(path).Observe(msSince(start))
 }
 
+// HTTPStatus records counts of http statuses, bucketed according to status types.
 func HTTPStatus(path string, status int) {
 	httpStatus.WithLabelValues(path, fmt.Sprintf("%d", bucketHTTPStatus(status))).Inc()
 }

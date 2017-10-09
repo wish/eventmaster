@@ -43,7 +43,7 @@ func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 	}
 
 	fmt.Println("Connecting to cassandra:", cassandraIps)
-	session, err := cass.NewCqlSession(cassandraIps, c.Keyspace, c.Consistency, c.Timeout)
+	session, err := cass.NewCQLSession(cassandraIps, c.Keyspace, c.Consistency, c.Timeout)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating cassandra session")
 	}
