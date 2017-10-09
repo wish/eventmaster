@@ -30,16 +30,28 @@ func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {
 			q.Data = query["data"][0]
 		}
 		if startEventTime := query.Get("start_event_time"); startEventTime != "" {
-			q.StartEventTime, _ = strconv.ParseInt(startEventTime, 10, 64)
+			q.StartEventTime, err = strconv.ParseInt(startEventTime, 10, 64)
+			if err != nil {
+				return &q, errors.Wrap(err, "parse start event time")
+			}
 		}
 		if endEventTime := query.Get("end_event_time"); endEventTime != "" {
-			q.EndEventTime, _ = strconv.ParseInt(endEventTime, 10, 64)
+			q.EndEventTime, err = strconv.ParseInt(endEventTime, 10, 64)
+			if err != nil {
+				return &q, errors.Wrap(err, "parse end event time")
+			}
 		}
 		if startReceivedTime := query.Get("start_received_time"); startReceivedTime != "" {
-			q.StartReceivedTime, _ = strconv.ParseInt(startReceivedTime, 10, 64)
+			q.StartReceivedTime, err = strconv.ParseInt(startReceivedTime, 10, 64)
+			if err != nil {
+				return &q, errors.Wrap(err, "parse start received time")
+			}
 		}
 		if endReceivedTime := query.Get("end_received_time"); endReceivedTime != "" {
-			q.EndReceivedTime, _ = strconv.ParseInt(endReceivedTime, 10, 64)
+			q.EndReceivedTime, err = strconv.ParseInt(endReceivedTime, 10, 64)
+			if err != nil {
+				return &q, errors.Wrap(err, "parse end received time")
+			}
 		}
 		if start := query.Get("start"); start != "" {
 			startIndex, _ := strconv.ParseInt(start, 10, 32)
