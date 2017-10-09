@@ -2,7 +2,7 @@ BIN_DIR := $(GOPATH)/bin
 GOLINT  := $(BIN_DIR)/golint
 PGG     := $(BIN_DIR)/protoc-gen-go
 GBD     := $(BIN_DIR)/go-bindata
-PKGS    := $(shell go list ./... | grep -v vendor)
+PKGS    := $(shell go list ./... | grep -v vendor | grep -v ui$ | grep -v templates$ )
 BINARY  := $(BIN_DIR)/bin/eventmaster
 
 VERSION := $(shell git describe --tags 2> /dev/null || echo "unreleased")
@@ -25,12 +25,12 @@ proto/eventmaster.pb.go: $(PGG) proto/eventmaster.proto
 
 .PHONY: test
 test: deps proto/eventmaster.pb.go ui/ui.go templates/templates.go
-	@go test ${PGKS}
+	@go test -cover ${PKGS}
 
 .PHONY: lint
 lint: deps $(GOLINT)
-	@go vet .
-	@golint -set_exit_status .
+	@go vet ${PKGS}
+	@golint -set_exit_status ${PKGS}
 
 # TODO: golint and protoc-gen-go are fetched from master still; should pin them down.
 $(GOLINT):
