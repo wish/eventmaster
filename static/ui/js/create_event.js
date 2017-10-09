@@ -39,7 +39,7 @@ function submitForm(form) {
 			alert("Event added: " + data["event_id"])
 		},
 		error: function(data) {
-			alert("Error adding event: " + data.responseText);
+			alert("Error adding event: " + JSON.parse(data.responseText).error);
 		}
 	});
 	return false;

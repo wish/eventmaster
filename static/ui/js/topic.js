@@ -38,7 +38,7 @@ function submitTopic(form) {
 			window.location.reload();
 		},
 		error: function(data) {
-			alert("Error adding topic: " + data.responseText);
+			alert("Error adding topic: " + JSON.parse(data.responseText).error);
 		}
 	});
 
@@ -66,7 +66,7 @@ function updateTopic(form, oldTopicName) {
             window.location.reload();
         },
         error: function(data) {
-            alert("Error updating topic: " + data.responseText);
+            alert("Error updating topic: " + JSON.parse(data.responseText).error);
         }
     });
 }
@@ -80,7 +80,7 @@ function deleteTopic(topicName) {
             window.location.reload();
         },
         error: function(data) {
-            alert("Error deleting topic: " + data.responseText);
+            alert("Error deleting topic: " + JSON.parse(data.responseText).error);
         }
     });
 }

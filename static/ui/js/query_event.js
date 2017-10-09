@@ -41,7 +41,7 @@ function updateResults() {
             },
             error: function(data) {
                 querySuccess = false;
-                alert("Error querying events: " + data.responseText);
+                alert("Error querying events: " + JSON.parse(data.responseText).error);
             },
             complete: function(data) {
                 $('#loading-indicator').hide();
@@ -83,7 +83,7 @@ function updateResults() {
             },
             error: function(data) {
                 querySuccess = false;
-                alert("Error querying events: " + data.responseText);
+                alert("Error querying events: " + JSON.parse(data.responseText).error);
             },
             complete: function(data) {
                 $('#loading-indicator').hide();
@@ -186,7 +186,7 @@ function hideData(row) {
                 }
             },
             error: function(data) {
-                alert("Error getting event data: " + data.responseText);
+                alert("Error getting event data: " + JSON.parse(data.responseText).error);
             },
         });
     }
