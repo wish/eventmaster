@@ -1,6 +1,8 @@
 package eventmaster
 
 import (
+	"encoding/json"
+	"log"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -111,6 +113,46 @@ func registerRoutes(srv *Server) http.Handler {
 	r.Handler("GET", "/ui/*filepath", http.FileServer(srv.ui))
 
 	r.GET("/version/", latency("/version/", srv.version))
+
+	r.PanicHandler = func(w http.ResponseWriter, req *http.Request, i interface{}) {
+		metrics.HTTPStatus("panic", http.StatusInternalServerError)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		e := struct {
+			E string `json:"error"`
+		}{"server panicked"}
+		if err := json.NewEncoder(w).Encode(&e); err != nil {
+			log.Printf("json encode: %v", err)
+		}
+	}
+
+	r.NotFound = func(w http.ResponseWriter, req *http.Request) {
+		log.Printf("not found: %+v", req.URL.Path)
+		metrics.HTTPStatus(http.StatusText(http.StatusNotFound), http.StatusNotFound)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		e := struct {
+			E string `json:"error"`
+		}{"not found"}
+		if err := json.NewEncoder(w).Encode(&e); err != nil {
+			log.Printf("json encode: %v", err)
+		}
+	}
+
+	r.MethodNotAllowed = func(w http.ResponseWriter, req *http.Request) {
+		metrics.HTTPStatus(http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		e := struct {
+			E string `json:"error"`
+		}{"method not allowed"}
+		if err := json.NewEncoder(w).Encode(&e); err != nil {
+			log.Printf("json encode: %v", err)
+		}
+	}
 
 	return r
 }
