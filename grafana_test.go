@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,10 +11,6 @@ import (
 
 	"github.com/pkg/errors"
 )
-
-func init() {
-	log.SetFlags(log.Lshortfile)
-}
 
 func TestGrafanaAddDataSource(t *testing.T) {
 	store, err := GetTestEventStore(NewNoOpDataStore())

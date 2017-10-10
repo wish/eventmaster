@@ -8,6 +8,7 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	cass "github.com/ContextLogic/eventmaster/cassandra"
 	servicelookup "github.com/ContextLogic/goServiceLookup/servicelookup"
@@ -42,7 +43,7 @@ func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 		cassandraIps = c.Addrs
 	}
 
-	fmt.Println("Connecting to cassandra:", cassandraIps)
+	log.Infof("Connecting to cassandra: %v", cassandraIps)
 	session, err := cass.NewCQLSession(cassandraIps, c.Keyspace, c.Consistency, c.Timeout)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating cassandra session")
@@ -320,7 +321,7 @@ func (c *CassandraStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []s
 		go func(eID string) {
 			evt, err := c.FindByID(eID, false)
 			if err != nil {
-				fmt.Println("Error closing cassandra iter on read:", err)
+				log.Errorf("Error closing cassandra iter on read: %v", err)
 				ch <- nil
 			} else {
 				ch <- evt

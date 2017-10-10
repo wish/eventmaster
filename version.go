@@ -3,11 +3,11 @@ package eventmaster
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
 	"github.com/julienschmidt/httprouter"
+	log "github.com/sirupsen/logrus"
 )
 
 // Version maps to tagged releases of the software.
@@ -26,7 +26,7 @@ func (h *Server) version(w http.ResponseWriter, req *http.Request, p httprouter.
 		Git:     Git,
 	}
 	if err := json.NewEncoder(w).Encode(&r); err != nil {
-		log.Printf("json encode: %+v", err)
+		log.Errorf("json encode: %v", err)
 	}
 }
 

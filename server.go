@@ -2,7 +2,6 @@ package eventmaster
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -10,6 +9,7 @@ import (
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ContextLogic/eventmaster/jh"
 	"github.com/ContextLogic/eventmaster/metrics"
