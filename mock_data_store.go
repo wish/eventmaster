@@ -1,8 +1,11 @@
 package eventmaster
 
 import (
+	"net/http"
+
 	"github.com/pkg/errors"
 
+	"github.com/ContextLogic/eventmaster/jh"
 	proto "github.com/ContextLogic/eventmaster/proto"
 )
 
@@ -87,7 +90,17 @@ func (mds *mockDataStore) AddDC(dc DC) error {
 }
 
 func (mds *mockDataStore) UpdateDC(id, newName string) error {
-	return errors.New("NYI")
+	changed := false
+	for i := range mds.dcs {
+		if mds.dcs[i].ID == id {
+			mds.dcs[i].Name = newName
+			changed = true
+		}
+	}
+	if !changed {
+		return jh.NewError("id not found", http.StatusNotFound)
+	}
+	return nil
 }
 
 func (mds *mockDataStore) CloseSession() {}

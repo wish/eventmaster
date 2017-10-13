@@ -23,7 +23,7 @@ func (s *Server) addDC(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	if err != nil {
 		return nil, jh.Wrap(err, "add dc")
 	}
-	return map[string]string{"dc_id": id}, nil
+	return jh.NewSuccess(map[string]string{"dc_id": id}, http.StatusCreated), nil
 }
 
 func (s *Server) getDC(w http.ResponseWriter, r *http.Request, _ httprouter.Params) (interface{}, error) {
@@ -41,6 +41,8 @@ func (s *Server) updateDC(w http.ResponseWriter, r *http.Request, ps httprouter.
 	}
 	dcName := ps.ByName("name")
 	if dcName == "" {
+		// This *ought* to be ureachable code; if someone does a PUT without
+		// the trailing name they'll get http.StatusMethodNotAllowed
 		return nil, jh.NewError(errors.New("Must include dc name in request").Error(), http.StatusBadRequest)
 	}
 
