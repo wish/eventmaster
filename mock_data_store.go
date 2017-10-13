@@ -73,11 +73,34 @@ func (mds *mockDataStore) AddTopic(rt RawTopic) error {
 }
 
 func (mds *mockDataStore) UpdateTopic(rt RawTopic) error {
-	return errors.New("NYI")
+	changed := false
+	for i := range mds.topics {
+		if mds.topics[i].ID == rt.ID {
+			mds.topics[i].Name = rt.Name
+			changed = true
+		}
+	}
+	if !changed {
+		return jh.NewError("id not found", http.StatusNotFound)
+	}
+	return nil
 }
 
-func (mds *mockDataStore) DeleteTopic(string) error {
-	return errors.New("NYI")
+func (mds *mockDataStore) DeleteTopic(id string) error {
+	changed := false
+	ts := []Topic{}
+	for i := range mds.topics {
+		if mds.topics[i].ID != id {
+			ts = append(ts, mds.topics[i])
+		} else {
+			changed = true
+		}
+	}
+	mds.topics = ts
+	if !changed {
+		return jh.NewError("id not found", http.StatusNotFound)
+	}
+	return nil
 }
 
 func (mds *mockDataStore) GetDCs() ([]DC, error) {

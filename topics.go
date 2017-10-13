@@ -25,7 +25,7 @@ func (s *Server) addTopic(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	if err != nil {
 		return nil, jh.Wrap(err, "add topic")
 	}
-	return map[string]string{"topic_id": id}, nil
+	return jh.NewSuccess(map[string]string{"topic_id": id}, http.StatusCreated), nil
 }
 
 func (s *Server) getTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) (interface{}, error) {
