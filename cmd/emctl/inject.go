@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"os/user"
+	"sort"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -24,11 +26,22 @@ func inject(ctx context.Context, c pb.EventMasterClient) error {
 		return errors.Wrap(err, "getting topics")
 	}
 
+	ds, ts := []string{}, []string{}
 	for _, dc := range dcs.Results {
-		for _, topic := range topics.Results {
+		ds = append(ds, dc.DCName)
+	}
+	for _, tc := range topics.Results {
+		ts = append(ts, tc.TopicName)
+	}
+
+	sort.Strings(ds)
+	sort.Strings(ts)
+
+	for _, dc := range ds {
+		for _, topic := range ts {
 			e := &pb.Event{
-				DC:        dc.DCName,
-				TopicName: topic.TopicName,
+				DC:        dc,
+				TopicName: topic,
 				Host:      "inject.emctl.i.wish.com",
 				TagSet:    []string{"a", "b"},
 				User:      u.Username,
@@ -37,7 +50,8 @@ func inject(ctx context.Context, c pb.EventMasterClient) error {
 			if err != nil {
 				return errors.Wrap(err, "add event")
 			}
-			log.Printf("%+v", resp.Id)
+			log.Printf("%v %v %v", resp.ID, dc, topic)
+			time.Sleep(2 * time.Second)
 		}
 	}
 	return nil

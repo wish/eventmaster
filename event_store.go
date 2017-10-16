@@ -3,6 +3,7 @@ package eventmaster
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/ContextLogic/eventmaster/jh"
 	"github.com/ContextLogic/eventmaster/metrics"
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
@@ -295,7 +297,7 @@ func (es *EventStore) FindByID(id string) (*Event, error) {
 
 // FindIDs validates input and calls stream on all found Events using the
 // underlying DataStore.
-func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
+func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, h HandleEvent) error {
 	start := time.Now()
 	defer func() {
 		metrics.EventStoreLatency("FindIDs", start)
@@ -307,7 +309,7 @@ func (es *EventStore) FindIDs(q *eventmaster.TimeQuery, stream streamFn) error {
 		return errors.New("Start and end event time must be specified")
 	}
 
-	return es.ds.FindIDs(q, stream)
+	return es.ds.FindIDs(q, h)
 }
 
 // AddEvent stores event in the DataStore.
@@ -319,7 +321,7 @@ func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 
 	evt, err := es.augmentEvent(event)
 	if err != nil {
-		return "", errors.Wrap(err, "Error augmenting event")
+		return "", jh.NewError(errors.Wrap(err, "augmenting event").Error(), http.StatusBadRequest)
 	}
 
 	if err = es.ds.AddEvent(evt); err != nil {
@@ -339,7 +341,7 @@ func (es *EventStore) GetTopics() ([]Topic, error) {
 	topics, err := es.ds.GetTopics()
 	if err != nil {
 		metrics.DBError("read")
-		return nil, errors.Wrap(err, "Error getting topics from data source")
+		return nil, errors.Wrap(err, "data source")
 	}
 	return topics, nil
 }
@@ -354,7 +356,7 @@ func (es *EventStore) GetDCs() ([]DC, error) {
 	dcs, err := es.ds.GetDCs()
 	if err != nil {
 		metrics.DBError("read")
-		return nil, errors.Wrap(err, "Error deleting topic from data source")
+		return nil, errors.Wrap(err, "get dcs from datastore")
 	}
 	return dcs, nil
 }
@@ -372,21 +374,21 @@ func (es *EventStore) AddTopic(topic Topic) (string, error) {
 	if name == "" {
 		return "", errors.New("Topic name cannot be empty")
 	} else if es.getTopicID(name) != "" {
-		return "", errors.New("Topic with name already exists")
+		return "", jh.NewError(errors.New("Topic with name already exists").Error(), http.StatusConflict)
 	}
 
 	schemaStr := "{}"
 	if schema != nil {
 		schemaBytes, err := json.Marshal(schema)
 		if err != nil {
-			return "", errors.Wrap(err, "Error marshalling schema into json")
+			return "", jh.NewError(errors.Wrap(err, "Error marshalling schema into json").Error(), http.StatusBadRequest)
 		}
 		schemaStr = string(schemaBytes)
 	}
 
 	jsonSchema, ok := es.validateSchema(schemaStr)
 	if !ok {
-		return "", errors.New("Error adding topic - schema is not in valid JSON format")
+		return "", jh.NewError(errors.New("Error adding topic - schema is not in valid JSON format").Error(), http.StatusBadRequest)
 	}
 
 	id := uuid.NewV4().String()
@@ -486,7 +488,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 	topicName := strings.ToLower(deleteReq.TopicName)
 	id := es.getTopicID(topicName)
 	if id == "" {
-		return errors.New("Couldn't find topic id for topic:" + topicName)
+		return jh.NewError(errors.Errorf("could not find id for topic: %v", topicName).Error(), http.StatusNotFound)
 	}
 
 	if err := es.ds.DeleteTopic(id); err != nil {
@@ -513,11 +515,11 @@ func (es *EventStore) AddDC(dc *eventmaster.DC) (string, error) {
 
 	name := strings.ToLower(dc.DCName)
 	if name == "" {
-		return "", errors.New("Error adding dc - dc name is empty")
+		return "", jh.NewError(errors.New("dc name empty").Error(), http.StatusBadRequest)
 	}
 	id := es.getDCID(name)
 	if id != "" {
-		return "", fmt.Errorf("Error adding dc - dc with name %s already exists", dc)
+		return "", jh.NewError(fmt.Errorf("Error adding dc - dc with name %s already exists", dc).Error(), http.StatusConflict)
 	}
 
 	id = uuid.NewV4().String()
@@ -549,19 +551,19 @@ func (es *EventStore) UpdateDC(updateReq *eventmaster.UpdateDCRequest) (string, 
 	newName := strings.ToLower(updateReq.NewName)
 
 	if newName == "" {
-		return "", errors.New("DC name cannot be empty")
+		return "", jh.NewError(errors.New("dc name empty").Error(), http.StatusBadRequest)
 	}
 	if oldName == newName {
-		return "", errors.New("There are no changes to be made")
+		return "", jh.NewError(errors.New("no changes to be made").Error(), http.StatusBadRequest)
 	}
 
 	id := es.getDCID(newName)
 	if id != "" {
-		return "", fmt.Errorf("Error updating dc - dc with name %s already exists", newName)
+		return "", jh.NewError(fmt.Errorf("dc with name %v already exists", newName).Error(), http.StatusConflict)
 	}
 	id = es.getDCID(oldName)
 	if id == "" {
-		return "", fmt.Errorf("Error updating dc - dc with name %s doesn't exist", oldName)
+		return "", jh.NewError(fmt.Errorf("Error updating dc - dc with name %s doesn't exist", oldName).Error(), http.StatusNotFound)
 	}
 	if err := es.ds.UpdateDC(id, newName); err != nil {
 		metrics.DBError("write")

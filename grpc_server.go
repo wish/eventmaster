@@ -2,7 +2,6 @@ package eventmaster
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,13 +34,12 @@ func (s *GRPCServer) performOperation(method string, op func() (string, error)) 
 	id, err := op()
 	if err != nil {
 		metrics.GRPCFailure(method)
-		fmt.Println("Error performing operation", method, err)
 		return nil, errors.Wrapf(err, "operation %v", method)
 	}
 
 	metrics.GRPCSuccess(method)
 	return &eventmaster.WriteResponse{
-		Id: id,
+		ID: id,
 	}, nil
 }
 
@@ -57,7 +55,7 @@ func (s *GRPCServer) AddEvent(ctx context.Context, evt *eventmaster.Event) (*eve
 			return "", errors.Wrap(err, "json decode of data")
 		}
 		return s.store.AddEvent(&UnaddedEvent{
-			ParentEventID: evt.ParentEventId,
+			ParentEventID: evt.ParentEventID,
 			EventTime:     evt.EventTime,
 			DC:            evt.DC,
 			TopicName:     evt.TopicName,
@@ -81,18 +79,16 @@ func (s *GRPCServer) GetEventByID(ctx context.Context, id *eventmaster.EventID) 
 	ev, err := s.store.FindByID(id.EventID)
 	if err != nil {
 		metrics.GRPCFailure(name)
-		fmt.Println("Error performing event store find", err)
 		return nil, errors.Wrapf(err, "could not find by id", id.EventID)
 	}
 	d, err := json.Marshal(ev.Data)
 	if err != nil {
 		metrics.GRPCFailure(name)
-		fmt.Println("Error marshalling event data into JSON", err)
 		return nil, errors.Wrap(err, "data json marshal")
 	}
 	return &eventmaster.Event{
-		EventId:       ev.EventID,
-		ParentEventId: ev.ParentEventID,
+		EventID:       ev.EventID,
+		ParentEventID: ev.ParentEventID,
 		EventTime:     ev.EventTime,
 		DC:            s.store.getDCName(ev.DCID),
 		TopicName:     s.store.getTopicName(ev.TopicID),
@@ -115,19 +111,17 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 	events, err := s.store.Find(q)
 	if err != nil {
 		metrics.GRPCFailure(name)
-		fmt.Println("Error performing event store find", err)
 		return errors.Wrapf(err, "unable to find %v", q)
 	}
 	for _, ev := range events {
 		d, err := json.Marshal(ev.Data)
 		if err != nil {
 			metrics.GRPCFailure(name)
-			fmt.Println("Error marshalling event data into JSON", err)
 			return errors.Wrap(err, "json marshal of data")
 		}
 		if err := stream.Send(&eventmaster.Event{
-			EventId:       ev.EventID,
-			ParentEventId: ev.ParentEventID,
+			EventID:       ev.EventID,
+			ParentEventID: ev.ParentEventID,
 			EventTime:     ev.EventTime,
 			DC:            s.store.getDCName(ev.DCID),
 			TopicName:     s.store.getTopicName(ev.TopicID),
@@ -138,7 +132,6 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 			Data:          d,
 		}); err != nil {
 			metrics.GRPCFailure(name)
-			fmt.Println("Error streaming event to grpc client", err)
 			return errors.Wrap(err, "stream send")
 		}
 	}
@@ -204,7 +197,6 @@ func (s *GRPCServer) DeleteTopic(ctx context.Context, t *eventmaster.DeleteTopic
 	err := s.store.DeleteTopic(t)
 	if err != nil {
 		metrics.GRPCFailure(name)
-		fmt.Println("Error deleting topic: ", err)
 		return nil, errors.Wrap(err, "delete topic")
 	}
 	metrics.GRPCSuccess(name)
@@ -222,7 +214,6 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 	topics, err := s.store.GetTopics()
 	if err != nil {
 		metrics.GRPCFailure(name)
-		fmt.Println("Error getting topics: ", err)
 		return nil, errors.Wrap(err, "get topics")
 	}
 
@@ -236,12 +227,11 @@ func (s *GRPCServer) GetTopics(ctx context.Context, _ *eventmaster.EmptyRequest)
 			schemaBytes, err = json.Marshal(topic.Schema)
 			if err != nil {
 				metrics.GRPCFailure(name)
-				fmt.Println("Error marshalling topic schema: ", err)
 				return nil, errors.Wrap(err, "json marshal of schema")
 			}
 		}
 		topicResults = append(topicResults, &eventmaster.Topic{
-			Id:         topic.ID,
+			ID:         topic.ID,
 			TopicName:  topic.Name,
 			DataSchema: schemaBytes,
 		})
@@ -277,7 +267,6 @@ func (s *GRPCServer) GetDCs(ctx context.Context, _ *eventmaster.EmptyRequest) (*
 	dcs, err := s.store.GetDCs()
 	if err != nil {
 		metrics.GRPCFailure(name)
-		fmt.Println("Error getting topics: ", err)
 		return nil, errors.Wrap(err, "get dcs")
 	}
 

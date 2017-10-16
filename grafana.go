@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )

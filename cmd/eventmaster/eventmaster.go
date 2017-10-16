@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	flags "github.com/jessevdk/go-flags"
+	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -63,7 +63,7 @@ func main() {
 		log.Fatalf("Unable to create event store: %v", err)
 	}
 	if err := store.Update(); err != nil {
-		fmt.Println("Error loading dcs and topics from Cassandra", err)
+		log.Errorf("Error loading dcs and topics from cassandra: %v", err)
 	}
 
 	// Create listening socket for grpc server
@@ -115,7 +115,7 @@ func main() {
 	go grpcS.Serve(grpcL)
 
 	go func() {
-		fmt.Println("Starting server on port", config.Port)
+		log.Printf("Starting server on port %d", config.Port)
 		if err := mux.Serve(); err != nil {
 			log.Fatalf("Error starting server: %v", err)
 		}
@@ -125,7 +125,7 @@ func main() {
 	go func() {
 		for range updateTicker.C {
 			if err := store.Update(); err != nil {
-				fmt.Println("Error updating dcs and topics from cassandra:", err)
+				log.Errorf("Error loading dcs and topics from cassandra: %v", err)
 			}
 		}
 	}()
@@ -143,7 +143,7 @@ func main() {
 	signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
 
 	<-stopChan
-	fmt.Println("Got shutdown signal, gracefully shutting down...")
+	log.Info("Got shutdown signal, gracefully shutting down")
 	updateTicker.Stop()
 	store.CloseSession()
 	grpcS.GracefulStop()

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ContextLogic/eventmaster/metrics"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 // RsyslogServer implements an rsyslog endpoint.
@@ -63,7 +64,7 @@ func NewRsyslogServer(s *EventStore, tlsConfig *tls.Config, port int) (*RsyslogS
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating net listener")
 	}
-	fmt.Println("Starting rsyslog server on port", port)
+	log.Infof("Starting rsyslog server on port: %v", port)
 
 	return &RsyslogServer{
 		lis:   lis,
@@ -80,13 +81,13 @@ func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 	buf := make([]byte, 20000)
 	_, err := conn.Read(buf)
 	if err != nil {
-		fmt.Println("Error reading log:", err.Error())
+		log.Errorf("Error reading log: %v", err)
 	}
 	defer conn.Close()
 
 	logs := strings.Split(string(buf), "\n")
-	for _, log := range logs {
-		parts := strings.Split(log, "^0")
+	for _, lg := range logs {
+		parts := strings.Split(lg, "^0")
 		if len(parts) < 5 {
 			continue
 		}
@@ -94,7 +95,7 @@ func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 		var timestamp int64
 		timeObj, err := time.Parse(time.RFC3339, parts[0])
 		if err != nil {
-			fmt.Println("Error parsing timestamp, using current timestamp", err)
+			log.Errorf("Error parsing timestamp, using current timestamp: %v", err)
 			timestamp = time.Now().Unix()
 		} else {
 			timestamp = timeObj.Unix()
@@ -105,10 +106,10 @@ func (s *RsyslogServer) handleLogRequest(conn net.Conn) {
 			_, err = s.store.AddEvent(evt)
 			if err != nil {
 				// TODO: keep metric on this, add to queue of events to retry?
-				fmt.Println("Error adding log event", err)
+				log.Errorf("Error adding log event: %v", err)
 			}
 		} else {
-			fmt.Println("unrecognized log type, won't be added:", topic)
+			log.Errorf("unrecognized log type, won't be added: %v", topic)
 		}
 	}
 }
@@ -121,7 +122,7 @@ func (s *RsyslogServer) AcceptLogs() {
 			conn, err := s.lis.Accept()
 			if err != nil {
 				// TODO: add stats on error
-				fmt.Println("Error accepting logs:", err.Error())
+				log.Errorf("Error accepting logs: %v", err)
 			}
 
 			// TODO: gate how many outstanding requests can be launched?

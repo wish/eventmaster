@@ -6,20 +6,29 @@ import (
 	"github.com/gocql/gocql"
 )
 
+// Session is an interface that describes the surface area of interacting with
+// a cassandra store.
 type Session interface {
 	ExecQuery(string) error
 	ExecIterQuery(query string) (ScanIter, CloseIter)
 	Close()
 }
 
-type CqlSession struct {
+// CQLSession implements a session to cassandra.
+type CQLSession struct {
 	session *gocql.Session
 }
 
+// ScanIter defines the function type returned from ExecIterQuery.
 type ScanIter func(...interface{}) bool
+
+// CloseIter is a type returned from ExecIterQuery. When used it wraps the
+// close of the underlying iterator.
 type CloseIter func() error
 
-func NewCqlSession(ips []string, keyspace string, consistency string, timeout string) (*CqlSession, error) {
+// NewCQLSession returns a populated CQLSession struct, or an error using the
+// underlying cassandra driver.
+func NewCQLSession(ips []string, keyspace string, consistency string, timeout string) (*CQLSession, error) {
 	cluster := gocql.NewCluster(ips...)
 	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.ParseConsistency(consistency)
@@ -34,16 +43,19 @@ func NewCqlSession(ips []string, keyspace string, consistency string, timeout st
 		return nil, err
 	}
 
-	return &CqlSession{
+	return &CQLSession{
 		session: s,
 	}, nil
 }
 
-func (s *CqlSession) ExecQuery(query string) error {
+// ExecQuery executes the provided query against the underlying cassandra
+// session.
+func (s *CQLSession) ExecQuery(query string) error {
 	return s.session.Query(query).Exec()
 }
 
-func (s *CqlSession) ExecIterQuery(query string) (ScanIter, CloseIter) {
+// ExecIterQuery performs an iterated query against the underlying session.
+func (s *CQLSession) ExecIterQuery(query string) (ScanIter, CloseIter) {
 	iter := s.session.Query(query).Iter()
 
 	return func(dest ...interface{}) bool {
@@ -53,19 +65,23 @@ func (s *CqlSession) ExecIterQuery(query string) (ScanIter, CloseIter) {
 		}
 }
 
-func (s *CqlSession) Close() {
+// Close closes the underlying cassandra session.
+func (s *CQLSession) Close() {
 	s.session.Close()
 }
 
+// MockCassSession is used in testing.
 type MockCassSession struct {
 	query string
 }
 
+// ExecQuery implements the interface for testing.
 func (s *MockCassSession) ExecQuery(query string) error {
 	s.query = query
 	return nil
 }
 
+// ExecIterQuery implements the interface for testing.
 func (s *MockCassSession) ExecIterQuery(query string) (ScanIter, CloseIter) {
 	s.query = query
 	return func(dest ...interface{}) bool {
@@ -76,8 +92,10 @@ func (s *MockCassSession) ExecIterQuery(query string) (ScanIter, CloseIter) {
 		}
 }
 
+// Close implements the interface for testing.
 func (s *MockCassSession) Close() {}
 
+// LastQuery is used during tests to validate the generated query.
 func (s *MockCassSession) LastQuery() string {
 	return s.query
 }

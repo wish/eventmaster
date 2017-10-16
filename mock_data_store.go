@@ -1,8 +1,11 @@
 package eventmaster
 
 import (
+	"net/http"
+
 	"github.com/pkg/errors"
 
+	"github.com/ContextLogic/eventmaster/jh"
 	proto "github.com/ContextLogic/eventmaster/proto"
 )
 
@@ -56,7 +59,7 @@ func (mds *mockDataStore) FindByID(id string, data bool) (*Event, error) {
 	return nil, errors.New("NYI")
 }
 
-func (mds *mockDataStore) FindIDs(*proto.TimeQuery, streamFn) error {
+func (mds *mockDataStore) FindIDs(*proto.TimeQuery, HandleEvent) error {
 	return errors.New("NYI")
 }
 
@@ -70,11 +73,34 @@ func (mds *mockDataStore) AddTopic(rt RawTopic) error {
 }
 
 func (mds *mockDataStore) UpdateTopic(rt RawTopic) error {
-	return errors.New("NYI")
+	changed := false
+	for i := range mds.topics {
+		if mds.topics[i].ID == rt.ID {
+			mds.topics[i].Name = rt.Name
+			changed = true
+		}
+	}
+	if !changed {
+		return jh.NewError("id not found", http.StatusNotFound)
+	}
+	return nil
 }
 
-func (mds *mockDataStore) DeleteTopic(string) error {
-	return errors.New("NYI")
+func (mds *mockDataStore) DeleteTopic(id string) error {
+	changed := false
+	ts := []Topic{}
+	for i := range mds.topics {
+		if mds.topics[i].ID != id {
+			ts = append(ts, mds.topics[i])
+		} else {
+			changed = true
+		}
+	}
+	mds.topics = ts
+	if !changed {
+		return jh.NewError("id not found", http.StatusNotFound)
+	}
+	return nil
 }
 
 func (mds *mockDataStore) GetDCs() ([]DC, error) {
@@ -87,7 +113,17 @@ func (mds *mockDataStore) AddDC(dc DC) error {
 }
 
 func (mds *mockDataStore) UpdateDC(id, newName string) error {
-	return errors.New("NYI")
+	changed := false
+	for i := range mds.dcs {
+		if mds.dcs[i].ID == id {
+			mds.dcs[i].Name = newName
+			changed = true
+		}
+	}
+	if !changed {
+		return jh.NewError("id not found", http.StatusNotFound)
+	}
+	return nil
 }
 
 func (mds *mockDataStore) CloseSession() {}

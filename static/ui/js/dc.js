@@ -21,7 +21,7 @@ function submitDC(form) {
 			window.location.reload();
 		},
 		error: function(data) {
-			alert("Error adding dc: " + data.responseText);
+			alert("Error adding dc: " + JSON.parse(data.responseText).error);
 		}
 	});
 	return false;
@@ -40,7 +40,7 @@ function updateDC(form, oldDC) {
             window.location.reload();
         },
         error: function(data) {
-            alert("Error adding dc: " + data.responseText);
+            alert("Error adding dc: " + JSON.parse(data.responseText).error);
         }
     });
     return false;

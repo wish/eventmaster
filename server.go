@@ -1,6 +1,7 @@
 package eventmaster
 
 import (
+	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -8,7 +9,9 @@ import (
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 
+	"github.com/ContextLogic/eventmaster/jh"
 	"github.com/ContextLogic/eventmaster/metrics"
 	tmpl "github.com/ContextLogic/eventmaster/templates"
 	"github.com/ContextLogic/eventmaster/ui"
@@ -75,21 +78,21 @@ func registerRoutes(srv *Server) http.Handler {
 	r := httprouter.New()
 
 	// API endpoints
-	r.POST("/v1/event", latency("/v1/event", srv.handleAddEvent))
-	r.GET("/v1/event", latency("/v1/event", srv.handleGetEvent))
-	r.GET("/v1/event/:id", latency("/v1/event", srv.handleGetEventByID))
-	r.POST("/v1/topic", latency("/v1/topic", srv.handleAddTopic))
-	r.PUT("/v1/topic/:name", latency("/v1/topic", srv.handleUpdateTopic))
-	r.GET("/v1/topic", latency("/v1/topic", srv.handleGetTopic))
-	r.DELETE("/v1/topic/:name", latency("/v1/topic", srv.handleDeleteTopic))
-	r.POST("/v1/dc", latency("/v1/dc", srv.handleAddDC))
-	r.PUT("/v1/dc/:name", latency("/v1/dc", srv.handleUpdateDC))
-	r.GET("/v1/dc", latency("/v1/dc", srv.handleGetDC))
+	r.POST("/v1/event", latency("/v1/event", jh.Adapter(srv.addEvent)))
+	r.GET("/v1/event", latency("/v1/event", jh.Adapter(srv.getEvent)))
+	r.GET("/v1/event/:id", latency("/v1/event", jh.Adapter(srv.getEventByID)))
+	r.POST("/v1/topic", latency("/v1/topic", jh.Adapter(srv.addTopic)))
+	r.PUT("/v1/topic/:name", latency("/v1/topic", jh.Adapter(srv.updateTopic)))
+	r.GET("/v1/topic", latency("/v1/topic", jh.Adapter(srv.getTopic)))
+	r.DELETE("/v1/topic/:name", latency("/v1/topic", jh.Adapter(srv.deleteTopic)))
+	r.POST("/v1/dc", latency("/v1/dc", jh.Adapter(srv.addDC)))
+	r.PUT("/v1/dc/:name", latency("/v1/dc", jh.Adapter(srv.updateDC)))
+	r.GET("/v1/dc", latency("/v1/dc", jh.Adapter(srv.getDC)))
 
-	r.GET("/v1/health", latency("/v1/health", srv.handleHealthCheck))
+	r.GET("/v1/health", latency("/v1/health", jh.Adapter(srv.healthCheck)))
 
 	// GitHub webhook endpoint
-	r.POST("/v1/github_event", latency("/v1/github_event", srv.handleGitHubEvent))
+	r.POST("/v1/github_event", latency("/v1/github_event", jh.Adapter(srv.gitHubEvent)))
 
 	// UI endpoints
 	r.GET("/", latency("/", srv.HandleMainPage))
@@ -111,6 +114,46 @@ func registerRoutes(srv *Server) http.Handler {
 
 	r.GET("/version/", latency("/version/", srv.version))
 
+	r.PanicHandler = func(w http.ResponseWriter, req *http.Request, i interface{}) {
+		metrics.HTTPStatus("panic", http.StatusInternalServerError)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		e := struct {
+			E string `json:"error"`
+		}{"server panicked"}
+		if err := json.NewEncoder(w).Encode(&e); err != nil {
+			log.Printf("json encode: %v", err)
+		}
+	}
+
+	r.NotFound = func(w http.ResponseWriter, req *http.Request) {
+		log.Printf("not found: %+v", req.URL.Path)
+		metrics.HTTPStatus(http.StatusText(http.StatusNotFound), http.StatusNotFound)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		e := struct {
+			E string `json:"error"`
+		}{"not found"}
+		if err := json.NewEncoder(w).Encode(&e); err != nil {
+			log.Printf("json encode: %v", err)
+		}
+	}
+
+	r.MethodNotAllowed = func(w http.ResponseWriter, req *http.Request) {
+		metrics.HTTPStatus(http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		e := struct {
+			E string `json:"error"`
+		}{"method not allowed"}
+		if err := json.NewEncoder(w).Encode(&e); err != nil {
+			log.Printf("json encode: %v", err)
+		}
+	}
+
 	return r
 }
 
@@ -126,4 +169,8 @@ func latency(prefix string, h httprouter.Handle) httprouter.Handle {
 
 		metrics.HTTPStatus(prefix, lw.Status())
 	}
+}
+
+func (srv *Server) healthCheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) (interface{}, error) {
+	return nil, nil
 }

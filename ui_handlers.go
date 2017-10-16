@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	eventmaster "github.com/ContextLogic/eventmaster/proto"
 )
@@ -39,7 +41,7 @@ type GetEventPageData struct {
 
 func executeTemplate(w http.ResponseWriter, t *template.Template, data interface{}) {
 	if err := t.Execute(w, data); err != nil {
-		fmt.Println("Error executing template:", err)
+		log.Errorf("Error executing template: %v", err)
 	}
 }
 
@@ -61,7 +63,7 @@ func (s *Server) HandleGetEventPage(w http.ResponseWriter, r *http.Request, ps h
 	}
 	topics, err := s.store.GetTopics()
 	if err != nil {
-		s.sendError(w, http.StatusInternalServerError, err, "Error getting topics from store, r.URL.Path", r.URL.Path)
+		http.Error(w, errors.Wrap(err, "get topics").Error(), http.StatusInternalServerError)
 		return
 	}
 	getEventQuery := GetEventPageData{
