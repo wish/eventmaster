@@ -7,7 +7,7 @@ to search them. This project implements a service that:
 
 - Creating an event store
 - API for sending/firing events
-- Potential integrations into other services for searching etc. (e.g. grafana annotations)
+- Potential integrations into other services for searching etc. (e.g. [grafana annotations](./docs/grafana))
 - Working with other pieces of infrastructure to expose meaningful events
 
 ## Setup
@@ -84,13 +84,16 @@ The `class` and `replication_factor` can be modified as long as the
 `consistency` attribute is configured accordingly in the `eventmaster.json`
 used by `eventmaster -c eventmaster.json`.
 
-
 ### Tests
 Tests can be run (using the go tool) by calling:
 
 ```
 $ make test
 ```
+
+## Adding annotations to a Grafana dashboard
+
+This is documented in the [documentation subdirectory](./docs/grafana)
 
 ## REST API
 
