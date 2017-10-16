@@ -17,13 +17,13 @@ func (srv *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func newServer() *server {
-	sm := http.NewServeMux()
-	s := &server{sm}
+	r := httprouter.New()
+	s := &server{r}
 
-	sm.HandleFunc("/ok/", RouterToStd(Adapter(s.ok)))
-	sm.HandleFunc("/conflict/", RouterToStd(Adapter(s.conflict)))
-	sm.HandleFunc("/created/", RouterToStd(Adapter(s.created)))
-	sm.HandleFunc("/ise/", RouterToStd(Adapter(s.ise)))
+	r.GET("/ok/", Adapter(s.ok))
+	r.GET("/conflict/", Adapter(s.conflict))
+	r.GET("/created/", Adapter(s.created))
+	r.GET("/ise/", Adapter(s.ise))
 
 	return s
 }

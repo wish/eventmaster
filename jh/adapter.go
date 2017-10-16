@@ -61,10 +61,3 @@ func Adapter(jh JSONHandler) httprouter.Handle {
 		}
 	}
 }
-
-// RouterToStd exists to convert nominal http.HandlerFunc to httprouter.Handle.
-func RouterToStd(f httprouter.Handle) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		f(w, req, nil)
-	}
-}
