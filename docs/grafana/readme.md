@@ -15,6 +15,8 @@
     1. Configure direct accesss
     1. click `Save & Test`
 
+![successful add of datasource](/docs/grafana/00-add-datasource.png "Add Datasource")
+
 At this point `eventmaster` is configured as a backend.
 
 
@@ -27,6 +29,8 @@ To add all events to a dashboard you will need to configure an `Annotation` with
 1. choose the appropriate datasource from earlier
 1. optionally pick a color
 1. click `Add`
+
+![Add annotation example](/docs/grafana/01-add-annotation.png "Add Annotation")
 
 At this point all events are rendered in all panels in the dashboard.
 
@@ -42,6 +46,8 @@ If you'd like to filter down by `datacenter` and `topic` you'll also need to add
 1. set `Query` to `dc`
 1. click `Add`
 
+![Add dc variable](/docs/grafana/02-add-dc.png "Add dc variable")
+
 Repeat these steps with `topic` insterad of `dc`.
 
 In order for the variables to be provided to `eventmaster` for filtering edit the annotation:
@@ -51,3 +57,5 @@ In order for the variables to be provided to `eventmaster` for filtering edit th
     ```
     {"topic": "$topic", "dc": "$dc"} 
     ```
+
+![Add query to annotation](/docs/grafana/03-query.png "Add query to annotation")
