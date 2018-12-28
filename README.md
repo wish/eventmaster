@@ -18,8 +18,8 @@ to search them. This project implements a service that:
 ### Get Code
 ```
 $ git clone \
-    git@github.com:ContextLogic/eventmaster.git \
-    $GOPATH/src/github.com/ContextLogic/eventmaster
+    git@github.com:wish/eventmaster.git \
+    $GOPATH/src/github.com/wish/eventmaster
 ```
 
 ### Building
@@ -48,7 +48,7 @@ Giving no flags `eventmaster` runs with sane option.
 
 Various aspects of `eventmaster` can be controlled through a collection of
 flags and options in a json config file. This will be consolidated when
-[issue #32](https://github.com/ContextLogic/eventmaster/issues/32)
+[issue #32](https://github.com/wish/eventmaster/issues/32)
 is resolved.
 
 The config provided in `etc/eventmaster.json` encodes the default values
@@ -59,7 +59,7 @@ cluster along with other database options.
 
 Of note if `"cassandra_config":"service_name"` is non-empty then `eventmaster`
 currently uses 
-[service lookup](https://github.com/ContextLogic/goServiceLookup)
+[service lookup](https://github.com/wish/goServiceLookup)
 to find the IPs of the Cassandra cluster.
 
 For example the port of the eventmaster server can be configured using the

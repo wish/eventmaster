@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/ContextLogic/eventmaster/jh"
-	proto "github.com/ContextLogic/eventmaster/proto"
+	"github.com/wish/eventmaster/jh"
+	proto "github.com/wish/eventmaster/proto"
 )
 
 type mockDataStore struct {

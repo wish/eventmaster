@@ -110,7 +110,7 @@ Content-Type: application/json
 	}
 }
 ```
-Note: `data_schema` is optional and will default to '{}'. A sample data schema can be found [here](https://github.com/ContextLogic/eventmaster/blob/master/sample_data_schema.json).
+Note: `data_schema` is optional and will default to '{}'. A sample data schema can be found [here](https://github.com/wish/eventmaster/blob/master/sample_data_schema.json).
 
 Example Response:
 ```
@@ -284,7 +284,7 @@ Content-Type: application/json
 ```
 
 ## gRPC API
-The gRPC API supports all methods supported by the REST API. Refer to the [protobuf file](https://github.com/ContextLogic/eventmaster/blob/master/proto/eventmaster.proto) for details on usage.
+The gRPC API supports all methods supported by the REST API. Refer to the [protobuf file](https://github.com/wish/eventmaster/blob/master/proto/eventmaster.proto) for details on usage.
 
 ## Rsyslog Server
 Eventmaster facilitates centralized logging by translating logs into events and adding them to the event store.
@@ -293,6 +293,6 @@ To run Eventmaster's Rsyslog server, include the `-r` option:
 $ eventmaster -r --rsyslog_port=50053 <other_options>
 ```
 
-Rsyslog clients can be configured to send logs to Eventmaster's Rsyslog server over TCP by formatting logs according to the template found in the [sample Rsyslog client configuration template file](https://github.com/ContextLogic/eventmaster/blob/master/rsyslog-eventmaster.conf.erb).
+Rsyslog clients can be configured to send logs to Eventmaster's Rsyslog server over TCP by formatting logs according to the template found in the [sample Rsyslog client configuration template file](https://github.com/wish/eventmaster/blob/master/rsyslog-eventmaster.conf.erb).
 
 If logs are encrypted with TLS, the `--ca_file`, `--cert_file`, and `--key_file` options must be specified to decrypt incoming messages.

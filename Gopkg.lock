@@ -3,7 +3,7 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/ContextLogic/goServiceLookup"
+  name = "github.com/wish/goServiceLookup"
   packages = ["servicelookup"]
   revision = "43a14c585a6f18c18fca4d63ad12dcf8d83388a8"
 

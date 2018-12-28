@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ContextLogic/eventmaster/jh"
+	"github.com/wish/eventmaster/jh"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )

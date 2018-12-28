@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 // AnnotationsReq encodes the information provided by Grafana in its requests.

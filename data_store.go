@@ -1,7 +1,7 @@
 package eventmaster
 
 import (
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 // DataStore defines the interface needed to be used as a backing store for

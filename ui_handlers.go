@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 var funcMap = template.FuncMap{

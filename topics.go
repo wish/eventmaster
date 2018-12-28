@@ -7,8 +7,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 
-	"github.com/ContextLogic/eventmaster/jh"
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	"github.com/wish/eventmaster/jh"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 func (s *Server) addTopic(w http.ResponseWriter, r *http.Request, _ httprouter.Params) (interface{}, error) {

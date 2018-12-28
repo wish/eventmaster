@@ -10,10 +10,10 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	cass "github.com/ContextLogic/eventmaster/cassandra"
-	servicelookup "github.com/ContextLogic/goServiceLookup/servicelookup"
+	cass "github.com/wish/eventmaster/cassandra"
+	servicelookup "github.com/wish/goServiceLookup/servicelookup"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 // CassandraConfig defines the Cassandra-specific section of the eventmaster

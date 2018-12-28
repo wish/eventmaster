@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "github.com/ContextLogic/eventmaster/proto"
+	pb "github.com/wish/eventmaster/proto"
 )
 
 func inject(ctx context.Context, c pb.EventMasterClient) error {

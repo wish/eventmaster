@@ -24,7 +24,7 @@ required = ["github.com/jteeuwen/go-bindata/go-bindata"]
 
 [[constraint]]
   branch = "master"
-  name = "github.com/ContextLogic/goServiceLookup"
+  name = "github.com/wish/goServiceLookup"
 
 [[constraint]]
   name = "github.com/Sirupsen/logrus"
