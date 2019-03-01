@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ContextLogic/eventmaster/metrics"
+	"github.com/wish/eventmaster/metrics"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )

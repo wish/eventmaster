@@ -7,7 +7,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 
-	"github.com/ContextLogic/eventmaster/jh"
+	"github.com/wish/eventmaster/jh"
 )
 
 func (s *Server) gitHubEvent(w http.ResponseWriter, r *http.Request, _ httprouter.Params) (interface{}, error) {

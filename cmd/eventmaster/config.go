@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	em "github.com/ContextLogic/eventmaster"
+	em "github.com/wish/eventmaster"
 )
 
 // EMConfig is eventmaster config that comes from the parsing of a config file.

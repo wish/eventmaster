@@ -18,9 +18,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	em "github.com/ContextLogic/eventmaster"
-	"github.com/ContextLogic/eventmaster/metrics"
-	emproto "github.com/ContextLogic/eventmaster/proto"
+	em "github.com/wish/eventmaster"
+	"github.com/wish/eventmaster/metrics"
+	emproto "github.com/wish/eventmaster/proto"
 )
 
 func main() {

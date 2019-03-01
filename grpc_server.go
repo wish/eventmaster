@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 	context "golang.org/x/net/context"
 
-	"github.com/ContextLogic/eventmaster/metrics"
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	"github.com/wish/eventmaster/metrics"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 // NewGRPCServer returns a populated

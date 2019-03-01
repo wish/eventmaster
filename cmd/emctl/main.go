@@ -10,8 +10,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/ContextLogic/eventmaster"
-	pb "github.com/ContextLogic/eventmaster/proto"
+	"github.com/wish/eventmaster"
+	pb "github.com/wish/eventmaster/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

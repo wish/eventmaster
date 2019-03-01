@@ -10,10 +10,10 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	cass "github.com/ContextLogic/eventmaster/cassandra"
 	servicelookup "github.com/ContextLogic/goServiceLookup/servicelookup"
+	cass "github.com/wish/eventmaster/cassandra"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 // CassandraConfig defines the Cassandra-specific section of the eventmaster
@@ -522,7 +522,7 @@ func (c *CassandraStore) GetDCs() ([]DC, error) {
 
 // AddDC inserts dc into the event_dc table.
 func (c *CassandraStore) AddDC(dc DC) error {
-	queryStr := fmt.Sprintf(`INSERT INTO event_dc 
+	queryStr := fmt.Sprintf(`INSERT INTO event_dc
 		(dc_id, dc)
 		VALUES (%[1]s, %[2]s);`,
 		dc.ID, stringify(dc.Name))
