@@ -13,9 +13,9 @@ DIRTY   := $(shell git diff-index --quiet HEAD 2> /dev/null > /dev/null || echo 
 
 $(BINARY): deps $(wildcard **/*.go) proto ui/ui.go templates/templates.go
 	@go install -v -ldflags \
-		"-X github.com/ContextLogic/eventmaster.Version=$(VERSION)$(V_DIRTY) \
-		 -X github.com/ContextLogic/eventmaster.Git=$(GIT)$(DIRTY)" \
-		github.com/ContextLogic/eventmaster/cmd/...
+		"-X github.com/wish/eventmaster.Version=$(VERSION)$(V_DIRTY) \
+		 -X github.com/wish/eventmaster.Git=$(GIT)$(DIRTY)" \
+		github.com/wish/eventmaster/cmd/...
 
 .PHONY: proto
 proto: deps proto/eventmaster.pb.go
@@ -61,6 +61,6 @@ templates/templates.go: $(GBD) $(wildcard static/templates/*) templates
 
 .PHONY: coverage
 coverage: 
-	@go test -coverprofile=/tmp/cover github.com/ContextLogic/eventmaster 
+	@go test -coverprofile=/tmp/cover github.com/wish/eventmaster 
 	@go tool cover -html=/tmp/cover -o coverage.html
 	@rm /tmp/cover

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	pb "github.com/ContextLogic/eventmaster/proto"
+	pb "github.com/wish/eventmaster/proto"
 	"github.com/pkg/errors"
 )
 

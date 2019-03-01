@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 func getQueryFromRequest(r *http.Request) (*eventmaster.Query, error) {

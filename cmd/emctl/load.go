@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/ContextLogic/eventmaster/proto"
+	pb "github.com/wish/eventmaster/proto"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 )

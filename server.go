@@ -11,10 +11,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/ContextLogic/eventmaster/jh"
-	"github.com/ContextLogic/eventmaster/metrics"
-	tmpl "github.com/ContextLogic/eventmaster/templates"
-	"github.com/ContextLogic/eventmaster/ui"
+	"github.com/wish/eventmaster/jh"
+	"github.com/wish/eventmaster/metrics"
+	tmpl "github.com/wish/eventmaster/templates"
+	"github.com/wish/eventmaster/ui"
 )
 
 // Server implements http.Handler for the eventmaster http server.

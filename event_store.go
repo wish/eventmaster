@@ -14,9 +14,9 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/ContextLogic/eventmaster/jh"
-	"github.com/ContextLogic/eventmaster/metrics"
-	eventmaster "github.com/ContextLogic/eventmaster/proto"
+	"github.com/wish/eventmaster/jh"
+	"github.com/wish/eventmaster/metrics"
+	eventmaster "github.com/wish/eventmaster/proto"
 )
 
 // Event is the representation of an event across the DataStore boundary.

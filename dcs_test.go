@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ContextLogic/eventmaster/jh"
+	"github.com/wish/eventmaster/jh"
 	"github.com/pkg/errors"
 )
 
