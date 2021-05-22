@@ -12,7 +12,7 @@ to search them. This project implements a service that:
 
 ## Setup
 ### Dependencies
-- Go tool (tested at v1.9.x)
+- Go tool (tested at v1.16)
 - Cassandra v3.10
 
 ### Get Code
@@ -24,7 +24,7 @@ $ git clone \
 
 ### Building
 
-Dependencies are currently fetched using [dep](https://github.com/golang/dep).
+Dependencies are currently fetched using [Go Modules](https://blog.golang.org/using-go-modules).
 These are set up as dependencies to the default make target, so running:
 
 ```
