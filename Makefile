@@ -37,15 +37,15 @@ $(GOLINT):
 	go get -u github.com/golang/lint/golint
 
 $(PGG):
-	go get -u github.com/golang/protobuf/protoc-gen-go
+	go get -u github.com/golang/protobuf/protoc-gen-go@v1.0.0
 
 $(GBD): vendor
-	go install ./vendor/github.com/jteeuwen/go-bindata/go-bindata
+	go get -u github.com/jteeuwen/go-bindata/go-bindata@master
 
 .PHONY: deps
 deps: vendor
 vendor: Gopkg.toml Gopkg.lock
-	dep ensure
+	go mod vendor
 
 ui:
 	@mkdir ui
