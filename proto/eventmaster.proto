@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package eventmaster;
+option go_package = "github.com/wish/eventmaster;eventmaster";
 
 service EventMaster {
     rpc AddEvent (Event) returns (WriteResponse) {}
