@@ -36,7 +36,7 @@ $(GOLINT):
 	go get -u github.com/golang/lint/golint@1.11
 
 $(PGG):
-	go get -u github.com/golang/protobuf/protoc-gen-go@v1.0.0
+	go get -u github.com/golang/protobuf/protoc-gen-go@v1.5.2
 
 $(GBD):
 	go get -u github.com/jteeuwen/go-bindata/go-bindata@master
