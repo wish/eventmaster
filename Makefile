@@ -32,19 +32,18 @@ lint: deps $(GOLINT)
 	@go vet ${PKGS}
 	@golint -set_exit_status ${PKGS}
 
-# TODO: golint and protoc-gen-go are fetched from master still; should pin them down.
 $(GOLINT):
-	go get -u github.com/golang/lint/golint
+	go get -u github.com/golang/lint/golint@1.11
 
 $(PGG):
 	go get -u github.com/golang/protobuf/protoc-gen-go@v1.0.0
 
-$(GBD): vendor
+$(GBD):
 	go get -u github.com/jteeuwen/go-bindata/go-bindata@master
 
 .PHONY: deps
 deps: vendor
-vendor: Gopkg.toml Gopkg.lock
+vendor:
 	go mod vendor
 
 ui:
