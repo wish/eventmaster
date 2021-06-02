@@ -51,7 +51,6 @@ func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 		}
 		stringIps := make([]string, len(addrs))
 		for i, addr := range addrs {
-			log.Infof("addr: %s", addr.IP.String())
 			stringIps[i] = addr.IP.String()
 		}
 		cassandraIps = stringIps
