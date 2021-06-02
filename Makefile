@@ -50,13 +50,13 @@ ui:
 	@mkdir ui
 
 ui/ui.go: $(GBD) $(wildcard static/ui/**/*) ui
-	go-bindata -prefix="static/" -o ui/ui.go -pkg=ui static/ui/...
+	$(GBD) -prefix="static/" -o ui/ui.go -pkg=ui static/ui/...
 
 templates:
 	@mkdir templates
 
 templates/templates.go: $(GBD) $(wildcard static/templates/*) templates
-	go-bindata -prefix="static/" -o templates/templates.go -pkg=templates static/templates/...
+	$(GBD) -prefix="static/" -o templates/templates.go -pkg=templates static/templates/...
 
 .PHONY: coverage
 coverage: 
