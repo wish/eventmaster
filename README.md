@@ -59,7 +59,7 @@ cluster along with other database options.
 
 Of note if `"cassandra_config":"service_name"` is non-empty then `eventmaster`
 currently uses
-[service lookup](https://github.com/ContextLogic/goServiceLookup)
+[discovery](https://github.com/wish/discovery)
 to find the IPs of the Cassandra cluster.
 
 For example the port of the eventmaster server can be configured using the
