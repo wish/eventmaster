@@ -1,6 +1,7 @@
 package eventmaster
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	servicelookup "github.com/ContextLogic/goServiceLookup/servicelookup"
+	discovery "github.com/wish/discovery"
 	cass "github.com/wish/eventmaster/cassandra"
 
 	eventmaster "github.com/wish/eventmaster/proto"
@@ -37,8 +38,23 @@ func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 	var cassandraIps []string
 
 	if c.ServiceName != "" {
-		slClient := servicelookup.NewClient(false)
-		cassandraIps = slClient.GetServiceIps(c.ServiceName, "")
+		d, err := discovery.NewDiscoveryFromEnv()
+		if err != nil {
+			return nil, err
+		}
+		fqdn := c.ServiceName + ".service.consul."
+		addrs, err := d.GetServiceAddresses(context.TODO(), fqdn)
+
+		if err != nil {
+			log.Infof(err.Error())
+			return nil, err
+		}
+		stringIps := make([]string, len(addrs))
+		for i, addr := range addrs {
+			log.Infof("addr: %s", addr.IP.String())
+			stringIps[i] = addr.IP.String()
+		}
+		cassandraIps = stringIps
 	} else {
 		cassandraIps = c.Addrs
 	}
