@@ -11,24 +11,25 @@ GIT     := $(shell git rev-parse --short HEAD)
 DIRTY   := $(shell git diff-index --quiet HEAD 2> /dev/null > /dev/null || echo "-dirty")
 
 
-$(BINARY): deps $(wildcard **/*.go) proto ui/ui.go templates/templates.go
+$(BINARY): $(wildcard **/*.go) proto ui/ui.go templates/templates.go deps
 	@go install -v -ldflags \
 		"-X github.com/wish/eventmaster.Version=$(VERSION)$(V_DIRTY) \
 		 -X github.com/wish/eventmaster.Git=$(GIT)$(DIRTY)" \
 		github.com/wish/eventmaster/cmd/...
 
 .PHONY: proto
-proto: deps proto/eventmaster.pb.go
+proto: proto/eventmaster.pb.go 
 
 proto/eventmaster.pb.go: $(PGG) proto/eventmaster.proto
 	protoc --plugin=${PGG} -I proto/ proto/eventmaster.proto --go_out=plugins=grpc:proto
+	cp proto/github.com/wish/eventmaster/eventmaster.pb.go proto/
 
 .PHONY: test
-test: deps proto/eventmaster.pb.go ui/ui.go templates/templates.go
+test: proto/eventmaster.pb.go ui/ui.go templates/templates.go
 	@go test -cover ${PKGS}
 
 .PHONY: lint
-lint: deps $(GOLINT)
+lint: $(GOLINT)
 	@go vet ${PKGS}
 	@golint -set_exit_status ${PKGS}
 
@@ -50,13 +51,13 @@ ui:
 	@mkdir ui
 
 ui/ui.go: $(GBD) $(wildcard static/ui/**/*) ui
-	go-bindata -prefix="static/" -o ui/ui.go -pkg=ui static/ui/...
+	$(GBD) -prefix="static/" -o ui/ui.go -pkg=ui static/ui/...
 
 templates:
 	@mkdir templates
 
 templates/templates.go: $(GBD) $(wildcard static/templates/*) templates
-	go-bindata -prefix="static/" -o templates/templates.go -pkg=templates static/templates/...
+	$(GBD) -prefix="static/" -o templates/templates.go -pkg=templates static/templates/...
 
 .PHONY: coverage
 coverage: 
