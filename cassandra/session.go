@@ -42,7 +42,7 @@ func NewInsecureCQLConfig(ips []string, port int, keyspace string, consistency s
 	return cluster, nil
 }
 
-func NewSecureCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string) (*gocql.ClusterConfig, error) {
+func NewSecuredCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string) (*gocql.ClusterConfig, error) {
 	cluster, err := NewInsecureCQLConfig(ips, port, keyspace, consistency, timeout)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func NewCQLSession(ips []string, port int, keyspace string, consistency string, 
 }
 
 func NewSecuredCQLSession(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string) (*CQLSession, error) {
-	cluster, err := NewSecureCQLConfig(ips, port, keyspace, consistency, timeout, capath, username, passwd)
+	cluster, err := NewSecuredCQLConfig(ips, port, keyspace, consistency, timeout, capath, username, passwd)
 	if err != nil {
 		return nil, err
 	}
