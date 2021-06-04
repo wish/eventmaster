@@ -26,14 +26,36 @@ type ScanIter func(...interface{}) bool
 // close of the underlying iterator.
 type CloseIter func() error
 
-func NewCQLConfig(ips []string, keyspace string, consistency string, timeout string) (*gocql.ClusterConfig, error) {
+func NewInsecureCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string) (*gocql.ClusterConfig, error) {
 	cluster := gocql.NewCluster(ips...)
 	cluster.Keyspace = keyspace
+	if port != 0 {
+		cluster.Port = port
+	}
 	cluster.Consistency = gocql.ParseConsistency(consistency)
 	var err error
+	cluster.ConnectTimeout, err = time.ParseDuration("5s")
 	cluster.Timeout, err = time.ParseDuration(timeout)
 	if err != nil {
 		return nil, err
+	}
+	return cluster, nil
+}
+
+func NewSecureCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string) (*gocql.ClusterConfig, error) {
+	cluster, err := NewInsecureCQLConfig(ips, port, keyspace, consistency, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	cluster.DisableInitialHostLookup = true
+	cluster.SslOpts = &gocql.SslOptions{
+		CaPath: capath,
+	}
+
+	cluster.Authenticator = gocql.PasswordAuthenticator{
+		Username: username,
+		Password: passwd,
 	}
 	return cluster, nil
 }
@@ -51,8 +73,17 @@ func NewCQLSessionFromConfig(cluster *gocql.ClusterConfig) (*CQLSession, error) 
 
 // NewCQLSession returns a populated CQLSession struct, or an error using the
 // underlying cassandra driver.
-func NewCQLSession(ips []string, keyspace string, consistency string, timeout string) (*CQLSession, error) {
-	cluster, err := NewCQLConfig(ips, keyspace, consistency, timeout)
+func NewCQLSession(ips []string, port int, keyspace string, consistency string, timeout string) (*CQLSession, error) {
+	cluster, err := NewInsecureCQLConfig(ips, port, keyspace, consistency, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCQLSessionFromConfig(cluster)
+}
+
+func NewSecuredCQLSession(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string) (*CQLSession, error) {
+	cluster, err := NewSecureCQLConfig(ips, port, keyspace, consistency, timeout, capath, username, passwd)
 	if err != nil {
 		return nil, err
 	}
