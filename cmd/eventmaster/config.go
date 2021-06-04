@@ -35,11 +35,11 @@ func DefaultEMConfig() EMConfig {
 //
 // If file is "" then it just returns the defaults.
 func ParseEMConfig(file string) (EMConfig, error) {
-	r := DefaultEMConfig()
 	if file == "" {
-		return r, nil
+		return DefaultEMConfig(), nil
 	}
 
+	var r EMConfig
 	f, err := os.Open(file)
 	if err != nil {
 		return r, fmt.Errorf("opening config file: %v", err)

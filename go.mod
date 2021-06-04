@@ -11,7 +11,7 @@ require (
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
-	github.com/gocql/gocql v0.0.0-20170925203357-4e73f1fe43d7
+	github.com/gocql/gocql v0.0.0-20210515062232-b7ef815b4556
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/mock v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -49,6 +49,5 @@ require (
 	google.golang.org/genproto v0.0.0-20210524171403-669157292da3 // indirect
 	google.golang.org/grpc v1.36.1
 	google.golang.org/protobuf v1.26.0
-	gopkg.in/inf.v0 v0.9.0 // indirect
 	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc // indirect
 )
