@@ -26,9 +26,7 @@ type ScanIter func(...interface{}) bool
 // close of the underlying iterator.
 type CloseIter func() error
 
-// NewCQLSession returns a populated CQLSession struct, or an error using the
-// underlying cassandra driver.
-func NewCQLSession(ips []string, keyspace string, consistency string, timeout string) (*CQLSession, error) {
+func NewCQLConfig(ips []string, keyspace string, consistency string, timeout string) (*gocql.ClusterConfig, error) {
 	cluster := gocql.NewCluster(ips...)
 	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.ParseConsistency(consistency)
@@ -37,7 +35,10 @@ func NewCQLSession(ips []string, keyspace string, consistency string, timeout st
 	if err != nil {
 		return nil, err
 	}
+	return cluster, nil
+}
 
+func NewCQLSessionFromConfig(cluster *gocql.ClusterConfig) (*CQLSession, error) {
 	s, err := cluster.CreateSession()
 	if err != nil {
 		return nil, err
@@ -46,6 +47,17 @@ func NewCQLSession(ips []string, keyspace string, consistency string, timeout st
 	return &CQLSession{
 		session: s,
 	}, nil
+}
+
+// NewCQLSession returns a populated CQLSession struct, or an error using the
+// underlying cassandra driver.
+func NewCQLSession(ips []string, keyspace string, consistency string, timeout string) (*CQLSession, error) {
+	cluster, err := NewCQLConfig(ips, keyspace, consistency, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCQLSessionFromConfig(cluster)
 }
 
 // ExecQuery executes the provided query against the underlying cassandra
