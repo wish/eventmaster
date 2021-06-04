@@ -70,6 +70,12 @@ adjust a `eventmaster.json` file and specify that it is used by providing the
 Open the eventmaster UI in your browser (default: `http://localhost:50052`).
 The UI can be used to create and query topics, data centers, and events.
 
+To connect to a Cassandra database over TLS, several fields have to be set in the configration file. This includes:
+- `secured`: Setting this field to `true` triggers TLS
+- `ca_path`: The path to the CA cert file
+- `port`: If different than default native protocol clients (port 9042)
+- `username`
+- `password`
 ### Database Setup
 
 Execute `schema.cql` on your Cassandra cluster. This will set up the

@@ -34,7 +34,6 @@ func NewInsecureCQLConfig(ips []string, port int, keyspace string, consistency s
 	}
 	cluster.Consistency = gocql.ParseConsistency(consistency)
 	var err error
-	cluster.ConnectTimeout, err = time.ParseDuration("5s")
 	cluster.Timeout, err = time.ParseDuration(timeout)
 	if err != nil {
 		return nil, err
