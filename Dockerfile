@@ -9,4 +9,7 @@ WORKDIR /go/src/github.com/wish/eventmaster
 RUN make
 
 EXPOSE 50052
-CMD ["eventmaster"]
+
+RUN mkdir /app
+WORKDIR /app
+CMD ["eventmaster","-c","config.json"]
