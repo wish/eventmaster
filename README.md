@@ -1,5 +1,7 @@
 # eventmaster
 
+[![build status](https://github.com/wish/eventmaster/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/wish/eventmaster/actions)
+
 There are lots of events that happen in production such as deploys, service
 restarts, scale-up operations, etc. Right now these events happen, but we have
 no centralized place to track them -- which means we have no centralized place
