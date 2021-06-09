@@ -1,0 +1,42 @@
+name: Go
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - master
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+      -
+        name: Run Buildx
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t eventmaster:${GITHUB_REF##*/} .
+      - name: Login
+        if: ${{ github.event_name != 'pull_request'}}
+        uses: azure/docker-login@v1
+        with:
+          login-server: quay.io
+          username: '${{ secrets.QUAYIO_USERNAME }}'
+          password: '${{ secrets.QUAYIO_PASSWORD }}'
+      - name: Push
+        if: ${{ github.event_name != 'pull_request'}}
+        run: |
+          docker image tag eventmater:${GITHUB_REF##*/} quay.io/wish/eventmaster:${GITHUB_REF##*/}
+          docker image push quay.io/wish/eventmaster:${GITHUB_REF##*/}
