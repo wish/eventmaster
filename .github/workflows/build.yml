@@ -27,16 +27,15 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
-            -t eventmaster:${GITHUB_REF##*/} .
+            -t quay.io/wish/eventmaster:${GITHUB_REF##*/} .
       - name: Login
-        if: ${{ github.event_name != 'pull_request'}}
+        # if: ${{ github.event_name != 'pull_request'}}
         uses: azure/docker-login@v1
         with:
           login-server: quay.io
           username: '${{ secrets.QUAYIO_USERNAME }}'
           password: '${{ secrets.QUAYIO_PASSWORD }}'
       - name: Push
-        if: ${{ github.event_name != 'pull_request'}}
+        # if: ${{ github.event_name != 'pull_request'}}
         run: |
-          docker image tag eventmaster:${GITHUB_REF##*/} quay.io/wish/eventmaster:${GITHUB_REF##*/}
           docker image push quay.io/wish/eventmaster:${GITHUB_REF##*/}
