@@ -1,4 +1,4 @@
-name: Go
+name: Build
 
 on:
   push:
@@ -38,5 +38,5 @@ jobs:
       - name: Push
         if: ${{ github.event_name != 'pull_request'}}
         run: |
-          docker image tag eventmater:${GITHUB_REF##*/} quay.io/wish/eventmaster:${GITHUB_REF##*/}
+          docker image tag eventmaster:${GITHUB_REF##*/} quay.io/wish/eventmaster:${GITHUB_REF##*/}
           docker image push quay.io/wish/eventmaster:${GITHUB_REF##*/}
