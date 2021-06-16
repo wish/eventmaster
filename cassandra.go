@@ -20,16 +20,17 @@ import (
 // CassandraConfig defines the Cassandra-specific section of the eventmaster
 // configuration file.
 type CassandraConfig struct {
-	Addrs       []string `json:"addrs"`
-	Port        int      `json:"port"`
-	Keyspace    string   `json:"keyspace"`
-	Consistency string   `json:"consistency"`
-	Timeout     string   `json:"timeout"`
-	ServiceName string   `json:"service_name"`
-	Secured     bool     `json:"secured"`
-	CaPath      string   `json:"ca_path"`
-	Username    string   `json:"username"`
-	Password    string   `json:"password"`
+	Addrs               []string `json:"addrs"`
+	Port                int      `json:"port"`
+	Keyspace            string   `json:"keyspace"`
+	Consistency         string   `json:"consistency"`
+	Timeout             string   `json:"timeout"`
+	ServiceName         string   `json:"service_name"`
+	Secured             bool     `json:"secured"`
+	CaPath              string   `json:"ca_path"`
+	Username            string   `json:"username"`
+	Password            string   `json:"password"`
+	UseAwsAuthenticator bool     `json:"use_aws_authenticator"`
 }
 
 // CassandraStore is an implementation of DataStore that is backed by
@@ -66,8 +67,8 @@ func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 	log.Infof("Connecting to cassandra: %v", cassandraIps)
 	var session *cass.CQLSession
 	var err error
-	if c.Secured {
-		session, err = cass.NewSecuredCQLSession(cassandraIps, c.Port, c.Keyspace, c.Consistency, c.Timeout, c.CaPath, c.Username, c.Password)
+	if c.Secured || c.UseAwsAuthenticator {
+		session, err = cass.NewSecuredCQLSession(cassandraIps, c.Port, c.Keyspace, c.Consistency, c.Timeout, c.CaPath, c.Username, c.Password, c.UseAwsAuthenticator)
 	} else {
 		session, err = cass.NewCQLSession(cassandraIps, c.Port, c.Keyspace, c.Consistency, c.Timeout)
 	}
