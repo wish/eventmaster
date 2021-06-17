@@ -3,6 +3,9 @@ package cassandra
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sigv4-auth-cassandra-gocql-driver-plugin/sigv4"
 	"github.com/gocql/gocql"
 )
@@ -42,7 +45,7 @@ func NewInsecureCQLConfig(ips []string, port int, keyspace string, consistency s
 	return cluster, nil
 }
 
-func NewSecuredCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string, use_aws_authn bool) (*gocql.ClusterConfig, error) {
+func NewSecuredCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string, useAwsAuthn bool, awsRoleArn string, awsRegion string) (*gocql.ClusterConfig, error) {
 	cluster, err := NewInsecureCQLConfig(ips, port, keyspace, consistency, timeout)
 	if err != nil {
 		return nil, err
@@ -52,8 +55,26 @@ func NewSecuredCQLConfig(ips []string, port int, keyspace string, consistency st
 	cluster.SslOpts = &gocql.SslOptions{
 		CaPath: capath,
 	}
-	if use_aws_authn {
-		cluster.Authenticator = sigv4.NewAwsAuthenticator()
+	if useAwsAuthn {
+
+		session := session.Must(session.NewSession(&aws.Config{
+			Region: aws.String(awsRegion),
+		}))
+		svc := sts.New(session)
+		roleArn := awsRoleArn
+		roleSessionName := `AssumeRoleSession`
+		assumeRoleResult, err := svc.AssumeRole(&sts.AssumeRoleInput{
+			RoleArn:         &roleArn,
+			RoleSessionName: &roleSessionName})
+		if err != nil {
+			return nil, err
+		}
+		credentials := assumeRoleResult.Credentials
+		auth := sigv4.NewAwsAuthenticator()
+		auth.AccessKeyId = *credentials.AccessKeyId
+		auth.SecretAccessKey = *credentials.SecretAccessKey
+		auth.Region = awsRegion
+		cluster.Authenticator = auth
 	} else {
 		cluster.Authenticator = gocql.PasswordAuthenticator{
 			Username: username,
@@ -85,8 +106,8 @@ func NewCQLSession(ips []string, port int, keyspace string, consistency string, 
 	return NewCQLSessionFromConfig(cluster)
 }
 
-func NewSecuredCQLSession(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string, use_aws_authn bool) (*CQLSession, error) {
-	cluster, err := NewSecuredCQLConfig(ips, port, keyspace, consistency, timeout, capath, username, passwd, use_aws_authn)
+func NewSecuredCQLSession(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string, useAwsAuthn bool, roleArn string, awsRegion string) (*CQLSession, error) {
+	cluster, err := NewSecuredCQLConfig(ips, port, keyspace, consistency, timeout, capath, username, passwd, useAwsAuthn, roleArn, awsRegion)
 	if err != nil {
 		return nil, err
 	}

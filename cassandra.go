@@ -31,6 +31,8 @@ type CassandraConfig struct {
 	Username            string   `json:"username"`
 	Password            string   `json:"password"`
 	UseAwsAuthenticator bool     `json:"use_aws_authenticator"`
+	AwsRoleArn          string   `json:"aws_role_arn"`
+	AwsRegion           string   `json:"aws_region`
 }
 
 // CassandraStore is an implementation of DataStore that is backed by
@@ -68,7 +70,7 @@ func NewCassandraStore(c CassandraConfig) (*CassandraStore, error) {
 	var session *cass.CQLSession
 	var err error
 	if c.Secured || c.UseAwsAuthenticator {
-		session, err = cass.NewSecuredCQLSession(cassandraIps, c.Port, c.Keyspace, c.Consistency, c.Timeout, c.CaPath, c.Username, c.Password, c.UseAwsAuthenticator)
+		session, err = cass.NewSecuredCQLSession(cassandraIps, c.Port, c.Keyspace, c.Consistency, c.Timeout, c.CaPath, c.Username, c.Password, c.UseAwsAuthenticator, c.AwsRoleArn, c.AwsRegion)
 	} else {
 		session, err = cass.NewCQLSession(cassandraIps, c.Port, c.Keyspace, c.Consistency, c.Timeout)
 	}
