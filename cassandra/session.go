@@ -3,6 +3,13 @@ package cassandra
 import (
 	"time"
 
+	"io/ioutil"
+	"os"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sigv4-auth-cassandra-gocql-driver-plugin/sigv4"
 	"github.com/gocql/gocql"
 )
 
@@ -41,7 +48,7 @@ func NewInsecureCQLConfig(ips []string, port int, keyspace string, consistency s
 	return cluster, nil
 }
 
-func NewSecuredCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string) (*gocql.ClusterConfig, error) {
+func NewSecuredCQLConfig(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string, useAwsAuthn bool, awsRoleArn string, awsRegion string) (*gocql.ClusterConfig, error) {
 	cluster, err := NewInsecureCQLConfig(ips, port, keyspace, consistency, timeout)
 	if err != nil {
 		return nil, err
@@ -51,10 +58,39 @@ func NewSecuredCQLConfig(ips []string, port int, keyspace string, consistency st
 	cluster.SslOpts = &gocql.SslOptions{
 		CaPath: capath,
 	}
+	if useAwsAuthn {
 
-	cluster.Authenticator = gocql.PasswordAuthenticator{
-		Username: username,
-		Password: passwd,
+		session := session.Must(session.NewSession(&aws.Config{
+			Region: aws.String(awsRegion),
+		}))
+		svc := sts.New(session)
+		roleArn := awsRoleArn
+		roleSessionName := `AssumeRoleSession`
+		webIdentityToken, err := ioutil.ReadFile(os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"))
+		if err != nil {
+			return nil, err
+		}
+		webIdentityTokenString := string(webIdentityToken)
+		assumeRoleResult, err := svc.AssumeRoleWithWebIdentity(&sts.AssumeRoleWithWebIdentityInput{
+			RoleArn:          &roleArn,
+			RoleSessionName:  &roleSessionName,
+			WebIdentityToken: &webIdentityTokenString,
+		})
+		if err != nil {
+			return nil, err
+		}
+		credentials := assumeRoleResult.Credentials
+		auth := sigv4.NewAwsAuthenticator()
+		auth.AccessKeyId = *credentials.AccessKeyId
+		auth.SecretAccessKey = *credentials.SecretAccessKey
+		auth.SessionToken = *credentials.SessionToken
+		auth.Region = awsRegion
+		cluster.Authenticator = auth
+	} else {
+		cluster.Authenticator = gocql.PasswordAuthenticator{
+			Username: username,
+			Password: passwd,
+		}
 	}
 	return cluster, nil
 }
@@ -81,8 +117,8 @@ func NewCQLSession(ips []string, port int, keyspace string, consistency string, 
 	return NewCQLSessionFromConfig(cluster)
 }
 
-func NewSecuredCQLSession(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string) (*CQLSession, error) {
-	cluster, err := NewSecuredCQLConfig(ips, port, keyspace, consistency, timeout, capath, username, passwd)
+func NewSecuredCQLSession(ips []string, port int, keyspace string, consistency string, timeout string, capath string, username string, passwd string, useAwsAuthn bool, roleArn string, awsRegion string) (*CQLSession, error) {
+	cluster, err := NewSecuredCQLConfig(ips, port, keyspace, consistency, timeout, capath, username, passwd, useAwsAuthn, roleArn, awsRegion)
 	if err != nil {
 		return nil, err
 	}
