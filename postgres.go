@@ -95,8 +95,16 @@ func (p *PostgresStore) GetDCs() ([]DC, error) {
 	return nil, nil
 }
 
-func (p *PostgresStore) AddDC(DC) error {
-	// TODO: implement this function
+func (p *PostgresStore) AddDC(dc DC) error {
+	stmt, err := p.db.Prepare("INSERT INTO event_dc (dc_id, dc) VALUES ($1, $2)")
+	if err != nil {
+		return errors.Wrap(err, "Failed preparing insert DC statement")
+	}
+	_, err = stmt.Exec(dc.ID, dc.Name)
+	if err != nil {
+		return errors.Wrap(err, "Failed executing insert DC statement")
+	}
+
 	return nil
 }
 
