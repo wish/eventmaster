@@ -22,6 +22,7 @@ require (
 	github.com/jteeuwen/go-bindata v3.0.8-0.20180305030458-6025e8de665b+incompatible // indirect
 	github.com/julienschmidt/httprouter v1.1.0
 	github.com/kelseyhightower/envconfig v1.3.0
+	github.com/lib/pq v1.10.2
 	github.com/matttproud/golang_protobuf_extensions v1.0.0 // indirect
 	github.com/miekg/dns v1.1.42 // indirect
 	github.com/pkg/errors v0.8.0

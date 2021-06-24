@@ -12,6 +12,7 @@ import (
 type EMConfig struct {
 	DataStore      string             `json:"data_store"`
 	CassConfig     em.CassandraConfig `json:"cassandra_config"`
+	PostgresConfig em.PostgresConfig  `json:"postgres_config"`
 	UpdateInterval int                `json:"update_interval"`
 }
 
