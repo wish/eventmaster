@@ -91,8 +91,25 @@ func (p *PostgresStore) DeleteTopic(string) error {
 }
 
 func (p *PostgresStore) GetDCs() ([]DC, error) {
-	// TODO: implement this function
-	return nil, nil
+	rows, err := p.db.Query("SELECT dc_id, dc from event_dc")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var dcs []DC
+
+	var dc_id, dc string
+	for rows.Next() {
+		err = rows.Scan(&dc_id, &dc)
+		if err != nil {
+			return nil, err
+		}
+		dcs = append(dcs, DC{
+			ID:   dc_id,
+			Name: dc,
+		})
+	}
+	return dcs, nil
 }
 
 func (p *PostgresStore) AddDC(dc DC) error {
@@ -102,7 +119,7 @@ func (p *PostgresStore) AddDC(dc DC) error {
 	}
 	_, err = stmt.Exec(dc.ID, dc.Name)
 	if err != nil {
-		return errors.Wrap(err, "Failed executing insert DC statement")
+		return err
 	}
 
 	return nil
