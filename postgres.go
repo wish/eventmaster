@@ -131,6 +131,5 @@ func (p *PostgresStore) UpdateDC(string, string) error {
 }
 
 func (p *PostgresStore) CloseSession() {
-	// TODO: implement this function
-	return
+	p.db.Close()
 }
