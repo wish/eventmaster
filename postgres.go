@@ -125,9 +125,9 @@ func (p *PostgresStore) AddDC(dc DC) error {
 	return nil
 }
 
-func (p *PostgresStore) UpdateDC(string, string) error {
-	// TODO: implement this function
-	return nil
+func (p *PostgresStore) UpdateDC(id string, newName string) error {
+	_, err := p.db.Exec("UPDATE event_dc SET dc=$1 WHERE dc_id=$2", newName, id)
+	return err
 }
 
 func (p *PostgresStore) CloseSession() {
