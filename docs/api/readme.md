@@ -223,7 +223,7 @@ POST /v1/dc
 Accept: application/json
 Content-Type: application/json
 {
-	"dc": "dc1"
+	"DC_name": "dc1"
 }
 ```
 
@@ -247,7 +247,7 @@ PUT /v1/dc/dc1
 Accept: application/json
 Content-Type: application/json
 {
-	"dc": "dc3"
+	"DC_name": "dc3"
 }
 ```
 
