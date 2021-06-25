@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/segmentio/ksuid"
 	"github.com/xeipuuv/gojsonschema"
 
@@ -326,7 +326,7 @@ func (es *EventStore) AddEvent(event *UnaddedEvent) (string, error) {
 
 	if err = es.ds.AddEvent(evt); err != nil {
 		metrics.DBError("write")
-		return "", errors.Wrap(err, "Error executing insert query in Cassandra")
+		return "", errors.Wrap(err, "Error executing insert query")
 	}
 
 	return evt.EventID, nil
@@ -462,7 +462,7 @@ func (es *EventStore) UpdateTopic(oldName string, td Topic) (string, error) {
 		Schema: schemaStr,
 	}); err != nil {
 		metrics.DBError("write")
-		return "", errors.Wrap(err, "Error executing update query in Cassandra")
+		return "", errors.Wrap(err, "Error executing update query")
 	}
 
 	es.topicMutex.Lock()
@@ -493,7 +493,7 @@ func (es *EventStore) DeleteTopic(deleteReq *eventmaster.DeleteTopicRequest) err
 
 	if err := es.ds.DeleteTopic(id); err != nil {
 		metrics.DBError("write")
-		return errors.Wrap(err, "Error executing delete query in Cassandra")
+		return errors.Wrap(err, "Error executing delete query")
 	}
 
 	es.topicMutex.Lock()
