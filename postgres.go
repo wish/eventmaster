@@ -2,6 +2,7 @@ package eventmaster
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	_ "github.com/lib/pq"
@@ -71,23 +72,48 @@ func (p *PostgresStore) FindIDs(*eventmaster.TimeQuery, HandleEvent) error {
 }
 
 func (p *PostgresStore) GetTopics() ([]Topic, error) {
-	// TODO: implement this function
-	return nil, nil
+	rows, err := p.db.Query("SELECT topic_id, topic_name, data_schema FROM event_topic")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var topics []Topic
+	var id string
+	var name, schema string
+
+	for rows.Next() {
+		err = rows.Scan(&id, &name, &schema)
+		if err != nil {
+			return nil, err
+		}
+		var s map[string]interface{}
+		err := json.Unmarshal([]byte(schema), &s)
+		if err != nil {
+			return nil, err
+		}
+		topics = append(topics, Topic{
+			ID:     id,
+			Name:   name,
+			Schema: s,
+		})
+	}
+
+	return topics, nil
 }
 
-func (p *PostgresStore) AddTopic(RawTopic) error {
-	// TODO: implement this function
-	return nil
+func (p *PostgresStore) AddTopic(t RawTopic) error {
+	_, err := p.db.Exec("INSERT INTO event_topic (topic_id, topic_name, data_schema) VALUES ($1, $2, $3)", t.ID, t.Name, t.Schema)
+	return err
 }
 
-func (p *PostgresStore) UpdateTopic(RawTopic) error {
-	// TODO: implement this function
-	return nil
+func (p *PostgresStore) UpdateTopic(t RawTopic) error {
+	_, err := p.db.Exec("UPDATE event_topic SET topic_name=$1, data_schema=$2 WHERE topic_id=$3", t.Name, t.Schema, t.ID)
+	return err
 }
 
-func (p *PostgresStore) DeleteTopic(string) error {
-	// TODO: implement this function
-	return nil
+func (p *PostgresStore) DeleteTopic(id string) error {
+	_, err := p.db.Exec("DELETE FROM event_topic WHERE topic_id=$1", id)
+	return err
 }
 
 func (p *PostgresStore) GetDCs() ([]DC, error) {
