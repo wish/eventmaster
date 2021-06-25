@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -51,9 +53,38 @@ func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 	}, nil
 }
 
-func (p *PostgresStore) AddEvent(*Event) error {
-	// TODO: implement this function
-	return nil
+func (p *PostgresStore) AddEvent(e *Event) error {
+	data := "{}"
+	if e.Data != nil {
+		dataBytes, err := json.Marshal(e.Data)
+		if err != nil {
+			return err
+		}
+		data = string(dataBytes)
+	}
+
+	tx, err := p.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("INSERT INTO event "+
+		"(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, \"user\", event_time, tag_set, received_time)"+
+		" VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8), $9, to_timestamp($10))",
+		e.EventID, e.ParentEventID, e.DCID, e.TopicID, strings.ToLower(e.Host), pq.Array(e.TargetHosts), strings.ToLower(e.User), e.EventTime/1000, pq.Array(e.Tags), e.ReceivedTime/1000)
+
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	_, err = tx.Exec("INSERT INTO event_metadata (event_id, data_json) VALUES ($1, $2)", e.EventID, data)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
