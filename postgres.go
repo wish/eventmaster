@@ -70,8 +70,8 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 
 	_, err = tx.Exec("INSERT INTO event "+
 		"(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, \"user\", event_time, tag_set, received_time)"+
-		" VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8), $9, to_timestamp($10))",
-		e.EventID, e.ParentEventID, e.DCID, e.TopicID, strings.ToLower(e.Host), pq.Array(e.TargetHosts), strings.ToLower(e.User), e.EventTime/1000, pq.Array(e.Tags), e.ReceivedTime/1000)
+		" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+		e.EventID, e.ParentEventID, e.DCID, e.TopicID, strings.ToLower(e.Host), pq.Array(e.TargetHosts), strings.ToLower(e.User), e.EventTime, pq.Array(e.Tags), e.ReceivedTime)
 
 	if err != nil {
 		tx.Rollback()
@@ -88,8 +88,67 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 }
 
 func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
-	// TODO: implement this function
-	return nil, nil
+	base_sql := "SELECT event_id, parent_event_id, dc_id, topic_id, host, target_host_set, \"user\", event_time, tag_set, received_time FROM event"
+	var values []interface{}
+	conditionals := []string{}
+
+	i := 1
+	if q.StartEventTime > 0 {
+		conditionals = append(conditionals, fmt.Sprintf("event_time >= $%d", i))
+		values = append(values, q.StartEventTime)
+		i++
+	}
+
+	if q.EndEventTime > 0 {
+		conditionals = append(conditionals, fmt.Sprintf("event_time <= $%d", i))
+		values = append(values, q.EndEventTime)
+		i++
+	}
+
+	var sql string
+	if i > 1 {
+		sql = base_sql + " WHERE " + strings.Join(conditionals, " AND ")
+	} else {
+		sql = base_sql
+	}
+	rows, err := p.db.Query(sql, values...)
+	if err != nil {
+		return nil, err
+	}
+
+	var events []*Event
+
+	var event_id string
+	var parent_event_id string
+	var dc_id string
+	var topic_id string
+	var host string
+	var target_host_set []string
+	var user string
+	var event_time int64
+	var tag_set []string
+	var received_time int64
+
+	for rows.Next() {
+		err = rows.Scan(&event_id, &parent_event_id, &dc_id, &topic_id, &host, pq.Array(&target_host_set), &user, &event_time, pq.Array(&tag_set), &received_time)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, &Event{
+			EventID:       event_id,
+			ParentEventID: parent_event_id,
+			DCID:          dc_id,
+			TopicID:       topic_id,
+			Host:          host,
+			TargetHosts:   target_host_set,
+			User:          user,
+			EventTime:     event_time,
+			Tags:          tag_set,
+			ReceivedTime:  received_time,
+		})
+	}
+
+	return events, nil
 }
 
 func (p *PostgresStore) FindByID(string, bool) (*Event, error) {
