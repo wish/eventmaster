@@ -254,8 +254,32 @@ func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
 	return &event, nil
 }
 
-func (p *PostgresStore) FindIDs(*eventmaster.TimeQuery, HandleEvent) error {
-	// TODO: implement this function
+func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent) error {
+	var order string
+	if query.Ascending {
+		order = "ASC"
+	} else {
+		order = "DESC"
+	}
+
+	rows, err := p.db.Query("SELECT event_id FROM event WHERE event_time >= $1 AND event_time <= $2 "+
+		"ORDER BY event_time "+order+" LIMIT $3 ", query.StartEventTime, query.EndEventTime, query.Limit)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var id string
+		err = rows.Scan(&id)
+		if err != nil {
+			return err
+		}
+		err = handle(id)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+	}
 	return nil
 }
 
