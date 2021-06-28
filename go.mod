@@ -5,10 +5,10 @@ go 1.16
 require (
 	cloud.google.com/go v0.26.0 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/Masterminds/squirrel v1.5.0
 	github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a // indirect
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
 	github.com/client9/misspell v0.3.4 // indirect
-	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
 	github.com/gocql/gocql v0.0.0-20210515062232-b7ef815b4556

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -88,33 +89,19 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 }
 
 func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
-	base_sql := "SELECT event_id, parent_event_id, dc_id, topic_id, host, target_host_set, \"user\", event_time, tag_set, received_time FROM event"
-	var values []interface{}
-	conditionals := []string{}
+	// use sql builder for better readability
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	columns := []string{"event_id", "parent_event_id", "dc_id", "topic_id", "host", "target_host_set", "user", "event_time", "tag_set", "received_time"}
+	table := "event"
+	base_query := psql.Select(columns...).From(table)
 
-	i := 1
-	if q.StartEventTime > 0 {
-		conditionals = append(conditionals, fmt.Sprintf("event_time >= $%d", i))
-		values = append(values, q.StartEventTime)
-		i++
-	}
+	wheres := sq.And{}
+	// add time constarint
+	wheres = append(wheres, sq.GtOrEq{"event_time": q.StartEventTime})
+	wheres = append(wheres, sq.LtOrEq{"event_time": q.EndEventTime})
+	// TODO: add other constraints
 
-	if q.EndEventTime > 0 {
-		conditionals = append(conditionals, fmt.Sprintf("event_time <= $%d", i))
-		values = append(values, q.EndEventTime)
-		i++
-	}
-
-	var sql string
-	if i > 1 {
-		sql = base_sql + " WHERE " + strings.Join(conditionals, " AND ")
-	} else {
-		sql = base_sql
-	}
-	rows, err := p.db.Query(sql, values...)
-	if err != nil {
-		return nil, err
-	}
+	query := base_query.Where(wheres)
 
 	var events []*Event
 
@@ -129,6 +116,7 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 	var tag_set []string
 	var received_time int64
 
+	rows, err := query.RunWith(p.db).Query()
 	for rows.Next() {
 		err = rows.Scan(&event_id, &parent_event_id, &dc_id, &topic_id, &host, pq.Array(&target_host_set), &user, &event_time, pq.Array(&tag_set), &received_time)
 		if err != nil {
