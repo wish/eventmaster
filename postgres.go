@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/lib/pq"
@@ -72,7 +71,7 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 	_, err = tx.Exec("INSERT INTO event "+
 		"(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, \"user\", event_time, tag_set, received_time)"+
 		" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-		e.EventID, e.ParentEventID, e.DCID, e.TopicID, strings.ToLower(e.Host), pq.Array(e.TargetHosts), strings.ToLower(e.User), e.EventTime, pq.Array(e.Tags), e.ReceivedTime)
+		e.EventID, e.ParentEventID, e.DCID, e.TopicID, e.Host, pq.Array(e.TargetHosts), e.User, e.EventTime, pq.Array(e.Tags), e.ReceivedTime)
 
 	if err != nil {
 		tx.Rollback()
@@ -88,6 +87,28 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 	return tx.Commit()
 }
 
+func getPlaceHolderArray(slice []string) string {
+	expr := "ARRAY["
+	first := true
+	for i := 0; i < len(slice); i++ {
+		if !first {
+			expr += ", "
+		}
+		expr += "?"
+		first = false
+	}
+	expr += "]"
+	return expr
+}
+
+func stringsToIfaces(in []string) []interface{} {
+	new := make([]interface{}, len(in))
+	for i, v := range in {
+		new[i] = v
+	}
+	return new
+}
+
 func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
 	// use sql builder for better readability
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
@@ -96,10 +117,56 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 	base_query := psql.Select(columns...).From(table)
 
 	wheres := sq.And{}
-	// add time constarint
+
+	// add constarints
 	wheres = append(wheres, sq.GtOrEq{"event_time": q.StartEventTime})
 	wheres = append(wheres, sq.LtOrEq{"event_time": q.EndEventTime})
-	// TODO: add other constraints
+
+	if len(q.User) > 0 {
+		wheres = append(wheres, sq.Eq{"user": q.User})
+	}
+
+	if len(q.ParentEventID) > 0 {
+		wheres = append(wheres, sq.Eq{"parent_event_id": q.ParentEventID})
+	}
+
+	if len(q.Host) > 0 {
+		wheres = append(wheres, sq.Eq{"host": q.Host})
+	}
+
+	if len(topicIDs) > 0 {
+		wheres = append(wheres, sq.Eq{"topic_id": topicIDs})
+	}
+
+	if len(dcIDs) > 0 {
+		wheres = append(wheres, sq.Eq{"dc_id": dcIDs})
+	}
+
+	if len(q.TargetHostSet) > 0 {
+		// intersection of two arrays
+		// squirrel doesn't support Postgres' array and repective methods. Building new SQL template manually
+		// make identical slice of []interface{} type to pass to varadic functions
+		clause := "target_host_set && " + getPlaceHolderArray((q.TargetHostSet))
+		wheres = append(wheres, sq.Expr(clause, stringsToIfaces(q.TargetHostSet)...))
+	}
+
+	if len(q.TagSet) > 0 {
+		var op string
+		if q.TagAndOperator {
+			// LHS array is the superset of RHS array
+			op = ">&"
+		} else {
+			// LHS array has interestion with RHS array
+			op = "&&"
+		}
+		clause := fmt.Sprintf("tag_set %s %s", op, getPlaceHolderArray(q.TagSet))
+		wheres = append(wheres, sq.Expr(clause, stringsToIfaces(q.TagSet)...))
+	}
+
+	if len(q.ExcludeTagSet) > 0 {
+		clause := fmt.Sprintf("NOT (tag_set && %s)", getPlaceHolderArray((q.ExcludeTagSet)))
+		wheres = append(wheres, sq.Expr(clause, stringsToIfaces(q.ExcludeTagSet)...))
+	}
 
 	query := base_query.Where(wheres)
 
