@@ -112,15 +112,15 @@ func stringsToIfaces(in []string) []interface{} {
 func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
 	// use sql builder for better readability
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-	columns := []string{"event_id", "parent_event_id", "dc_id", "topic_id", "host", "target_host_set", "user", "event_time", "tag_set", "received_time"}
+	columns := []string{"event_id", "parent_event_id", "dc_id", "topic_id", "host", "target_host_set", "\"user\"", "event_time", "tag_set", "received_time"}
 	table := "event"
 	base_query := psql.Select(columns...).From(table)
 
 	wheres := sq.And{}
 
-	// add constarints
-	wheres = append(wheres, sq.GtOrEq{"event_time": q.StartEventTime})
-	wheres = append(wheres, sq.LtOrEq{"event_time": q.EndEventTime})
+	// add constarints, *1000 due to different time precision (sec to ms)
+	wheres = append(wheres, sq.GtOrEq{"event_time": q.StartEventTime * 1000})
+	wheres = append(wheres, sq.LtOrEq{"event_time": q.EndEventTime * 1000})
 
 	if len(q.User) > 0 {
 		wheres = append(wheres, sq.Eq{"user": q.User})
@@ -262,8 +262,9 @@ func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent
 		order = "DESC"
 	}
 
+	// *1000 to convert time precision (sec to ms)
 	rows, err := p.db.Query("SELECT event_id FROM event WHERE event_time >= $1 AND event_time <= $2 "+
-		"ORDER BY event_time "+order+" LIMIT $3 ", query.StartEventTime, query.EndEventTime, query.Limit)
+		"ORDER BY event_time "+order+" LIMIT $3 ", query.StartEventTime*1000, query.EndEventTime*1000, query.Limit)
 	if err != nil {
 		return err
 	}
