@@ -206,9 +206,52 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 	return events, nil
 }
 
-func (p *PostgresStore) FindByID(string, bool) (*Event, error) {
-	// TODO: implement this function
-	return nil, nil
+func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
+	rows, err := p.db.Query("SELECT event_id, parent_event_id, dc_id, topic_id, host,"+
+		" target_host_set, user, event_time, tag_set, received_time "+
+		"FROM event WHERE event_id=$1 LIMIT 1", id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	event := Event{}
+	if rows.Next() {
+		err = rows.Scan(&event.EventID, &event.ParentEventID, &event.DCID,
+			&event.TopicID, &event.Host, pq.Array(&event.TargetHosts), &event.User,
+			&event.EventTime, pq.Array(&event.Tags), &event.ReceivedTime)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, errors.New("cannot find event entry with given id")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if inclData {
+		rows, err = p.db.Query("SELECT data_json FROM event_metadata WHERE event_id=$1 LIMIT 1", id)
+		if err != nil {
+			return nil, err
+		}
+		var data []byte
+		if rows.Next() {
+			err = rows.Scan(&data)
+			if err != nil {
+				return nil, err
+			}
+			err = json.Unmarshal(data, &event.Data)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, errors.New("cannot find data entry with given id")
+		}
+	}
+
+	return &event, nil
 }
 
 func (p *PostgresStore) FindIDs(*eventmaster.TimeQuery, HandleEvent) error {
