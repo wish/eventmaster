@@ -1,11 +1,14 @@
 package eventmaster
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/rds/auth"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -25,20 +28,44 @@ type PostgresConfig struct {
 	ServiceName string `json:"service_name"`
 	Username    string `json:"username"`
 	Password    string `json:"password"`
+	UseIamAuth  bool   `json:"use_iam_auth"`
+	AwsRegion   string `json:"aws_region"`
 }
 
 // Initializes new connection to Postgres DB
 func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
-	var host string
-	if c.ServiceName != "" {
-		host = c.ServiceName + ".service.consul"
+	var psqlInfo string
+	if !c.UseIamAuth {
+		var host string
+		if c.ServiceName != "" {
+			host = c.ServiceName + ".service.consul"
+		} else {
+			host = c.Addr
+		}
+		log.Infof("Connecting to postgres: %v", host)
+		psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
+			"password=%s dbname=%s sslmode=disable",
+			host, c.Port, c.Username, c.Password, c.Database)
 	} else {
-		host = c.Addr
+		cfg, err := config.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			panic("configuration error: " + err.Error())
+		}
+		endpoint := fmt.Sprintf("%s:%d", c.Addr, c.Port)
+		authenticationToken, err := auth.BuildAuthToken(
+			context.TODO(),
+			endpoint,
+			c.AwsRegion,
+			c.Username,
+			cfg.Credentials,
+		)
+		psqlInfo = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
+			c.Addr, c.Port, c.Username, authenticationToken, c.Database,
+		)
+		if err != nil {
+			panic("failed to create authentication token: " + err.Error())
+		}
 	}
-	log.Infof("Connecting to postgres: %v", host)
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		host, c.Port, c.Username, c.Password, c.Database)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating postgres session")
@@ -47,7 +74,7 @@ func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating postgres session")
 	}
-	log.Infof("Successfully connected to postgres %s", host)
+	log.Infof("Successfully connected to postgres %s", c.Addr)
 
 	return &PostgresStore{
 		db: db,

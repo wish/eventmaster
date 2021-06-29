@@ -6,6 +6,9 @@ require (
 	cloud.google.com/go v0.26.0 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Masterminds/squirrel v1.5.0
+	github.com/aws/aws-sdk-go v1.38.69 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.4.0
+	github.com/aws/aws-sdk-go-v2/feature/rds/auth v1.1.2
 	github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a // indirect
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
 	github.com/client9/misspell v0.3.4 // indirect
@@ -25,7 +28,7 @@ require (
 	github.com/lib/pq v1.10.2
 	github.com/matttproud/golang_protobuf_extensions v1.0.0 // indirect
 	github.com/miekg/dns v1.1.42 // indirect
-	github.com/pkg/errors v0.8.0
+	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.8.0
 	github.com/prometheus/client_model v0.2.0 // indirect
