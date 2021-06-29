@@ -1,5 +1,12 @@
 {
-  "data_store": "cassandra",
+  "data_store": "postgres",
+  "postgres_config": {
+    "addr": "127.0.0.1",
+    "port": 5432,
+    "database": "eventmaster",
+    "username": "postgres",
+    "password": "password"
+  },
   "cassandra_config": {
     "addrs": ["127.0.0.1:9042"],
     "keyspace": "event_master",

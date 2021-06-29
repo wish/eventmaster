@@ -55,6 +55,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to create cassandra data store: %v", err)
 		}
+	} else if emConf.DataStore == "postgres" {
+		ds, err = em.NewPostgresStore(emConf.PostgresConfig)
+		if err != nil {
+			log.Fatalf("failed to create postgres data store: %v", err)
+		}
 	} else {
 		log.Fatalf("Unrecognized data store option")
 	}
