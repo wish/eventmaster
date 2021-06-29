@@ -27,6 +27,7 @@ type PostgresConfig struct {
 	Password    string `json:"password"`
 }
 
+// Initializes new connection to Postgres DB
 func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 	var host string
 	if c.ServiceName != "" {
@@ -53,6 +54,7 @@ func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 	}, nil
 }
 
+// Add a new event to the DB
 func (p *PostgresStore) AddEvent(e *Event) error {
 	data := "{}"
 	if e.Data != nil {
@@ -74,13 +76,19 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 		e.EventID, e.ParentEventID, e.DCID, e.TopicID, e.Host, pq.Array(e.TargetHosts), e.User, e.EventTime, pq.Array(e.Tags), e.ReceivedTime)
 
 	if err != nil {
-		tx.Rollback()
+		rollBackErr := tx.Rollback()
+		if rollBackErr != nil {
+			return errors.Wrap(err, "Rollback failure")
+		}
 		return err
 	}
 
 	_, err = tx.Exec("INSERT INTO event_metadata (event_id, data_json) VALUES ($1, $2)", e.EventID, data)
 	if err != nil {
-		tx.Rollback()
+		rollBackErr := tx.Rollback()
+		if rollBackErr != nil {
+			return errors.Wrap(err, "Rollback failure")
+		}
 		return err
 	}
 
@@ -109,6 +117,7 @@ func stringsToIfaces(in []string) []interface{} {
 	return new
 }
 
+// Find respective events that match given criteria
 func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
 	// use sql builder for better readability
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
@@ -206,6 +215,7 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 	return events, nil
 }
 
+// Find the event with given ID, include detailed json data if needed
 func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
 	rows, err := p.db.Query("SELECT event_id, parent_event_id, dc_id, topic_id, host,"+
 		" target_host_set, user, event_time, tag_set, received_time "+
@@ -254,6 +264,7 @@ func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
 	return &event, nil
 }
 
+// Find eventIDs that match the given TimeQuery constraints
 func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent) error {
 	var order string
 	if query.Ascending {
@@ -284,6 +295,7 @@ func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent
 	return nil
 }
 
+// Get all topics
 func (p *PostgresStore) GetTopics() ([]Topic, error) {
 	rows, err := p.db.Query("SELECT topic_id, topic_name, data_schema FROM event_topic")
 	if err != nil {
@@ -314,21 +326,25 @@ func (p *PostgresStore) GetTopics() ([]Topic, error) {
 	return topics, nil
 }
 
+// Add a topic to the DB
 func (p *PostgresStore) AddTopic(t RawTopic) error {
 	_, err := p.db.Exec("INSERT INTO event_topic (topic_id, topic_name, data_schema) VALUES ($1, $2, $3)", t.ID, t.Name, t.Schema)
 	return err
 }
 
+// Update topic with given topic ID
 func (p *PostgresStore) UpdateTopic(t RawTopic) error {
 	_, err := p.db.Exec("UPDATE event_topic SET topic_name=$1, data_schema=$2 WHERE topic_id=$3", t.Name, t.Schema, t.ID)
 	return err
 }
 
+// Delete topic with given topic ID
 func (p *PostgresStore) DeleteTopic(id string) error {
 	_, err := p.db.Exec("DELETE FROM event_topic WHERE topic_id=$1", id)
 	return err
 }
 
+// Get all Datacenters
 func (p *PostgresStore) GetDCs() ([]DC, error) {
 	rows, err := p.db.Query("SELECT dc_id, dc from event_dc")
 	if err != nil {
@@ -351,6 +367,7 @@ func (p *PostgresStore) GetDCs() ([]DC, error) {
 	return dcs, nil
 }
 
+// Add a datacenter to the table
 func (p *PostgresStore) AddDC(dc DC) error {
 	stmt, err := p.db.Prepare("INSERT INTO event_dc (dc_id, dc) VALUES ($1, $2)")
 	if err != nil {
@@ -364,11 +381,13 @@ func (p *PostgresStore) AddDC(dc DC) error {
 	return nil
 }
 
+// Update datacenter with given ID
 func (p *PostgresStore) UpdateDC(id string, newName string) error {
 	_, err := p.db.Exec("UPDATE event_dc SET dc=$1 WHERE dc_id=$2", newName, id)
 	return err
 }
 
+// Close the database session
 func (p *PostgresStore) CloseSession() {
 	p.db.Close()
 }
