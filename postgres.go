@@ -228,12 +228,15 @@ func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
 
 	event := Event{}
 	if rows.Next() {
+		var receivedTime, eventTime time.Time
 		err = rows.Scan(&event.EventID, &event.ParentEventID, &event.DCID,
 			&event.TopicID, &event.Host, pq.Array(&event.TargetHosts), &event.User,
-			&event.EventTime, pq.Array(&event.Tags), &event.ReceivedTime)
+			&eventTime, pq.Array(&event.Tags), &receivedTime)
 		if err != nil {
 			return nil, err
 		}
+		event.ReceivedTime = receivedTime.Unix()
+		event.EventTime = eventTime.Unix()
 	} else {
 		return nil, errors.New("cannot find event entry with given id")
 	}
