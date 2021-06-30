@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/lib/pq"
@@ -70,10 +71,11 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 		return err
 	}
 
+	// e.EventTime and e.ReceivedTime here is Unix timestamp in ms precision
 	_, err = tx.Exec("INSERT INTO event "+
 		"(event_id, parent_event_id, dc_id, topic_id, host, target_host_set, \"user\", event_time, tag_set, received_time)"+
-		" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-		e.EventID, e.ParentEventID, e.DCID, e.TopicID, e.Host, pq.Array(e.TargetHosts), e.User, e.EventTime, pq.Array(e.Tags), e.ReceivedTime)
+		" VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8) AT TIME ZONE 'UTC', $9, to_timestamp($10) AT TIME ZONE 'UTC')",
+		e.EventID, e.ParentEventID, e.DCID, e.TopicID, e.Host, pq.Array(e.TargetHosts), e.User, e.EventTime/1000, pq.Array(e.Tags), e.ReceivedTime/1000)
 
 	if err != nil {
 		rollBackErr := tx.Rollback()
@@ -127,9 +129,8 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 
 	wheres := sq.And{}
 
-	// add constarints, *1000 due to different time precision (sec to ms)
-	wheres = append(wheres, sq.GtOrEq{"event_time": q.StartEventTime * 1000})
-	wheres = append(wheres, sq.LtOrEq{"event_time": q.EndEventTime * 1000})
+	wheres = append(wheres, sq.GtOrEq{"event_time": time.Unix(q.StartEventTime, 0)})
+	wheres = append(wheres, sq.LtOrEq{"event_time": time.Unix(q.EndEventTime, 0)})
 
 	if len(q.User) > 0 {
 		wheres = append(wheres, sq.Eq{"user": q.User})
@@ -188,9 +189,9 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 	var host string
 	var target_host_set []string
 	var user string
-	var event_time int64
+	var event_time time.Time
 	var tag_set []string
-	var received_time int64
+	var received_time time.Time
 
 	rows, err := query.RunWith(p.db).Query()
 	for rows.Next() {
@@ -206,9 +207,9 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 			Host:          host,
 			TargetHosts:   target_host_set,
 			User:          user,
-			EventTime:     event_time,
+			EventTime:     event_time.Unix(),
 			Tags:          tag_set,
-			ReceivedTime:  received_time,
+			ReceivedTime:  received_time.Unix(),
 		})
 	}
 
@@ -273,9 +274,10 @@ func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent
 		order = "DESC"
 	}
 
-	// *1000 to convert time precision (sec to ms)
-	rows, err := p.db.Query("SELECT event_id FROM event WHERE event_time >= $1 AND event_time <= $2 "+
-		"ORDER BY event_time "+order+" LIMIT $3 ", query.StartEventTime*1000, query.EndEventTime*1000, query.Limit)
+	// query.StartEventTime and query.EndEventTime is in sec precision here
+	rows, err := p.db.Query("SELECT event_id FROM event WHERE event_time >= to_timestamp($1) AT TIME ZONE 'UTC'"+
+		" AND event_time <= to_timestamp($2) AT TIME ZONE 'UTC' ORDER BY event_time "+
+		order+" LIMIT $3 ", query.StartEventTime, query.EndEventTime, query.Limit)
 	if err != nil {
 		return err
 	}
