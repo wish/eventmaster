@@ -7,6 +7,7 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+	vaultApi "github.com/hashicorp/vault/api"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -18,14 +19,62 @@ import (
 type PostgresStore struct {
 	db *sql.DB
 }
+type VaultConfig struct {
+	Enabled bool   `json:"enabled"`
+	Addr    string `json:"addr"`
+	Token   string `json:"token"`
+	Path    string `json:"path"`
+}
 
 type PostgresConfig struct {
-	Addr        string `json:"addr"`
-	Port        int    `json:"port"`
-	Database    string `json:"database"`
-	ServiceName string `json:"service_name"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
+	Addr        string      `json:"addr"`
+	Port        int         `json:"port"`
+	Database    string      `json:"database"`
+	ServiceName string      `json:"service_name"`
+	Username    string      `json:"username"`
+	Password    string      `json:"password"`
+	Vault       VaultConfig `json:"vault"`
+}
+
+func getPasswordFromVault(c VaultConfig) (*string, error) {
+	config := &vaultApi.Config{
+		Address: c.Addr,
+	}
+	client, err := vaultApi.NewClient(config)
+	if err != nil {
+		return nil, err
+	}
+
+	client.SetToken(c.Token)
+	secret, err := client.Logical().Read(c.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	m, ok := secret.Data["data"].(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("Vault data malformed")
+	}
+
+	ret, ok := m["password"].(string)
+	if !ok {
+		return nil, errors.Errorf("Secret format malformed")
+	}
+	return &ret, nil
+}
+
+func getPassword(c PostgresConfig) (*string, error) {
+	var password *string
+	var err error
+	if !c.Vault.Enabled {
+		password = &c.Password
+	} else {
+		password, err = getPasswordFromVault(c.Vault)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return password, nil
 }
 
 // Initializes new connection to Postgres DB
@@ -37,9 +86,13 @@ func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 		host = c.Addr
 	}
 	log.Infof("Connecting to postgres: %v", host)
+	password, err := getPassword(c)
+	if err != nil {
+		return nil, err
+	}
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		host, c.Port, c.Username, c.Password, c.Database)
+		host, c.Port, c.Username, *password, c.Database)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating postgres session")

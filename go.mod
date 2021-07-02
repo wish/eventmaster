@@ -6,7 +6,6 @@ require (
 	cloud.google.com/go v0.26.0 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Masterminds/squirrel v1.5.0
-	github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a // indirect
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
 	github.com/client9/misspell v0.3.4 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0
@@ -15,22 +14,19 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/mock v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
+	github.com/hashicorp/vault/api v1.1.0
 	github.com/jessevdk/go-flags v1.3.0
 	github.com/jteeuwen/go-bindata v3.0.8-0.20180305030458-6025e8de665b+incompatible // indirect
 	github.com/julienschmidt/httprouter v1.1.0
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/lib/pq v1.10.2
-	github.com/matttproud/golang_protobuf_extensions v1.0.0 // indirect
 	github.com/miekg/dns v1.1.42 // indirect
-	github.com/pkg/errors v0.8.0
+	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v0.8.0
+	github.com/prometheus/client_golang v0.9.2
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.0.0-20170908161822-2f17f4a9d485 // indirect
-	github.com/prometheus/procfs v0.0.0-20170703101242-e645f4e5aaa8 // indirect
 	github.com/satori/go.uuid v1.1.0
 	github.com/segmentio/ksuid v0.0.0-20170805175227-1c9d746aad27
 	github.com/sirupsen/logrus v1.0.3
