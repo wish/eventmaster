@@ -100,11 +100,11 @@ Although no longer recommended, you can connect to a Cassandra database by setti
     - `consistency`: consistency level setting, default to be `one`,
     - `timeout`: connection timeout
 To connect to a Cassandra database over TLS, several fields have to be set in the configration file. This includes:
-- `secured`: Setting this field to `true` triggers TLS
-- `ca_path`: The path to the CA cert file
-- `port`: If different than default native protocol clients (port 9042)
-- `username`
-- `password`
+    - `secured`: Setting this field to `true` triggers TLS
+    - `ca_path`: The path to the CA cert file
+    - `port`: If different than default native protocol clients (port 9042)
+    - `username`
+    - `password`
 
 An example of the config file can be found [here](https://github.com/wish/eventmaster/blob/master/etc/eventmaster.json)
 ### Database Setup
