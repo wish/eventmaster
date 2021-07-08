@@ -15,7 +15,9 @@ to search them. This project implements a service that:
 ## Setup
 ### Dependencies
 - Go tool (tested at v1.16)
-- Cassandra v3.10
+- Either one of the following
+  - Postgres (preferred), or
+  - Cassandra (deprecated)
 
 ### Get Code
 ```
@@ -72,25 +74,42 @@ adjust a `eventmaster.json` file and specify that it is used by providing the
 Open the eventmaster UI in your browser (default: `http://localhost:50052`).
 The UI can be used to create and query topics, data centers, and events.
 
+### Database Connection
+Eventmaster currently supports two database backends: Postgres (preferred) and Cassandra (deprecated). The choice of database needs to supplied in the `data_store` field of the config file.
+
+To connect to a Postgres database, serveral fields have to be set in the configration file. This includes:
+  - `data_store`: your choice of database. Set to `postgres` to connect to a postgres database
+  - `postgres_config`: object containing postgres configs
+    - `addr`: address of the postgres database
+    - `port`: port of the postgres database
+    - `database`: the name of the database
+    - `username`: the username of the user with necessary permission to connect/read/write, and
+    - `password`: the password of the user (ommited if Vault integration is turned on)
+
+    Additionally, you may choose to toggle integration with HasiCorp Vault. This allows Eventmaster to obtain database password from Vault instead of leaving them as plain-text in the filesystem. Only v2 is supported currently. To do so, set the following fields:
+    - `vault`: object containing Vault config
+      - `enabled`: set to true to enable Vault integration
+      - `addr`: API endpoint of Vault
+      - `token`: token used to connect to Vault
+      - `path`: path to the password
+
+Although no longer recommended, you can connect to a Cassandra database by setting the following fields:
+    - `data_store`: set to `cassandra` to connect to a c* database
+    - `addrs`: array of C* database addresses
+    - `keyspace`: name of the keyspace you wish to use
+    - `consistency`: consistency level setting, default to be `one`,
+    - `timeout`: connection timeout
 To connect to a Cassandra database over TLS, several fields have to be set in the configration file. This includes:
 - `secured`: Setting this field to `true` triggers TLS
 - `ca_path`: The path to the CA cert file
 - `port`: If different than default native protocol clients (port 9042)
 - `username`
 - `password`
+
+An example of the config file can be found [here](https://github.com/wish/eventmaster/blob/master/etc/eventmaster.json)
 ### Database Setup
 
-Execute `schema.cql` on your Cassandra cluster. This will set up the
-`event_master` keyspace and `event`, `temp_event`, `event_topic`, and
-`event_dc` tables.
-
-```bash
-$ cqlsh -f schema.cql
-```
-
-The `class` and `replication_factor` can be modified as long as the
-`consistency` attribute is configured accordingly in the `eventmaster.json`
-used by `eventmaster -c eventmaster.json`.
+Execute `schema.sql` or `schema.cql` from the `schema` directory on your database cluster. This will set up the tables needed.
 
 ### Tests
 Tests can be run (using the go tool) by calling:
