@@ -94,12 +94,13 @@ To connect to a Postgres database, serveral fields have to be set in the configr
       - `path`: path to the password
 
 Although no longer recommended, you can connect to a Cassandra database by setting the following fields:
-    - `data_store`: set to `cassandra` to connect to a c* database
+  - `data_store`: set to `cassandra` to connect to a c* database
     - `addrs`: array of C* database addresses
     - `keyspace`: name of the keyspace you wish to use
     - `consistency`: consistency level setting, default to be `one`,
     - `timeout`: connection timeout
-To connect to a Cassandra database over TLS, several fields have to be set in the configration file. This includes:
+
+    To connect to a Cassandra database over TLS, several fields have to be set in the configration file. This includes:
     - `secured`: Setting this field to `true` triggers TLS
     - `ca_path`: The path to the CA cert file
     - `port`: If different than default native protocol clients (port 9042)
