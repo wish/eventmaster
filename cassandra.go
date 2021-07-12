@@ -247,7 +247,8 @@ func getDates(startEventTime int64, endEventTime int64) ([]string, error) {
 }
 
 // Find searches using the Query, and filters topicIDs and dcIDs.
-func (c *CassandraStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
+func (c *CassandraStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string, inclData bool) (Events, error) {
+	// inclData is ignored, since the C* database implementation is deprecated
 	dates, err := getDates(q.StartEventTime, q.EndEventTime)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error getting dates from timestamps")

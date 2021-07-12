@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/wish/eventmaster/jh"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
+	"github.com/wish/eventmaster/jh"
 )
 
 // EventResult is the json-serializable version of an Event.
@@ -48,7 +48,7 @@ func (s *Server) getEvent(w http.ResponseWriter, r *http.Request, _ httprouter.P
 		return q, jh.NewError(errors.Wrap(err, "get query from request").Error(), http.StatusBadRequest)
 	}
 
-	events, err := s.store.Find(q)
+	events, err := s.store.Find(q, false)
 	if err != nil {
 		return events, errors.Wrap(err, "find events")
 	}

@@ -173,12 +173,17 @@ func stringsToIfaces(in []string) []interface{} {
 }
 
 // Find respective events that match given criteria
-func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string) (Events, error) {
+func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []string, inclData bool) (Events, error) {
 	// use sql builder for better readability
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 	columns := []string{"event_id", "parent_event_id", "dc_id", "topic_id", "host", "target_host_set", "\"user\"", "event_time", "tag_set", "received_time"}
-	table := "event"
-	base_query := psql.Select(columns...).From(table)
+	if inclData {
+		columns = append(columns, "data_json")
+	}
+	base_query := psql.Select(columns...).From("event")
+	if inclData {
+		base_query = base_query.Join("event_metadata USING (event_id)")
+	}
 
 	wheres := sq.And{}
 
@@ -245,14 +250,25 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 	var event_time time.Time
 	var tag_set []string
 	var received_time time.Time
+	data := "{}"
+
+	fields := make([]interface{}, 0)
+	fields = append(fields, &event_id, &parent_event_id, &dc_id, &topic_id, &host, pq.Array(&target_host_set), &user, &event_time, pq.Array(&tag_set), &received_time)
+	if inclData {
+		fields = append(fields, &data)
+	}
 
 	rows, err := query.RunWith(p.db).Query()
+	if err != nil {
+		return nil, err
+	}
+
 	for rows.Next() {
-		err = rows.Scan(&event_id, &parent_event_id, &dc_id, &topic_id, &host, pq.Array(&target_host_set), &user, &event_time, pq.Array(&tag_set), &received_time)
+		err = rows.Scan(fields...)
 		if err != nil {
 			return nil, err
 		}
-		events = append(events, &Event{
+		event := &Event{
 			EventID:       event_id,
 			ParentEventID: parent_event_id,
 			DCID:          dc_id,
@@ -263,7 +279,12 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 			EventTime:     event_time.Unix(),
 			Tags:          tag_set,
 			ReceivedTime:  received_time.Unix(),
-		})
+		}
+		err = json.Unmarshal([]byte(data), &event.Data)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
 	}
 
 	return events, nil

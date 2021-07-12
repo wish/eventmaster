@@ -133,7 +133,7 @@ func (h *Server) grafanaAnnotations(w http.ResponseWriter, r *http.Request, p ht
 			}
 		}
 
-		evs, err := h.store.Find(q)
+		evs, err := h.store.Find(q, true)
 		if err != nil {
 			e := errors.Wrapf(err, "grafana search with %v", q)
 			http.Error(w, e.Error(), http.StatusInternalServerError)
