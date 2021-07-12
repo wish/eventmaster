@@ -104,7 +104,7 @@ func registerRoutes(srv *Server) http.Handler {
 	// grafana datasource endpoints
 	r.GET("/grafana", latency("/grafana", cors(srv.grafanaOK)))
 	r.GET("/grafana/", latency("/grafana/", cors(srv.grafanaOK)))
-	r.OPTIONS("/grafana/:route", latency("/grafana", cors(srv.grafanaOK)))
+	r.OPTIONS("/grafana/*route", latency("/grafana", cors(srv.grafanaOK)))
 	r.POST("/grafana/annotations", latency("/grafana/annotations", cors(srv.grafanaAnnotations)))
 	r.POST("/grafana/search", latency("/grafana/search", cors(srv.grafanaSearch)))
 
