@@ -108,7 +108,7 @@ func (s *GRPCServer) GetEvents(q *eventmaster.Query, stream eventmaster.EventMas
 		metrics.GRPCLatency(name, start)
 	}()
 
-	events, err := s.store.Find(q)
+	events, err := s.store.Find(q, false)
 	if err != nil {
 		metrics.GRPCFailure(name)
 		return errors.Wrapf(err, "unable to find %v", q)

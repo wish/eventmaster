@@ -249,7 +249,7 @@ func (es *EventStore) augmentEvent(event *UnaddedEvent) (*Event, error) {
 }
 
 // Find performs validation and sorting around calling the underlying DataStore.
-func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
+func (es *EventStore) Find(q *eventmaster.Query, inclData bool) (Events, error) {
 	start := time.Now()
 	defer func() {
 		metrics.EventStoreLatency("Find", start)
@@ -264,7 +264,7 @@ func (es *EventStore) Find(q *eventmaster.Query) (Events, error) {
 	for _, dc := range q.DC {
 		dcIDs = append(dcIDs, es.getDCID(dc))
 	}
-	evts, err := es.ds.Find(q, topicIDs, dcIDs)
+	evts, err := es.ds.Find(q, topicIDs, dcIDs, inclData)
 	if err != nil {
 		metrics.DBError("read")
 		return nil, errors.Wrap(err, "Error executing find in data source")
