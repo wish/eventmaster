@@ -10,6 +10,8 @@ on:
   pull_request:
     branches:
       - master
+  release:
+    types: [published]
 
 jobs:
 
@@ -33,7 +35,7 @@ jobs:
           password: '${{ secrets.QUAYIO_PASSWORD }}'
       -
         name: Run Buildx and push
-        if: ${{ github.event_name == 'push'}}
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           docker buildx build \
             --platform linux/amd64 \
