@@ -22,7 +22,7 @@ $(BINARY): $(wildcard **/*.go) proto ui/ui.go templates/templates.go deps
 proto: proto/eventmaster.pb.go 
 
 proto/eventmaster.pb.go: $(PGG) proto/eventmaster.proto
-	protoc --plugin=${PGG} -I proto/ proto/eventmaster.proto --go_out=plugins=grpc:proto -go_opt=paths=source_relative
+	protoc --plugin=${PGG} -I proto/ proto/eventmaster.proto --go_out=plugins=grpc:proto --go_opt=paths=source_relative
 
 .PHONY: test
 test: proto/eventmaster.pb.go ui/ui.go templates/templates.go
