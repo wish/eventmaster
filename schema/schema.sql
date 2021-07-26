@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS "public"."event";
+DROP TABLE IF EXISTS "event";
 
-CREATE TABLE "public"."event" (
+CREATE TABLE "event" (
     "event_id" text NOT NULL,
     "parent_event_id" text,
     "dc_id" uuid,
@@ -14,25 +14,28 @@ CREATE TABLE "public"."event" (
     PRIMARY KEY ("event_id")
 );
 
-DROP TABLE IF EXISTS "public"."event_dc";
+-- Optional: Add BRIN index to event_time to optimize performance
+CREATE INDEX event_time_idx ON event USING brin(event_time);
 
-CREATE TABLE "public"."event_dc" (
+DROP TABLE IF EXISTS "event_dc";
+
+CREATE TABLE "event_dc" (
     "dc_id" text NOT NULL,
     "dc" text,
     PRIMARY KEY ("dc_id")
 );
 
-DROP TABLE IF EXISTS "public"."event_metadata";
+DROP TABLE IF EXISTS "event_metadata";
 
-CREATE TABLE "public"."event_metadata" (
+CREATE TABLE "event_metadata" (
     "event_id" text NOT NULL,
     "data_json" json,
     PRIMARY KEY ("event_id")
 );
 
-DROP TABLE IF EXISTS "public"."event_topic";
+DROP TABLE IF EXISTS "event_topic";
 
-CREATE TABLE "public"."event_topic" (
+CREATE TABLE "event_topic" (
     "topic_id" uuid NOT NULL,
     "topic_name" text,
     "data_schema" json,
