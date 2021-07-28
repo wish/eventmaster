@@ -222,7 +222,7 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 		var op string
 		if q.TagAndOperator {
 			// LHS array is the superset of RHS array
-			op = ">&"
+			op = "@>"
 		} else {
 			// LHS array has interestion with RHS array
 			op = "&&"
