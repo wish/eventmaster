@@ -42,12 +42,14 @@ func getPasswordFromVault(c VaultConfig) (*string, error) {
 	}
 	client, err := vaultApi.NewClient(config)
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	client.SetToken(c.Token)
 	secret, err := client.Logical().Read(c.Path)
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
@@ -71,6 +73,7 @@ func getPassword(c PostgresConfig) (*string, error) {
 	} else {
 		password, err = getPasswordFromVault(c.Vault)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 	}
@@ -88,6 +91,7 @@ func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 	log.Infof("Connecting to postgres: %v", host)
 	password, err := getPassword(c)
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
@@ -95,10 +99,12 @@ func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 		host, c.Port, c.Username, *password, c.Database)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, errors.Wrap(err, "Error creating postgres session")
 	}
 	err = db.Ping()
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, errors.Wrap(err, "Error creating postgres session")
 	}
 	log.Infof("Successfully connected to postgres %s", host)
@@ -114,6 +120,7 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 	if e.Data != nil {
 		dataBytes, err := json.Marshal(e.Data)
 		if err != nil {
+			log.Errorf(err.Error())
 			return err
 		}
 		data = string(dataBytes)
@@ -121,6 +128,7 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 
 	tx, err := p.db.Begin()
 	if err != nil {
+		log.Errorf(err.Error())
 		return err
 	}
 
@@ -131,6 +139,7 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 		e.EventID, e.ParentEventID, e.DCID, e.TopicID, e.Host, pq.Array(e.TargetHosts), e.User, e.EventTime/1000, pq.Array(e.Tags), e.ReceivedTime/1000)
 
 	if err != nil {
+		log.Errorf(err.Error())
 		rollBackErr := tx.Rollback()
 		if rollBackErr != nil {
 			return errors.Wrap(err, "Rollback failure")
@@ -140,6 +149,7 @@ func (p *PostgresStore) AddEvent(e *Event) error {
 
 	_, err = tx.Exec("INSERT INTO event_metadata (event_id, data_json) VALUES ($1, $2)", e.EventID, data)
 	if err != nil {
+		log.Errorf(err.Error())
 		rollBackErr := tx.Rollback()
 		if rollBackErr != nil {
 			return errors.Wrap(err, "Rollback failure")
@@ -260,12 +270,14 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 
 	rows, err := query.RunWith(p.db).Query()
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	for rows.Next() {
 		err = rows.Scan(fields...)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 		event := &Event{
@@ -282,6 +294,7 @@ func (p *PostgresStore) Find(q *eventmaster.Query, topicIDs []string, dcIDs []st
 		}
 		err = json.Unmarshal([]byte(data), &event.Data)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 		events = append(events, event)
@@ -297,6 +310,7 @@ func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
 		"FROM event WHERE event_id=$1 LIMIT 1", id)
 
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
@@ -307,6 +321,7 @@ func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
 			&event.TopicID, &event.Host, pq.Array(&event.TargetHosts), &event.User,
 			&eventTime, pq.Array(&event.Tags), &receivedTime)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 		event.ReceivedTime = receivedTime.Unix()
@@ -316,22 +331,26 @@ func (p *PostgresStore) FindByID(id string, inclData bool) (*Event, error) {
 	}
 
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	if inclData {
 		rows, err = p.db.Query("SELECT data_json FROM event_metadata WHERE event_id=$1 LIMIT 1", id)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 		var data []byte
 		if rows.Next() {
 			err = rows.Scan(&data)
 			if err != nil {
+				log.Errorf(err.Error())
 				return nil, err
 			}
 			err = json.Unmarshal(data, &event.Data)
 			if err != nil {
+				log.Errorf(err.Error())
 				return nil, err
 			}
 		} else {
@@ -356,6 +375,7 @@ func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent
 		" AND event_time <= to_timestamp($2) AT TIME ZONE 'UTC' ORDER BY event_time "+
 		order+" LIMIT $3 ", query.StartEventTime, query.EndEventTime, query.Limit)
 	if err != nil {
+		log.Errorf(err.Error())
 		return err
 	}
 
@@ -363,10 +383,12 @@ func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent
 		var id string
 		err = rows.Scan(&id)
 		if err != nil {
+			log.Errorf(err.Error())
 			return err
 		}
 		err = handle(id)
 		if err != nil {
+			log.Errorf(err.Error())
 			rows.Close()
 			return err
 		}
@@ -378,6 +400,7 @@ func (p *PostgresStore) FindIDs(query *eventmaster.TimeQuery, handle HandleEvent
 func (p *PostgresStore) GetTopics() ([]Topic, error) {
 	rows, err := p.db.Query("SELECT topic_id, topic_name, data_schema FROM event_topic")
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 	defer rows.Close()
@@ -388,11 +411,13 @@ func (p *PostgresStore) GetTopics() ([]Topic, error) {
 	for rows.Next() {
 		err = rows.Scan(&id, &name, &schema)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 		var s map[string]interface{}
 		err := json.Unmarshal([]byte(schema), &s)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 		topics = append(topics, Topic{
@@ -427,6 +452,7 @@ func (p *PostgresStore) DeleteTopic(id string) error {
 func (p *PostgresStore) GetDCs() ([]DC, error) {
 	rows, err := p.db.Query("SELECT dc_id, dc from event_dc")
 	if err != nil {
+		log.Errorf(err.Error())
 		return nil, err
 	}
 	defer rows.Close()
@@ -436,6 +462,7 @@ func (p *PostgresStore) GetDCs() ([]DC, error) {
 	for rows.Next() {
 		err = rows.Scan(&dc_id, &dc)
 		if err != nil {
+			log.Errorf(err.Error())
 			return nil, err
 		}
 		dcs = append(dcs, DC{
@@ -450,10 +477,12 @@ func (p *PostgresStore) GetDCs() ([]DC, error) {
 func (p *PostgresStore) AddDC(dc DC) error {
 	stmt, err := p.db.Prepare("INSERT INTO event_dc (dc_id, dc) VALUES ($1, $2)")
 	if err != nil {
+		log.Errorf(err.Error())
 		return errors.Wrap(err, "Failed preparing insert DC statement")
 	}
 	_, err = stmt.Exec(dc.ID, dc.Name)
 	if err != nil {
+		log.Errorf(err.Error())
 		return err
 	}
 
@@ -463,7 +492,11 @@ func (p *PostgresStore) AddDC(dc DC) error {
 // Update datacenter with given ID
 func (p *PostgresStore) UpdateDC(id string, newName string) error {
 	_, err := p.db.Exec("UPDATE event_dc SET dc=$1 WHERE dc_id=$2", newName, id)
-	return err
+	if err != nil {
+		log.Errorf(err.Error())
+		return err
+	}
+	return nil
 }
 
 // Close the database session
