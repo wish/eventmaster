@@ -24,10 +24,14 @@ import (
 )
 
 func main() {
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 	var config em.Flags
 	parser := flags.NewParser(&config, flags.Default)
 	a, err := parser.Parse()
 	if err != nil {
+		log.Error(err)
 		os.Exit(1)
 	}
 

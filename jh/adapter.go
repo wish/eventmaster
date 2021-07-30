@@ -2,8 +2,9 @@ package jh
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -27,6 +28,7 @@ func Adapter(jh JSONHandler) httprouter.Handle {
 
 		r, err := jh(w, req, ps)
 		if err != nil {
+			log.Error(err)
 			status := http.StatusInternalServerError
 			switch err := err.(type) {
 			case Error:
