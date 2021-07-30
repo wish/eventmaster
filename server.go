@@ -159,7 +159,7 @@ func registerRoutes(srv *Server) http.Handler {
 
 func latency(prefix string, h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
-		log.Infof("request received for %s", prefix)
+		log.Infof("%s request received for %s from %s", req.Method, prefix, req.RemoteAddr)
 		start := time.Now()
 		defer func() {
 			metrics.HTTPLatency(prefix, start)
