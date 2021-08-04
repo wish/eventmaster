@@ -27,13 +27,14 @@ type VaultConfig struct {
 }
 
 type PostgresConfig struct {
-	Addr        string      `json:"addr"`
-	Port        int         `json:"port"`
-	Database    string      `json:"database"`
-	ServiceName string      `json:"service_name"`
-	Username    string      `json:"username"`
-	Password    string      `json:"password"`
-	Vault       VaultConfig `json:"vault"`
+	Addr           string      `json:"addr"`
+	Port           int         `json:"port"`
+	Database       string      `json:"database"`
+	ServiceName    string      `json:"service_name"`
+	Username       string      `json:"username"`
+	Password       string      `json:"password"`
+	Vault          VaultConfig `json:"vault"`
+	MaxDbConnCount int         `json:"max_dc_conn_count`
 }
 
 func getPasswordFromVault(c VaultConfig) (*string, error) {
@@ -107,6 +108,14 @@ func NewPostgresStore(c PostgresConfig) (*PostgresStore, error) {
 		log.Errorf(err.Error())
 		return nil, errors.Wrap(err, "Error creating postgres session")
 	}
+
+	connCount := 128
+	if c.MaxDbConnCount != 0 {
+		connCount = c.MaxDbConnCount
+	}
+	db.SetMaxOpenConns(connCount)
+	log.Infof("Set max DB connection count to %d", connCount)
+
 	log.Infof("Successfully connected to postgres %s", host)
 
 	return &PostgresStore{

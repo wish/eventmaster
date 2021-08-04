@@ -85,6 +85,7 @@ To connect to a Postgres database, serveral fields have to be set in the configr
     - `database`: the name of the database
     - `username`: the username of the user with necessary permission to connect/read/write, and
     - `password`: the password of the user (ommited if Vault integration is turned on)
+    - `max_db_conn_count`: maximum database connections allowed (defaulted to be 128)
 
     Additionally, you may choose to toggle integration with HasiCorp Vault. This allows Eventmaster to obtain database password from Vault instead of leaving them as plain-text in the filesystem. Only v2 is supported currently. To do so, set the following fields:
     - `vault`: object containing Vault config
