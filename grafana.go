@@ -29,6 +29,12 @@ type Range struct {
 	To   time.Time `json:"to"`
 }
 
+// newer versions of Grafana (>8.0) pass a datasource object in JSON as part of annotation
+type Datasource struct {
+       Type string `json:"type"`
+       Uid string `json:"uid"`
+}
+
 // Annotation is the object passed by Grafana when it fetches annotations.
 //
 // http://docs.grafana.org/plugins/developing/datasources/#annotation-query
@@ -36,7 +42,7 @@ type Annotation struct {
 	// Name must match in the request and response
 	Name string `json:"name"`
 
-	Datasource string `json:"datasource"`
+        Datasource Datasource `json:"datasource"`
 	IconColor  string `json:"iconColor"`
 	Enable     bool   `json:"enable"`
 	ShowLine   bool   `json:"showLine"`
